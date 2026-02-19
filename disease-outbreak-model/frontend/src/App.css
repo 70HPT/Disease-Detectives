@@ -1,0 +1,391 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700&family=Rajdhani:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --bg-primary: #000508;
+  --bg-secondary: #0a1218;
+  --bg-tertiary: #0f1a24;
+  --accent-primary: #10b981;
+  --accent-secondary: #059669;
+  --accent-cyan: #00ffcc;
+  --accent-blue: #0ea5e9;
+  --accent-warning: #f59e0b;
+  --accent-danger: #ef4444;
+  --text-primary: #e0f2f1;
+  --text-secondary: #94a3b8;
+  --text-muted: #475569;
+  --border-color: #1e3a3a;
+  --glow-color: rgba(16, 185, 129, 0.2);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Rajdhani', -apple-system, sans-serif;
+  background: #000000;
+  color: var(--text-primary);
+  min-height: 100vh;
+  /* Overflow is controlled by index.css - don't override here */
+}
+
+.app {
+  width: 100%;
+  min-height: 300vh; /* Creates scrollable area for parallax */
+  position: relative;
+  background: #000000;
+}
+
+/* When state is selected, disable scroll and reset height */
+.app.state-selected {
+  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ============================================
+   STATE PANEL - Ensure it appears above everything
+   ============================================ */
+.state-panel {
+  position: fixed !important;
+  right: 0 !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  width: 380px !important;
+  z-index: 200 !important;
+}
+
+@media (max-width: 1200px) {
+  .state-panel {
+    width: 320px !important;
+  }
+}
+
+@media (max-width: 900px) {
+  .state-panel {
+    top: auto !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    height: 55vh !important;
+    max-height: 480px !important;
+  }
+}
+
+@media (max-width: 600px) {
+  .state-panel {
+    height: 50vh !important;
+    max-height: 420px !important;
+  }
+}
+
+/* ============================================
+   HEADER - Fixed at top with animate-in
+   ============================================ */
+.header {
+  position: fixed;
+  top: 56px; /* Below navbar */
+  left: 0;
+  right: 0;
+  z-index: 50;
+  padding: 1.5rem 2rem;
+  text-align: center;
+  pointer-events: none;
+  /* Start hidden for animate-in */
+  opacity: 0;
+  transform: translateY(-30px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+/* Animate in state */
+.header.visible {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 1.2s cubic-bezier(0.22, 1, 0.36, 1),
+              transform 1.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Fade out when scrolled */
+.header.faded {
+  opacity: 0;
+  transform: translateY(-20px);
+}
+
+.header h1 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.75rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  background: linear-gradient(135deg, #00ffcc 0%, #0ea5e9 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  /* Staggered animate-in */
+  opacity: 0;
+  transform: translateY(15px);
+  transition: opacity 1s cubic-bezier(0.22, 1, 0.36, 1) 0.1s,
+              transform 1s cubic-bezier(0.22, 1, 0.36, 1) 0.1s;
+}
+
+.header.visible h1 {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.header .subtitle {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  margin-top: 0.4rem;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  /* Staggered animate-in - slightly delayed */
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 1s cubic-bezier(0.22, 1, 0.36, 1) 0.4s,
+              transform 1s cubic-bezier(0.22, 1, 0.36, 1) 0.4s;
+}
+
+.header.visible .subtitle {
+  opacity: 0.8;
+  transform: translateY(0);
+}
+
+/* ============================================
+   3D CANVAS - Fixed background, always interactive
+   ============================================ */
+.canvas-wrapper {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 1;
+  pointer-events: auto;
+  transition: opacity 0.4s ease;
+}
+
+.canvas-wrapper canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* No longer shrinking canvas - camera offset handles sidebar space */
+.canvas-wrapper.shifted {
+  /* Keep full width - Earth will be offset by camera instead */
+}
+
+.canvas-wrapper.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ============================================
+   SCROLL SPACER - Creates scrollable height
+   ============================================ */
+.scroll-spacer {
+  height: 100vh;
+  width: 100%;
+  pointer-events: none; /* Allow clicks through to canvas */
+}
+
+/* ============================================
+   SCROLL INDICATOR
+   ============================================ */
+.scroll-indicator {
+  position: fixed;
+  bottom: 3rem;
+  left: 0;
+  right: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  color: var(--text-secondary);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  pointer-events: none;
+  /* Animate in after header and space scene (2.5s delay) */
+  opacity: 0;
+  transform: translateY(20px);
+  animation: scrollIndicatorIn 1.2s cubic-bezier(0.22, 1, 0.36, 1) 2.5s forwards;
+}
+
+@keyframes scrollIndicatorIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 0.7;
+    transform: translateY(0);
+  }
+}
+
+.scroll-indicator svg {
+  width: 24px;
+  height: 24px;
+  stroke: var(--accent-primary);
+  animation: bounce 2s ease-in-out infinite;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 0.7;
+    transform: translateY(0);
+  }
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(8px); }
+}
+
+/* ============================================
+   CONTENT WRAPPER - Appears after scroll
+   ============================================ */
+.content-wrapper {
+  position: relative;
+  z-index: 10;
+  opacity: 0;
+  transform: translateY(60px) scale(0.98);
+  transition: opacity 1.2s cubic-bezier(0.22, 1, 0.36, 1),
+              transform 1.4s cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+  will-change: opacity, transform;
+
+  /* Glassmorphic frosted glass effect â€” reduced blur for scroll performance */
+  background: linear-gradient(
+    180deg,
+    rgba(5, 15, 30, 0.6) 0%,
+    rgba(5, 15, 30, 0.75) 30%,
+    rgba(5, 15, 30, 0.88) 70%,
+    rgba(5, 15, 30, 0.95) 100%
+  );
+
+  /* Subtle top border glow */
+  box-shadow:
+    0 -20px 80px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 0 100px rgba(0, 150, 136, 0.1);
+}
+
+.content-wrapper.visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+/* ============================================
+   BREADCRUMB
+   ============================================ */
+.breadcrumb {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 1.5rem;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  font-family: 'JetBrains Mono', monospace;
+  background: rgba(2, 4, 8, 0.8);
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  border: 1px solid rgba(0, 212, 170, 0.2);
+  transition: opacity 0.6s cubic-bezier(0.22, 1, 0.36, 1),
+              transform 0.6s cubic-bezier(0.22, 1, 0.36, 1),
+              bottom 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity, transform;
+}
+
+.breadcrumb.raised {
+  bottom: 140px;
+}
+
+.breadcrumb.hidden {
+  opacity: 0;
+  transform: translateY(20px);
+  pointer-events: none;
+}
+
+.breadcrumb .crumb {
+  color: var(--text-muted);
+  transition: color 0.2s ease;
+}
+
+.breadcrumb .crumb.clickable {
+  cursor: pointer;
+}
+
+.breadcrumb .crumb.clickable:hover {
+  color: var(--accent-primary);
+}
+
+.breadcrumb .crumb.active {
+  color: var(--accent-primary);
+}
+
+.breadcrumb .separator {
+  color: var(--text-muted);
+  opacity: 0.4;
+}
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+@media (max-width: 1200px) {
+  /* On smaller screens, sidebar is narrower */
+}
+
+@media (max-width: 900px) {
+  .header h1 {
+    font-size: 1.5rem;
+  }
+
+  /* Panel is at bottom on tablet, hide breadcrumb to avoid overlap */
+  .breadcrumb.raised {
+    opacity: 0;
+    pointer-events: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .header h1 {
+    font-size: 1.2rem;
+    letter-spacing: 0.08em;
+  }
+
+  .header .subtitle {
+    font-size: 0.6rem;
+  }
+
+  .breadcrumb {
+    left: 1rem;
+    bottom: 1rem;
+    font-size: 0.65rem;
+    padding: 0.4rem 0.75rem;
+  }
+
+  .breadcrumb.raised {
+    opacity: 0;
+    pointer-events: none;
+  }
+}

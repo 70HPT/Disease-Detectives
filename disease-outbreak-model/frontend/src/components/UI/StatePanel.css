@@ -1,0 +1,859 @@
+.state-panel {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 380px;
+  background: linear-gradient(180deg, rgba(10, 15, 26, 0.98) 0%, rgba(2, 4, 8, 0.99) 100%);
+  border-left: 1px solid rgba(0, 255, 204, 0.2);
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  z-index: 100;
+  animation: slideIn 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  box-shadow: -10px 0 40px rgba(0, 0, 0, 0.5),
+              inset 1px 0 0 rgba(0, 255, 204, 0.1);
+  /* NOTE: backdrop-filter removed from scrollable element for scroll performance */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 255, 204, 0.12) transparent;
+}
+
+.state-panel::-webkit-scrollbar {
+  width: 5px;
+}
+
+.state-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.state-panel::-webkit-scrollbar-thumb {
+  background: rgba(0, 255, 204, 0.1);
+  border-radius: 3px;
+}
+
+.state-panel::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 255, 204, 0.2);
+}
+
+.state-panel.county-mode {
+  gap: 1.25rem;
+}
+
+@keyframes slideIn {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.close-btn {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 36px;
+  height: 36px;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.close-btn svg {
+  width: 16px;
+  height: 16px;
+  color: var(--text-secondary);
+}
+
+.close-btn:hover {
+  background: rgba(0, 255, 204, 0.1);
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 20px rgba(0, 255, 204, 0.2);
+}
+
+.close-btn:hover svg {
+  color: var(--accent-primary);
+}
+
+.panel-header {
+  padding-top: 1rem;
+}
+
+.breadcrumb-mini {
+  display: block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+  margin-bottom: 0.5rem;
+}
+
+.panel-header h2 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-top: 0;
+  letter-spacing: 0.02em;
+  color: var(--text-primary);
+}
+
+.county-mode .panel-header h2 {
+  font-size: 1.3rem;
+}
+
+.panel-header .population {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  margin-top: 0.25rem;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* ============================================
+   STATE MODE STYLES (unchanged)
+   ============================================ */
+
+.risk-badge {
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(2, 4, 8, 0.9) 100%);
+  border: 1px solid;
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3),
+              inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.risk-label {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.risk-value {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
+.metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.metric {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.metric.simple {
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.metric.simple .metric-label {
+  color: var(--text-secondary);
+}
+
+.metric.simple .metric-value {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.metric-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.metric-label {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.metric-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  color: var(--accent-primary);
+}
+
+.progress-bar {
+  height: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 2px;
+  overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 0 10px currentColor;
+}
+
+.panel-footer {
+  margin-top: auto;
+  padding-top: 1.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.panel-footer .hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-bottom: 1rem;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.view-counties-btn {
+  width: 100%;
+  padding: 0.875rem 1.25rem;
+  background: linear-gradient(135deg, rgba(0, 255, 204, 0.15) 0%, rgba(14, 165, 233, 0.15) 100%);
+  border: 1px solid rgba(0, 255, 204, 0.4);
+  border-radius: 6px;
+  color: var(--accent-primary);
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: all 0.3s ease;
+}
+
+.view-counties-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.view-counties-btn:hover {
+  background: linear-gradient(135deg, rgba(0, 255, 204, 0.25) 0%, rgba(14, 165, 233, 0.25) 100%);
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 30px rgba(0, 255, 204, 0.3),
+              inset 0 0 20px rgba(0, 255, 204, 0.1);
+  transform: translateY(-1px);
+}
+
+.data-notice {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: rgba(14, 165, 233, 0.1);
+  border: 1px solid rgba(14, 165, 233, 0.3);
+  border-radius: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--accent-blue, #0ea5e9);
+}
+
+.data-notice svg {
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+/* ============================================
+   COUNTY MODE: Grade Row
+   ============================================ */
+
+.county-grade-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  animation: countyFadeUp 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.1s backwards;
+}
+
+@keyframes countyFadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.health-grade-ring {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.grade-ring-progress {
+  transition: stroke-dashoffset 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.grade-ring-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.48rem;
+  color: rgba(255, 255, 255, 0.2);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.county-risk-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.015);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 10px;
+}
+
+.county-risk-title {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.52rem;
+  color: rgba(255, 255, 255, 0.25);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.county-risk-level {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.mini-sparkline {
+  margin-top: 2px;
+  opacity: 0.8;
+}
+
+/* ============================================
+   COUNTY MODE: Gauges Grid
+   ============================================ */
+
+.county-gauges-grid {
+  display: flex;
+  justify-content: space-around;
+  gap: 8px;
+  padding: 12px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  animation: countyFadeUp 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.2s backwards;
+}
+
+.circular-gauge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+
+.gauge-progress {
+  transition: stroke-dashoffset 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.gauge-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.5rem;
+  color: rgba(255, 255, 255, 0.25);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ============================================
+   COUNTY MODE: Detail Metrics
+   ============================================ */
+
+.county-detail-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  animation: countyFadeUp 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.3s backwards;
+}
+
+.county-detail-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.county-detail-row:last-child {
+  border-bottom: none;
+}
+
+.county-detail-icon {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(0, 255, 204, 0.4);
+  flex-shrink: 0;
+}
+
+.county-detail-label {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.45);
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.county-detail-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+  margin-left: auto;
+  text-align: right;
+}
+
+.county-detail-value.air-quality {
+  font-size: 0.6rem;
+  max-width: 120px;
+}
+
+.county-detail-bar-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  flex: 1;
+  max-width: 140px;
+}
+
+.county-detail-bar {
+  flex: 1;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 1.5px;
+  overflow: hidden;
+}
+
+.county-detail-bar-fill {
+  height: 100%;
+  border-radius: 1.5px;
+  transition: width 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  box-shadow: 0 0 6px currentColor;
+}
+
+.county-detail-bar-wrap .county-detail-value {
+  min-width: 32px;
+}
+
+/* ============================================
+   COUNTY TRANSMISSION ANALYSIS â€” WHO epi brief
+   ============================================ */
+
+.county-transmission-analysis {
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.015);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 10px;
+  animation: countyFadeUp 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.35s backwards;
+}
+
+.cta-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  color: rgba(0, 255, 204, 0.5);
+}
+
+.cta-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.55rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* Key indicators row */
+.cta-indicators {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 8px 0 10px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.cta-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+}
+
+.cta-ind-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.cta-ind-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.42rem;
+  color: rgba(255, 255, 255, 0.2);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.cta-ind-label sub {
+  font-size: 0.35rem;
+}
+
+.cta-ind-divider {
+  width: 1px;
+  height: 28px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* Brief text */
+.cta-brief {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.68rem;
+  font-weight: 500;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.32);
+  margin-bottom: 10px;
+}
+
+.cta-brief sub {
+  font-size: 0.55rem;
+}
+
+/* Spread pathways */
+.cta-spread-header {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.48rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.25);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 8px;
+}
+
+.cta-spread-paths {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.cta-path {
+  animation: taCorridorIn 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94) backwards;
+}
+
+.cta-path-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 3px;
+}
+
+.cta-path-name {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.cta-path-risk {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.52rem;
+  font-weight: 700;
+}
+
+.cta-path-bar {
+  height: 2.5px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 1.5px;
+  overflow: hidden;
+  margin-bottom: 2px;
+}
+
+.cta-path-fill {
+  height: 100%;
+  border-radius: 1.5px;
+  transition: width 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.cta-path-meta {
+  display: flex;
+  justify-content: space-between;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.42rem;
+  color: rgba(255, 255, 255, 0.15);
+}
+
+/* ============================================
+   TRANSMISSION ANALYSIS â€” AI context card
+   ============================================ */
+
+.transmission-analysis {
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.015);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 10px;
+  animation: countyFadeUp 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.15s backwards;
+}
+
+.ta-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  color: rgba(0, 255, 204, 0.5);
+}
+
+.ta-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.58rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.ta-badge {
+  margin-left: auto;
+  padding: 2px 7px;
+  background: linear-gradient(135deg, rgba(0, 255, 204, 0.08), rgba(14, 165, 233, 0.08));
+  border: 1px solid rgba(0, 255, 204, 0.15);
+  border-radius: 4px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.45rem;
+  font-weight: 700;
+  color: rgba(0, 255, 204, 0.6);
+  letter-spacing: 0.1em;
+}
+
+.ta-summary {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 500;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.38);
+  margin-bottom: 12px;
+}
+
+.ta-corridors {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.ta-corridor {
+  animation: taCorridorIn 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) backwards;
+}
+
+@keyframes taCorridorIn {
+  from { opacity: 0; transform: translateX(6px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.ta-corridor-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 3px;
+}
+
+.ta-corridor-target {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.ta-corridor-weight {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.55rem;
+  font-weight: 700;
+}
+
+.ta-corridor-bar {
+  height: 3px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 1.5px;
+  overflow: hidden;
+  margin-bottom: 2px;
+}
+
+.ta-corridor-fill {
+  height: 100%;
+  border-radius: 1.5px;
+  transition: width 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.ta-corridor-mechanism {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.45rem;
+  color: rgba(255, 255, 255, 0.18);
+  letter-spacing: 0.01em;
+}
+
+.ta-footer-note {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.42rem;
+  color: rgba(255, 255, 255, 0.15);
+  letter-spacing: 0.02em;
+}
+
+.ta-footer-note svg {
+  color: rgba(255, 255, 255, 0.12);
+  flex-shrink: 0;
+}
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+
+@media (max-width: 1200px) {
+  .state-panel {
+    width: 320px;
+    padding: 1.5rem;
+  }
+
+  .panel-header h2 {
+    font-size: 1.3rem;
+  }
+
+  .county-mode .panel-header h2 {
+    font-size: 1.1rem;
+  }
+
+  .county-gauges-grid {
+    gap: 4px;
+  }
+}
+
+@media (max-width: 900px) {
+  .state-panel {
+    position: fixed;
+    width: 100%;
+    height: auto;
+    max-height: 55vh;
+    min-height: 200px;
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    border-left: none;
+    border-top: 1px solid rgba(0, 255, 204, 0.2);
+    padding: 1.25rem 1.5rem;
+    gap: 1rem;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    animation: sheetSlideUp 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+
+  @keyframes sheetSlideUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+
+  .county-grade-row {
+    flex-direction: row;
+  }
+
+  .county-gauges-grid {
+    padding: 8px 0;
+  }
+
+  .close-btn {
+    top: 0.75rem;
+    right: 0.75rem;
+  }
+
+  .transmission-analysis,
+  .county-transmission-analysis {
+    padding: 12px;
+  }
+
+  .panel-footer {
+    padding-top: 1rem;
+  }
+}
+
+@media (max-width: 600px) {
+  .state-panel {
+    padding: 1.25rem;
+    gap: 1rem;
+  }
+
+  .panel-header h2 {
+    font-size: 1rem;
+  }
+
+  .county-mode .panel-header h2 {
+    font-size: 0.95rem;
+  }
+
+  .risk-badge {
+    padding: 0.6rem 0.875rem;
+    border-radius: 6px;
+  }
+
+  .risk-label {
+    font-size: 0.7rem;
+  }
+
+  .risk-value {
+    font-size: 0.85rem;
+  }
+
+  .metric-label {
+    font-size: 0.68rem;
+  }
+
+  .metric-value {
+    font-size: 0.72rem;
+  }
+
+  .view-counties-btn {
+    padding: 0.75rem 0.875rem;
+    border-radius: 6px;
+  }
+
+  .county-gauges-grid {
+    gap: 2px;
+  }
+
+  .cta-indicators {
+    gap: 0;
+  }
+
+  .cta-ind-value {
+    font-size: 0.75rem;
+  }
+
+  .ta-summary,
+  .cta-brief {
+    font-size: 0.62rem;
+  }
+}

@@ -1,0 +1,697 @@
+/* ============================================
+   COMPARISON MODE â€” Full-screen overlay
+   ============================================ */
+
+.cmp-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: cmpFadeIn 0.3s ease;
+}
+
+@keyframes cmpFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.cmp-page {
+  width: 94vw;
+  max-width: 1080px;
+  height: 88vh;
+  max-height: 760px;
+  background: linear-gradient(160deg, rgba(12, 18, 32, 0.92) 0%, rgba(6, 10, 20, 0.95) 100%);
+  border: 1px solid rgba(0, 255, 204, 0.1);
+  border-radius: 20px;
+  box-shadow: 0 0 60px rgba(0, 0, 0, 0.5), 0 0 30px rgba(0, 255, 204, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  opacity: 0;
+  transform: scale(0.96) translateY(8px);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.cmp-page.visible {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+}
+
+/* ============================================
+   HEADER
+   ============================================ */
+
+.cmp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  flex-shrink: 0;
+}
+
+.cmp-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.cmp-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.85);
+  margin: 0;
+}
+
+.cmp-subtitle {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.55rem;
+  color: rgba(255, 255, 255, 0.25);
+}
+
+.cmp-close {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.cmp-close:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.8);
+  border-color: rgba(0, 255, 204, 0.2);
+}
+
+/* ============================================
+   STATE CARDS SLIDER
+   ============================================ */
+
+.cmp-cards-slider {
+  flex-shrink: 0;
+  padding: 0.875rem 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 255, 204, 0.08) transparent;
+}
+
+.cmp-cards-slider::-webkit-scrollbar { height: 3px; }
+.cmp-cards-slider::-webkit-scrollbar-thumb { background: rgba(0, 255, 204, 0.08); border-radius: 2px; }
+
+.cmp-cards-track {
+  display: flex;
+  gap: 14px;
+  min-width: min-content;
+}
+
+/* ============================================
+   STATE CARD â€” silhouette background
+   ============================================ */
+
+.cmp-state-card {
+  position: relative;
+  width: 260px;
+  height: 140px;
+  flex-shrink: 0;
+  border-radius: 16px;
+  overflow: hidden;
+  background: rgba(8, 12, 24, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  cursor: default;
+  opacity: 0;
+  transform: translateY(8px) scale(0.95);
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.cmp-state-card.animate {
+  animation: cmpCardIn 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+@keyframes cmpCardIn {
+  from { opacity: 0; transform: translateY(10px) scale(0.92); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.cmp-state-card:hover {
+  border-color: var(--card-color, rgba(0, 255, 204, 0.2));
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3), 0 0 20px var(--card-glow, rgba(0, 255, 204, 0.08));
+}
+
+/* Blurred silhouette background */
+.cmp-card-sil-bg {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.cmp-card-sil-bg svg {
+  width: 100%;
+  height: 100%;
+  opacity: 0.7;
+}
+
+/* Content overlay on top of silhouette */
+.cmp-card-content {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  height: 100%;
+  padding: 1rem 1.25rem;
+  /* Gradient to make text readable over silhouette */
+  background: linear-gradient(
+    0deg,
+    rgba(6, 10, 20, 0.85) 0%,
+    rgba(6, 10, 20, 0.4) 45%,
+    rgba(6, 10, 20, 0.15) 100%
+  );
+}
+
+.cmp-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cmp-card-name {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1.2;
+  margin: 0;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
+}
+
+.cmp-card-pop {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.55rem;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.cmp-card-grade {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.6rem;
+  font-weight: 800;
+  opacity: 0.25;
+  line-height: 1;
+  text-shadow: 0 0 20px currentColor;
+}
+
+/* Color accent line at bottom */
+.cmp-card-accent {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  z-index: 3;
+  opacity: 0.6;
+}
+
+/* Remove button */
+.cmp-card-remove {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 4;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  opacity: 0;
+}
+
+.cmp-state-card:hover .cmp-card-remove {
+  opacity: 1;
+}
+
+.cmp-card-remove:hover {
+  background: rgba(255, 64, 96, 0.2);
+  border-color: rgba(255, 64, 96, 0.4);
+  color: rgba(255, 64, 96, 0.9);
+}
+
+/* ============================================
+   SEARCH BAR â€” above slider
+   ============================================ */
+
+.cmp-search-bar {
+  position: relative;
+  flex-shrink: 0;
+  padding: 0.875rem 1.5rem 0;
+  z-index: 20;
+}
+
+.cmp-search-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+.cmp-search-box.focused {
+  border-color: rgba(0, 255, 204, 0.2);
+  background: rgba(0, 255, 204, 0.02);
+}
+
+.cmp-search-box svg {
+  color: rgba(255, 255, 255, 0.2);
+  flex-shrink: 0;
+}
+
+.cmp-search-box input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.cmp-search-box input::placeholder {
+  color: rgba(255, 255, 255, 0.18);
+}
+
+.cmp-search-box input:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.cmp-search-clear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.05);
+  border: none;
+  border-radius: 50%;
+  color: rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cmp-search-clear:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.cmp-search-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 1.5rem;
+  right: 1.5rem;
+  margin-top: 4px;
+  background: rgba(10, 16, 28, 0.97);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 4px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  z-index: 30;
+}
+
+.cmp-search-dropdown-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 10px 14px;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.cmp-search-dropdown-item:hover {
+  background: rgba(0, 255, 204, 0.06);
+}
+
+.cmp-search-item-name {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.cmp-search-dropdown-item:hover .cmp-search-item-name {
+  color: rgba(0, 255, 204, 0.9);
+}
+
+.cmp-search-item-add {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.55rem;
+  font-weight: 500;
+  color: rgba(0, 255, 204, 0.3);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.cmp-search-dropdown-item:hover .cmp-search-item-add {
+  color: rgba(0, 255, 204, 0.6);
+}
+
+/* ============================================
+   BODY
+   ============================================ */
+
+.cmp-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.25rem 1.5rem;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 255, 204, 0.08) transparent;
+  min-height: 0;
+}
+
+.cmp-body::-webkit-scrollbar { width: 3px; }
+.cmp-body::-webkit-scrollbar-thumb { background: rgba(0, 255, 204, 0.08); border-radius: 2px; }
+
+.cmp-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  height: 100%;
+  min-height: 300px;
+}
+
+.cmp-empty span {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.15);
+}
+
+/* ============================================
+   SHARED â€” Panel labels
+   ============================================ */
+
+.cmp-panel-label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.5rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: rgba(0, 255, 204, 0.4);
+  margin-bottom: 0.75rem;
+}
+
+.cmp-panel-label svg { opacity: 0.5; }
+
+/* ============================================
+   RADAR CHART
+   ============================================ */
+
+.cmp-radar-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1.25rem;
+  background: rgba(255, 255, 255, 0.015);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 16px;
+  margin-bottom: 1.5rem;
+}
+
+.cmp-radar-svg {
+  width: 100%;
+  max-width: 400px;
+  height: auto;
+}
+
+.cmp-radar-label {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 9px;
+  font-weight: 600;
+  fill: rgba(255, 255, 255, 0.35);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.cmp-radar-polygon {
+  opacity: 0.85;
+}
+
+.cmp-radar-dot {
+  opacity: 0;
+  animation: cmpDotIn 0.35s ease forwards;
+}
+
+@keyframes cmpDotIn {
+  from { opacity: 0; r: 0; }
+  to { opacity: 1; r: 3; }
+}
+
+/* ============================================
+   METRICS SECTION
+   ============================================ */
+
+.cmp-metrics-section {
+  padding-top: 0.5rem;
+}
+
+.cmp-metrics-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.cmp-metric-bar {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.cmp-metric-label {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.4);
+  min-width: 110px;
+  padding-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.cmp-metric-tracks {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cmp-metric-track-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cmp-metric-state-tag {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.55rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  min-width: 30px;
+}
+
+.cmp-metric-track {
+  flex: 1;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.cmp-metric-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 1.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.cmp-metric-val {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
+  font-weight: 600;
+  min-width: 28px;
+  text-align: right;
+}
+
+.cmp-metric-val.winner::after {
+  content: 'â˜…';
+  margin-left: 3px;
+  font-size: 0.5rem;
+  opacity: 0.7;
+}
+
+/* ============================================
+   RESPONSIVE â€” Tablet
+   ============================================ */
+
+@media (max-width: 900px) {
+  .cmp-page {
+    width: 96vw;
+    height: 92vh;
+    max-height: none;
+    border-radius: 16px;
+  }
+
+  .cmp-state-card {
+    width: 220px;
+    height: 120px;
+  }
+
+  .cmp-card-name {
+    font-size: 0.82rem;
+  }
+
+  .cmp-radar-svg {
+    max-width: 320px;
+  }
+
+  .cmp-metric-bar {
+    gap: 0.4rem;
+  }
+
+  .cmp-metric-label {
+    min-width: unset;
+    padding-top: 0;
+  }
+}
+
+/* ============================================
+   RESPONSIVE â€” Phone
+   ============================================ */
+
+@media (max-width: 600px) {
+  .cmp-page {
+    width: 100vw;
+    height: 100vh;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+
+  .cmp-header {
+    padding: 1rem 1.25rem;
+  }
+
+  .cmp-subtitle {
+    display: none;
+  }
+
+  .cmp-cards-slider {
+    padding: 0.75rem 1.25rem;
+  }
+
+  .cmp-search-bar {
+    padding: 0.75rem 1.25rem 0;
+  }
+
+  .cmp-state-card {
+    width: 200px;
+    height: 110px;
+  }
+
+  .cmp-card-name {
+    font-size: 0.75rem;
+  }
+
+  .cmp-card-grade {
+    font-size: 1.2rem;
+  }
+
+  .cmp-card-content {
+    padding: 0.75rem 1rem;
+  }
+
+  .cmp-body {
+    padding: 1rem 1.25rem;
+  }
+
+  .cmp-radar-section {
+    padding: 1rem;
+  }
+
+  .cmp-radar-svg {
+    max-width: 260px;
+  }
+
+  .cmp-close {
+    width: 40px;
+    height: 40px;
+  }
+
+  .cmp-card-remove {
+    opacity: 1;
+  }
+
+  /* Mobile metric improvements */
+  .cmp-metrics-grid {
+    gap: 1.5rem;
+  }
+
+  .cmp-metric-bar {
+    gap: 0.5rem;
+  }
+
+  .cmp-metric-label {
+    min-width: unset;
+    padding-top: 0;
+    font-size: 0.75rem;
+    margin-bottom: 2px;
+  }
+
+  .cmp-metric-track-row {
+    gap: 8px;
+  }
+
+  .cmp-metric-state-tag {
+    min-width: 28px;
+    font-size: 0.58rem;
+  }
+
+  .cmp-metric-track {
+    height: 8px;
+  }
+
+  .cmp-metric-val {
+    min-width: 32px;
+    font-size: 0.68rem;
+  }
+}

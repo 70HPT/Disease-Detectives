@@ -1,0 +1,1023 @@
+.state-county-map {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 380px;
+  bottom: 0;
+  width: calc(100% - 380px);
+  height: 100%;
+  z-index: 50;
+  background: linear-gradient(135deg, #000508 0%, #0a1520 50%, #000510 100%);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: mapFadeIn 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes mapFadeIn {
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.state-county-map.transitioning {
+  animation: mapFadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* ============================================
+   BACK BUTTON â€” below navbar
+   ============================================ */
+
+.back-to-globe-btn {
+  position: absolute;
+  top: 4.5rem;
+  left: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  background: rgba(10, 20, 30, 0.85);
+  border: 1px solid rgba(0, 255, 204, 0.3);
+  border-radius: 8px;
+  color: var(--accent-primary, #10b981);
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 100;
+  opacity: 0;
+  animation: slideInLeft 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s forwards;
+}
+
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.back-to-globe-btn svg {
+  width: 18px;
+  height: 18px;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.back-to-globe-btn:hover {
+  background: rgba(0, 255, 204, 0.15);
+  border-color: var(--accent-primary, #10b981);
+  box-shadow: 0 0 20px rgba(0, 255, 204, 0.2);
+}
+
+.back-to-globe-btn:hover svg {
+  transform: translateX(-3px);
+}
+
+/* ============================================
+   ROTATING CHEVRON (shared)
+   ============================================ */
+
+.toggle-chevron {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+}
+
+.toggle-chevron.open {
+  transform: rotate(180deg);
+}
+
+/* ============================================
+   COUNTY COUNT BADGE â€” compact, beside back btn
+   ============================================ */
+
+.county-count-badge {
+  position: absolute;
+  top: 4.5rem;
+  left: 14rem;
+  padding: 0.55rem 0.9rem;
+  background: rgba(10, 20, 30, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  z-index: 100;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.35);
+  letter-spacing: 0.03em;
+  opacity: 0;
+  animation: slideInLeft 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.4s forwards;
+}
+
+/* ============================================
+   RANKINGS TOGGLE BUTTON
+   ============================================ */
+
+.rankings-toggle {
+  position: absolute;
+  top: 4.5rem;
+  right: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0.6rem 1rem;
+  background: rgba(10, 20, 30, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.5);
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.65rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  z-index: 120;
+  opacity: 0;
+  animation: slideInLeft 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.5s forwards;
+}
+
+.rankings-toggle:hover {
+  border-color: rgba(0, 255, 204, 0.3);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.rankings-toggle.active {
+  background: rgba(0, 255, 204, 0.08);
+  border-color: rgba(0, 255, 204, 0.35);
+  color: rgba(0, 255, 204, 0.85);
+}
+
+/* ============================================
+   COUNTY RANKINGS PANEL
+   ============================================ */
+
+.rankings-panel {
+  position: absolute;
+  top: 7.5rem;
+  right: 1.5rem;
+  width: 280px;
+  max-height: calc(100% - 10rem);
+  display: flex;
+  flex-direction: column;
+  background: rgba(8, 12, 24, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4);
+  z-index: 110;
+  animation: rankSlideIn 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  overflow: hidden;
+}
+
+@keyframes rankSlideIn {
+  from { opacity: 0; transform: translateY(-10px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.rankings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 14px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  flex-shrink: 0;
+}
+
+.rankings-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.58rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.rankings-sort {
+  display: none; /* replaced by custom dropdown */
+}
+
+/* Custom dropdown */
+.custom-dropdown {
+  position: relative;
+}
+
+.dropdown-trigger {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.6);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.55rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.dropdown-trigger:hover,
+.dropdown-trigger.open {
+  border-color: rgba(0, 255, 204, 0.3);
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  min-width: 130px;
+  background: rgba(8, 14, 28, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 4px;
+  z-index: 200;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  animation: dropdownIn 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+@keyframes dropdownIn {
+  from { opacity: 0; transform: translateY(-4px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.dropdown-option {
+  padding: 6px 10px;
+  border-radius: 5px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.55rem;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.dropdown-option:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.dropdown-option.selected {
+  color: rgba(0, 255, 204, 0.7);
+  background: rgba(0, 255, 204, 0.06);
+}
+
+.rankings-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px 8px 10px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 255, 204, 0.12) transparent;
+}
+
+.rankings-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.rankings-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.rankings-list::-webkit-scrollbar-thumb {
+  background: rgba(0, 255, 204, 0.12);
+  border-radius: 2px;
+}
+
+.rankings-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 255, 204, 0.25);
+}
+
+.ranking-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  animation: rankItemIn 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) backwards;
+}
+
+@keyframes rankItemIn {
+  from { opacity: 0; transform: translateX(8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.ranking-item:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.ranking-item.active {
+  background: rgba(0, 255, 204, 0.06);
+  outline: 1px solid rgba(0, 255, 204, 0.15);
+}
+
+.ranking-pos {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.55rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.2);
+  min-width: 18px;
+  text-align: right;
+}
+
+.ranking-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.ranking-name {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.65);
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 3px;
+}
+
+.ranking-bar-track {
+  height: 3px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 1.5px;
+  overflow: hidden;
+}
+
+.ranking-bar-fill {
+  height: 100%;
+  border-radius: 1.5px;
+  transition: width 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.ranking-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.52rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.35);
+  min-width: 30px;
+  text-align: right;
+}
+
+/* ============================================
+   SVG MAP
+   ============================================ */
+
+.county-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.counties-group {
+  will-change: transform;
+  /* Transitions set dynamically via JS: smooth for buttons, none for gestures */
+}
+
+.county-path {
+  will-change: transform, opacity;
+}
+
+/* County labels */
+.county-label {
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 500;
+  fill: #ffffff;
+  text-shadow:
+    0 0 3px rgba(0, 0, 0, 0.9),
+    0 0 6px rgba(0, 0, 0, 0.6),
+    0 1px 2px rgba(0, 0, 0, 0.8);
+  will-change: opacity, font-size;
+}
+
+.county-label.hovered,
+.county-label.selected {
+  font-weight: 600;
+  fill: #00ffcc;
+  text-shadow:
+    0 0 4px rgba(0, 255, 204, 0.5),
+    0 0 8px rgba(0, 0, 0, 0.8);
+}
+
+/* Capital marker animation */
+.capital-marker {
+  opacity: 0;
+  animation: capitalFadeIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes capitalFadeIn {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+.capital-shadow {
+  animation: capitalScalePop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  transform-origin: center;
+  transform-box: fill-box;
+}
+
+.capital-dot {
+  animation: capitalScalePop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s forwards;
+  transform-origin: center;
+  transform-box: fill-box;
+  transform: scale(0);
+}
+
+@keyframes capitalScalePop {
+  0% { transform: scale(0); }
+  60% { transform: scale(1.3); }
+  100% { transform: scale(1); }
+}
+
+.capital-marker circle {
+}
+
+.capital-label {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  fill: #ffd700;
+  text-shadow:
+    0 0 3px rgba(0, 0, 0, 0.9),
+    0 0 8px rgba(255, 215, 0, 0.3);
+}
+
+/* ============================================
+   ZOOM CONTROLS
+   ============================================ */
+
+.zoom-controls {
+  position: absolute;
+  bottom: 4rem;
+  right: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 100;
+  opacity: 0;
+  animation: slideInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) 0.6s forwards;
+}
+
+.zoom-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 20, 30, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.45);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.zoom-btn:first-child {
+  border-radius: 7px 7px 0 0;
+}
+
+.zoom-btn:nth-child(2) {
+  border-radius: 0 0 7px 7px;
+}
+
+.zoom-btn.zoom-reset {
+  border-radius: 7px;
+  margin-top: 4px;
+}
+
+.zoom-btn:hover {
+  background: rgba(0, 255, 204, 0.08);
+  border-color: rgba(0, 255, 204, 0.25);
+  color: rgba(0, 255, 204, 0.7);
+}
+
+.zoom-btn:active {
+  transform: scale(0.92);
+}
+
+/* ============================================
+   PAN D-PAD â€” appears when zoomed in
+   ============================================ */
+
+.pan-dpad {
+  position: absolute;
+  bottom: 4rem;
+  right: 4rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  z-index: 100;
+  animation: fadeIn 0.25s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.dpad-mid {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+}
+
+.dpad-btn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 20, 30, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.dpad-up { border-radius: 6px 6px 0 0; }
+.dpad-down { border-radius: 0 0 6px 6px; }
+.dpad-left { border-radius: 6px 0 0 6px; }
+.dpad-right { border-radius: 0 6px 6px 0; }
+
+.dpad-center {
+  width: 28px;
+  height: 28px;
+  background: rgba(10, 20, 30, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.dpad-btn:hover {
+  background: rgba(0, 255, 204, 0.08);
+  border-color: rgba(0, 255, 204, 0.2);
+  color: rgba(0, 255, 204, 0.6);
+}
+
+.dpad-btn:active {
+  transform: scale(0.9);
+  background: rgba(0, 255, 204, 0.12);
+}
+
+/* ============================================
+   LEGEND TOGGLE BUTTON
+   ============================================ */
+
+.legend-toggle-btn {
+  position: absolute;
+  bottom: 4rem;
+  left: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0.4rem 0.65rem;
+  background: rgba(10, 20, 30, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.4);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.5rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  z-index: 100;
+  opacity: 0;
+  animation: slideInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) 0.5s forwards;
+}
+
+.legend-toggle-btn:hover {
+  border-color: rgba(0, 255, 204, 0.25);
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.legend-toggle-btn.active {
+  background: rgba(0, 255, 204, 0.06);
+  border-color: rgba(0, 255, 204, 0.2);
+  color: rgba(0, 255, 204, 0.6);
+}
+
+/* ============================================
+   LEGEND with FILTER TOGGLES
+   ============================================ */
+
+.map-legend {
+  position: absolute;
+  bottom: 7rem;
+  left: 1.5rem;
+  background: rgba(10, 20, 30, 0.9);
+  border: 1px solid rgba(0, 255, 204, 0.2);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  z-index: 100;
+  animation: legendSlideIn 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+@keyframes slideInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.map-legend h4 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-secondary, #94a3b8);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin: 0 0 0.75rem 0;
+}
+
+.legend-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--text-primary, #e0f2f1);
+}
+
+.legend-item.filterable {
+  cursor: pointer;
+  padding: 3px 6px;
+  margin: -3px -6px;
+  border-radius: 5px;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.legend-item.filterable:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.legend-item.filterable.inactive {
+  opacity: 0.35;
+}
+
+.legend-item.filterable.inactive span:last-of-type {
+  text-decoration: line-through;
+}
+
+.filter-check {
+  color: rgba(0, 255, 204, 0.5);
+  margin-left: auto;
+}
+
+.filter-x {
+  color: rgba(255, 255, 255, 0.2);
+  margin-left: auto;
+}
+
+.legend-color {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+@keyframes legendSlideIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ============================================
+   BREADCRUMB
+   ============================================ */
+
+.county-breadcrumb {
+  position: absolute;
+  bottom: 1.5rem;
+  left: 1.5rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.25);
+  z-index: 100;
+  opacity: 0;
+  animation: slideInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) 0.6s forwards;
+}
+
+.county-breadcrumb strong {
+  color: rgba(0, 255, 204, 0.5);
+}
+
+/* ============================================
+   RICH HOVER CARD
+   ============================================ */
+
+.county-hover-card {
+  position: fixed;
+  z-index: 500;
+  width: 220px;
+  background: rgba(8, 12, 24, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 12px 14px;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.5),
+    0 0 12px rgba(0, 255, 204, 0.03);
+  pointer-events: none;
+  animation: hoverCardIn 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+@keyframes hoverCardIn {
+  from { opacity: 0; transform: translateY(6px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.hover-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.hover-card-name {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.hover-card-risk-badge {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.5rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border: 1px solid;
+  border-radius: 4px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.hover-card-pop {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.55rem;
+  color: rgba(255, 255, 255, 0.3);
+  margin-bottom: 10px;
+}
+
+.hover-card-gauges {
+  display: flex;
+  justify-content: space-around;
+  gap: 6px;
+  padding: 8px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.hover-gauge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.hover-gauge-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.42rem;
+  color: rgba(255, 255, 255, 0.25);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.hover-card-footer {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.45rem;
+  color: rgba(0, 255, 204, 0.35);
+  text-align: center;
+  margin-top: 8px;
+  letter-spacing: 0.03em;
+}
+
+/* ============================================
+   LOADING OVERLAY
+   ============================================ */
+
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 5, 10, 0.9);
+  z-index: 300;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.loading-spinner {
+  width: 50px;
+  height: 50px;
+  border: 3px solid rgba(0, 255, 204, 0.2);
+  border-top-color: var(--accent-primary, #10b981);
+  border-radius: 50%;
+  animation: spin 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-overlay p {
+  margin-top: 1rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  color: var(--text-secondary, #94a3b8);
+  animation: pulse 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+
+@media (max-width: 1200px) {
+  .state-county-map {
+    right: 320px;
+    width: calc(100% - 320px);
+  }
+
+  .rankings-panel {
+    width: 240px;
+  }
+}
+
+@media (max-width: 900px) {
+  .state-county-map {
+    position: fixed;
+    right: 0;
+    width: 100%;
+    top: 0;
+    bottom: 45vh;
+    height: auto;
+    overflow: hidden;
+  }
+
+  .back-to-globe-btn {
+    top: 4.5rem;
+    left: 1rem;
+    padding: 0.5rem 0.8rem;
+    font-size: 0.65rem;
+  }
+
+  .county-count-badge {
+    top: 4.5rem;
+    left: 12rem;
+    font-size: 0.6rem;
+  }
+
+  .rankings-toggle {
+    top: 4.5rem;
+    right: 1rem;
+    font-size: 0.55rem;
+    padding: 0.5rem 0.7rem;
+  }
+
+  .rankings-panel {
+    width: 220px;
+    max-height: 40vh;
+    top: 7.5rem;
+    right: 1rem;
+  }
+
+  .zoom-controls {
+    bottom: 1rem;
+    right: 1rem;
+  }
+
+  .zoom-btn {
+    width: 36px;
+    height: 36px;
+  }
+
+  .pan-dpad {
+    bottom: 1rem;
+    right: 4rem;
+  }
+
+  .dpad-btn {
+    width: 32px;
+    height: 32px;
+  }
+
+  .dpad-center {
+    width: 32px;
+    height: 32px;
+  }
+
+  .legend-toggle-btn {
+    bottom: 1rem;
+    top: auto;
+    left: 1rem;
+  }
+
+  .map-legend {
+    bottom: 4rem;
+    top: auto;
+    left: 1rem;
+  }
+
+  .county-hover-card {
+    display: none;
+  }
+
+  .county-breadcrumb {
+    bottom: 0.5rem;
+    left: auto;
+    right: 4rem;
+  }
+}
+
+@media (max-width: 600px) {
+  .back-to-globe-btn {
+    top: 4rem;
+    left: 0.75rem;
+    padding: 0.45rem 0.7rem;
+    font-size: 0.6rem;
+    gap: 4px;
+  }
+
+  .county-count-badge {
+    top: 4rem;
+    left: 10.5rem;
+    padding: 0.45rem 0.65rem;
+    font-size: 0.55rem;
+  }
+
+  .rankings-toggle {
+    top: 4rem;
+    right: 0.75rem;
+    padding: 0.45rem 0.65rem;
+    font-size: 0.5rem;
+  }
+
+  .rankings-panel {
+    width: 200px;
+    right: 0.75rem;
+    top: 7rem;
+    max-height: 45vh;
+  }
+
+  .legend-toggle-btn {
+    bottom: auto;
+    top: 7rem;
+    left: 0.75rem;
+    padding: 0.35rem 0.55rem;
+    font-size: 0.45rem;
+  }
+
+  .zoom-controls {
+    bottom: 1rem;
+    right: 0.75rem;
+  }
+
+  .zoom-btn {
+    width: 34px;
+    height: 34px;
+  }
+
+  .pan-dpad {
+    bottom: 1rem;
+    right: 3.5rem;
+  }
+
+  .dpad-btn {
+    width: 30px;
+    height: 30px;
+  }
+
+  .dpad-center {
+    width: 30px;
+    height: 30px;
+  }
+
+  .map-legend {
+    top: 9.5rem;
+    left: 0.75rem;
+    padding: 0.75rem 1rem;
+  }
+
+  .county-breadcrumb {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.55rem;
+  }
+}

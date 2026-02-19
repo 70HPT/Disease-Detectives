@@ -1,0 +1,158 @@
+/* ============================================
+   LOADING STATES — Skeleton loaders + empty states
+   Matches the glassmorphic dark theme
+   ============================================ */
+
+/* ── Skeleton shimmer animation ──────────────────────────────────── */
+@keyframes skeleton-shimmer {
+  0% { background-position: -200px 0; }
+  100% { background-position: 200px 0; }
+}
+
+@keyframes skeleton-ring-spin {
+  0% { transform: rotate(-90deg); }
+  100% { transform: rotate(270deg); }
+}
+
+/* ── Skeleton block ──────────────────────────────────────────────── */
+.skeleton-block {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.03) 0%,
+    rgba(255, 255, 255, 0.07) 50%,
+    rgba(255, 255, 255, 0.03) 100%
+  );
+  background-size: 400px 100%;
+  animation: skeleton-shimmer 1.8s ease-in-out infinite;
+}
+
+/* ── Skeleton text ───────────────────────────────────────────────── */
+.skeleton-text {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Skeleton ring ───────────────────────────────────────────────── */
+.skeleton-ring {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.skeleton-ring-spinner {
+  transform-origin: center;
+  animation: skeleton-ring-spin 2s linear infinite;
+}
+
+/* ── Panel skeleton ──────────────────────────────────────────────── */
+.skeleton-panel {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.skeleton-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.skeleton-panel-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.skeleton-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 8px;
+}
+
+.skeleton-panel-analysis {
+  padding-top: 8px;
+}
+
+/* ── Timeline skeleton ───────────────────────────────────────────── */
+.skeleton-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+}
+
+.skeleton-timeline-event {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 8px;
+}
+
+/* ── County card skeleton ────────────────────────────────────────── */
+.skeleton-county-card {
+  padding: 14px;
+}
+
+.skeleton-county-gauges {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+/* ── Empty state ─────────────────────────────────────────────────── */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 20px;
+  text-align: center;
+  gap: 8px;
+  min-height: 120px;
+}
+
+.empty-state-icon {
+  color: rgba(255, 255, 255, 0.15);
+  margin-bottom: 4px;
+}
+
+.empty-state-title {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.4);
+  letter-spacing: 0.02em;
+}
+
+.empty-state-message {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.2);
+  line-height: 1.5;
+  max-width: 240px;
+  margin: 0;
+}
+
+.empty-state-action {
+  margin-top: 8px;
+  padding: 6px 14px;
+  background: rgba(0, 255, 204, 0.08);
+  border: 1px solid rgba(0, 255, 204, 0.2);
+  border-radius: 6px;
+  color: rgba(0, 255, 204, 0.7);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.empty-state-action:hover {
+  background: rgba(0, 255, 204, 0.12);
+  border-color: rgba(0, 255, 204, 0.35);
+  color: rgba(0, 255, 204, 0.9);
+}

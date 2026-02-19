@@ -1,0 +1,743 @@
+/* ============================================
+   NAVBAR â€” Glassmorphic navigation bar
+   Design system: Orbitron / Rajdhani / JetBrains Mono
+   Palette: --accent-cyan (#00ffcc), --accent-blue (#0ea5e9)
+   ============================================ */
+
+/* ============================================
+   BASE NAVBAR
+   ============================================ */
+.navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 150;
+  height: 56px;
+  pointer-events: none;
+
+  /* Glassmorphic surface */
+  background: linear-gradient(
+    180deg,
+    rgba(2, 6, 14, 0.75) 0%,
+    rgba(2, 6, 14, 0.6) 100%
+  );
+
+  /* Bottom edge glow */
+  border-bottom: 1px solid rgba(0, 255, 204, 0.08);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.03),
+    0 4px 24px rgba(0, 0, 0, 0.4);
+
+  /* Animate in */
+  opacity: 0;
+  transform: translateY(-100%);
+  transition:
+    opacity 0.8s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.navbar.visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.navbar.county-view {
+  background: rgba(2, 6, 14, 0.92);
+}
+
+.navbar-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 100%;
+  padding: 0 1.25rem;
+  max-width: 100%;
+}
+
+/* ============================================
+   SECTIONS
+   ============================================ */
+.navbar-section {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.navbar-brand {
+  flex-shrink: 0;
+}
+
+.navbar-center {
+  flex: 1;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.navbar-right {
+  flex-shrink: 0;
+  gap: 0.375rem;
+}
+
+/* ============================================
+   BRANDING
+   ============================================ */
+.brand-mark {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: default;
+  user-select: none;
+}
+
+.brand-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.brand-text {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  background: linear-gradient(135deg, #00ffcc 0%, #0ea5e9 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.brand-divider,
+.center-divider,
+.right-divider {
+  width: 1px;
+  height: 24px;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.08) 50%,
+    transparent 100%
+  );
+  margin: 0 0.375rem;
+}
+
+/* ============================================
+   YEAR SELECTOR â€” Custom dropdown
+   ============================================ */
+.year-selector {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.year-selector-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.55rem;
+  color: var(--text-muted);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.year-selector-trigger {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.325rem 0.625rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.year-selector-trigger:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(0, 255, 204, 0.15);
+}
+
+.year-selector-trigger.active {
+  background: rgba(0, 255, 204, 0.06);
+  border-color: rgba(0, 255, 204, 0.2);
+}
+
+.year-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+/* ============================================
+   CHEVRON â€” Animated rotation
+   ============================================ */
+.chevron-icon {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.chevron-icon.open {
+  transform: rotate(180deg);
+}
+
+/* ============================================
+   YEAR DROPDOWN
+   ============================================ */
+.year-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 120px;
+  max-height: 280px;
+  overflow-y: auto;
+  padding: 4px;
+  background: rgba(8, 14, 24, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  z-index: 1000;
+
+  /* Custom scrollbar */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 255, 204, 0.15) transparent;
+
+  /* Animate in */
+  animation: dropdownIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.year-dropdown::-webkit-scrollbar {
+  width: 4px;
+}
+
+.year-dropdown::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.year-dropdown::-webkit-scrollbar-thumb {
+  background: rgba(0, 255, 204, 0.15);
+  border-radius: 4px;
+}
+
+.year-dropdown::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 255, 204, 0.25);
+}
+
+@keyframes dropdownIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-4px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+}
+
+.year-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.4rem 0.75rem;
+  background: none;
+  border: none;
+  border-radius: 5px;
+  color: var(--text-secondary);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.year-option:hover {
+  background: rgba(0, 255, 204, 0.08);
+  color: var(--text-primary);
+}
+
+.year-option.selected {
+  color: var(--accent-cyan, #00ffcc);
+}
+
+.year-check {
+  display: flex;
+  align-items: center;
+  color: var(--accent-cyan, #00ffcc);
+}
+
+/* ============================================
+   STATE SEARCH
+   ============================================ */
+.state-search {
+  position: relative;
+}
+
+.search-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.325rem 0.625rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  transition: all 0.25s ease;
+  color: var(--text-muted);
+  min-width: 180px;
+}
+
+.search-input-wrapper:focus-within {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(0, 255, 204, 0.2);
+  box-shadow: 0 0 0 2px rgba(0, 255, 204, 0.06);
+}
+
+.search-input-wrapper.focused {
+  border-color: rgba(0, 255, 204, 0.25);
+}
+
+.search-input {
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 400;
+  width: 140px;
+  letter-spacing: 0.01em;
+}
+
+.search-input::placeholder {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.search-clear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 3px;
+  transition: all 0.15s ease;
+}
+
+.search-clear:hover {
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* ============================================
+   SEARCH DROPDOWN
+   ============================================ */
+.search-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  min-width: 240px;
+  padding: 4px;
+  background: rgba(8, 14, 24, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  z-index: 1000;
+  animation: searchDropdownIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes searchDropdownIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.search-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.45rem 0.75rem;
+  background: none;
+  border: none;
+  border-radius: 5px;
+  color: var(--text-secondary);
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  text-align: left;
+}
+
+.search-option:hover,
+.search-option.active {
+  background: rgba(0, 255, 204, 0.08);
+  color: var(--text-primary);
+}
+
+.search-option.active .search-option-hint {
+  opacity: 1;
+}
+
+.search-option-hint {
+  opacity: 0;
+  color: var(--accent-cyan, #00ffcc);
+  transition: opacity 0.15s ease;
+  display: flex;
+  align-items: center;
+}
+
+.search-highlight {
+  color: var(--accent-cyan, #00ffcc);
+  font-weight: 600;
+}
+
+.search-more {
+  padding: 0.35rem 0.75rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* ============================================
+   NAV ICON BUTTONS (Bell, Settings)
+   ============================================ */
+.nav-icon-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.nav-icon-btn:hover {
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+.notification-dot {
+  position: absolute;
+  top: 6px;
+  right: 7px;
+  width: 6px;
+  height: 6px;
+  background: var(--accent-danger, #ef4444);
+  border-radius: 50%;
+  box-shadow: 0 0 6px rgba(239, 68, 68, 0.6);
+}
+
+.watchlist-count {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  min-width: 14px;
+  height: 14px;
+  background: rgba(0, 255, 204, 0.9);
+  color: rgba(0, 0, 0, 0.85);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.5rem;
+  font-weight: 700;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
+  line-height: 1;
+}
+
+/* ============================================
+   USER MENU
+   ============================================ */
+.user-menu {
+  position: relative;
+}
+
+.user-trigger {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.5rem 0.25rem 0.25rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: var(--text-secondary);
+}
+
+.user-trigger:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.user-trigger.active {
+  background: rgba(0, 255, 204, 0.04);
+  border-color: rgba(0, 255, 204, 0.12);
+}
+
+.user-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, rgba(0, 255, 204, 0.2) 0%, rgba(14, 165, 233, 0.2) 100%);
+  border: 1px solid rgba(0, 255, 204, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.55rem;
+  font-weight: 600;
+  color: var(--accent-cyan, #00ffcc);
+  letter-spacing: 0.05em;
+}
+
+.user-avatar.large {
+  width: 36px;
+  height: 36px;
+  font-size: 0.65rem;
+  border-radius: 8px;
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.2;
+}
+
+.user-name {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.user-role {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.55rem;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* ============================================
+   USER DROPDOWN
+   ============================================ */
+.user-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 220px;
+  padding: 4px;
+  background: rgba(8, 14, 24, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  z-index: 1000;
+  animation: userDropdownIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes userDropdownIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.user-dropdown-header {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.625rem 0.75rem;
+}
+
+.user-dropdown-name {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.user-dropdown-email {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.6rem;
+  color: var(--text-muted);
+}
+
+.user-dropdown-divider {
+  height: 1px;
+  margin: 2px 8px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.user-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  width: 100%;
+  padding: 0.45rem 0.75rem;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+}
+
+.user-dropdown-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+}
+
+.user-dropdown-item.danger {
+  color: var(--accent-danger, #ef4444);
+}
+
+.user-dropdown-item.danger:hover {
+  background: rgba(239, 68, 68, 0.08);
+  color: #f87171;
+}
+
+/* ============================================
+   LOGIN BUTTON
+   ============================================ */
+.login-btn {
+  padding: 0.375rem 1rem;
+  background: linear-gradient(135deg, rgba(0, 255, 204, 0.12) 0%, rgba(14, 165, 233, 0.12) 100%);
+  border: 1px solid rgba(0, 255, 204, 0.25);
+  border-radius: 6px;
+  color: var(--accent-cyan, #00ffcc);
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  white-space: nowrap;
+}
+
+.login-btn:hover {
+  background: linear-gradient(135deg, rgba(0, 255, 204, 0.2) 0%, rgba(14, 165, 233, 0.2) 100%);
+  border-color: rgba(0, 255, 204, 0.4);
+  box-shadow: 0 0 20px rgba(0, 255, 204, 0.15);
+}
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+@media (max-width: 900px) {
+  .navbar-inner {
+    padding: 0 0.75rem;
+  }
+
+  .brand-divider,
+  .center-divider {
+    display: none;
+  }
+
+  .year-selector-label {
+    display: none;
+  }
+
+  .user-info {
+    display: none;
+  }
+
+  .search-input {
+    width: 100px;
+  }
+
+  .search-input-wrapper {
+    min-width: 130px;
+  }
+
+  .navbar-center {
+    gap: 0.25rem;
+  }
+}
+
+@media (max-width: 600px) {
+  .navbar {
+    height: 48px;
+  }
+
+  .navbar-inner {
+    padding: 0 0.5rem;
+  }
+
+  /* Hide bell and settings, keep watchlist and compare */
+  .nav-icon-btn[title="Notifications"],
+  .nav-icon-btn[title="Settings"] {
+    display: none;
+  }
+
+  .nav-icon-btn[title="Watchlist"],
+  .nav-icon-btn[title="Compare States"] {
+    display: flex;
+  }
+
+  .right-divider {
+    display: none;
+  }
+
+  .search-input {
+    width: 80px;
+  }
+
+  .search-input-wrapper {
+    min-width: 110px;
+  }
+
+  .year-value {
+    font-size: 0.72rem;
+  }
+
+  .user-avatar {
+    width: 26px;
+    height: 26px;
+    font-size: 0.55rem;
+  }
+
+  .user-trigger .chevron-icon {
+    display: none;
+  }
+}
