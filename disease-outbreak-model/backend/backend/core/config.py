@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     who_api_base: str = "https://ghoapi.azureedge.net/api"
 
     # ── ML Model ─────────────────────────────────────────────────────
-    model_path: str = "outputs/ca_total_model.pth"
+    model_path: str = "models/best_us_lstm_classifier.pth"
     model_device: str = "cpu"  # "cpu" or "cuda"
 
     # ── Security ─────────────────────────────────────────────────────

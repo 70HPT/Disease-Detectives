@@ -10,6 +10,9 @@ from datetime import datetime, timedelta
 from typing import Optional
 from functools import lru_cache
 
+from sqlalchemy import select, desc
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from backend.core.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -193,46 +196,111 @@ async def fetch_who_indicator(
 
 # ── Feature Assembly ─────────────────────────────────────────────────
 
-async def build_features_for_location(fips: str) -> dict:
+async def build_features_for_location(
+    fips: str,
+    db: Optional[AsyncSession] = None,
+) -> dict:
     """
-    Assemble the full feature dict needed by the ML model for a given FIPS code.
-    Pulls from Census + NOAA + synthetic fallbacks.
-    Returns a dict matching the model's expected feature_cols.
+    Assemble the feature dict needed by the LSTM model for a given FIPS code.
+
+    Primary data source: outbreak_history table (cases + lag values stored
+    in climate_data JSON during seed).  Falls back to Census/NOAA APIs when
+    available, and to sensible defaults otherwise.
+
+    The LSTM expects: cases, cases_lag_1, cases_lag_2, cases_lag_3
+    We also include enrichment fields used by _compute_factors().
     """
-    state_fips = fips[:2]
-    county_fips = fips[2:]
+    from backend.db.models import Location, OutbreakHistory
 
-    # Fetch census data
-    census_records = await fetch_census_population(state_fips, county_fips)
-    population = 0
-    if census_records:
-        population = int(census_records[0].get("B01001_001E", 0) or 0)
+    cases = 0.0
+    lag1 = 0.0
+    lag2 = 0.0
+    lag3 = 0.0
+    population = None
+    density = None
+    vaccination_rate = 0.55  # default; overridden if DB data available
 
-    # Estimate density (would use land area from Census in production)
-    density = population / 1000 if population else 500.0
+    # ── Pull from outbreak_history if DB session provided ────────────
+    if db is not None:
+        # Look up location
+        loc_result = await db.execute(
+            select(Location).where(Location.fips == fips)
+        )
+        location = loc_result.scalar_one_or_none()
 
-    # Fetch climate (last 30 days)
+        if location:
+            population = location.population
+            density = location.density
+
+            # Get most recent outbreak_history rows (newest first)
+            oh_result = await db.execute(
+                select(OutbreakHistory)
+                .where(OutbreakHistory.location_id == location.id)
+                .order_by(desc(OutbreakHistory.date))
+                .limit(4)
+            )
+            history_rows = oh_result.scalars().all()
+
+            if history_rows:
+                latest = history_rows[0]
+                cases = float(latest.case_count or 0)
+
+                # Try to use stored lag values from climate_data JSON
+                cd = latest.climate_data or {}
+                lag1 = float(cd.get("cases_lag_1", 0) or 0)
+                lag2 = float(cd.get("cases_lag_2", 0) or 0)
+                lag3 = float(cd.get("cases_lag_3", 0) or 0)
+
+                # If lags weren't stored, compute from prior rows
+                if lag1 == 0 and len(history_rows) >= 2:
+                    lag1 = float(history_rows[1].case_count or 0)
+                if lag2 == 0 and len(history_rows) >= 3:
+                    lag2 = float(history_rows[2].case_count or 0)
+                if lag3 == 0 and len(history_rows) >= 4:
+                    lag3 = float(history_rows[3].case_count or 0)
+
+                # Check for vaccination coverage in climate_data
+                vacc = cd.get("estimate_pct")
+                if vacc is not None:
+                    try:
+                        vaccination_rate = float(vacc) / 100.0
+                    except (ValueError, TypeError):
+                        pass
+
+    # ── Enrich with Census data if no population from DB ─────────────
+    if population is None:
+        state_fips = fips[:2]
+        county_fips = fips[2:]
+        census_records = await fetch_census_population(state_fips, county_fips)
+        if census_records:
+            population = int(census_records[0].get("B01001_001E", 0) or 0)
+
+    if population is None:
+        population = 50000  # fallback
+
+    if density is None:
+        density = population / 1000  # rough estimate
+
+    # ── Enrich with NOAA climate (best-effort) ───────────────────────
+    avg_temp = 55.0
+    avg_humidity = 0.5
     today = datetime.utcnow()
     start = (today - timedelta(days=30)).strftime("%Y-%m-%d")
     end = today.strftime("%Y-%m-%d")
     climate = await fetch_noaa_climate(fips, start, end)
-
-    avg_temp = 55.0   # default
-    avg_humidity = 0.5
     if climate:
         temps = [r["value"] for r in climate if r.get("datatype") == "TAVG"]
         if temps:
             avg_temp = sum(temps) / len(temps)
 
     return {
-        "population": population or 500000,
+        "cases": cases,
+        "cases_lag_1": lag1,
+        "cases_lag_2": lag2,
+        "cases_lag_3": lag3,
+        "population": population,
         "population_density": density,
-        "unemployment_rate": 0.05,       # TODO: fetch from BLS
-        "vaccination_rate": 0.55,        # TODO: fetch from CDC immunization data
+        "vaccination_rate": vaccination_rate,
         "avg_temp": avg_temp,
         "avg_humidity": avg_humidity,
-        "otc_search_index": 35.0,        # TODO: Google Trends integration
-        "flu_cases_lag_1": 0,            # TODO: pull from outbreak_history table
-        "flu_cases_lag_2": 0,
-        "flu_cases_lag_3": 0,
     }

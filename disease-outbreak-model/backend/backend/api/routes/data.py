@@ -10,7 +10,7 @@ from datetime import datetime
 
 from backend.db.session import get_db
 from backend.db.models import OutbreakHistory, Location
-from backend.schemas.risk import OutbreakHistoryOut, HistoryRequest
+from backend.schemas.risk import OutbreakHistoryOut
 from backend.services.data_service import (
     fetch_cdc_disease_data,
     fetch_census_population,
@@ -39,11 +39,10 @@ async def get_outbreak_history(
     query = (
         select(OutbreakHistory)
         .where(OutbreakHistory.location_id == location.id)
-        .order_by(OutbreakHistory.date.desc())
-        .limit(limit)
     )
     if disease_type != "total":
         query = query.where(OutbreakHistory.disease_type == disease_type)
+    query = query.order_by(OutbreakHistory.date.desc()).limit(limit)
 
     result = await db.execute(query)
     return result.scalars().all()
