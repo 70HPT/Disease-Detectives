@@ -160,7 +160,7 @@ const ZOOMED_CAMERA_DISTANCE = Math.sqrt(CAMERA_Y * CAMERA_Y + 2.5 * 2.5)
 // ============================================
 // DEEP SPACE INTRO ANIMATION SETTINGS
 // ============================================
-const INTRO_START_DISTANCE = 100 // Start very far away
+const INTRO_START_DISTANCE = 80 // Start very far away
 const INTRO_DURATION = 3.5 // seconds for the zoom animation
 const INTRO_EARTH_SCALE_START = 0.1 // Earth starts tiny
 const INTRO_STAR_STREAK_INTENSITY = 0.8 // How much stars streak during zoom
@@ -451,8 +451,8 @@ function MilkyWaySkybox({ rotationRef, introProgressRef, scrollProgressRef, scen
 
 // STARFIELD COMPONENT WITH STREAK EFFECT
 // Fade-in duration for smooth appearance
-const STARS_FADE_DURATION = 1800
-const STARS_FADE_DELAY = 1800
+const STARS_FADE_DURATION = 1000
+const STARS_FADE_DELAY = 1000
 
 function Starfield({ count = 2000, rotationRef, introProgressRef, zoomSpeedRef, scrollProgressRef, sceneReady }) {
   const pointsRef = useRef()
@@ -1739,7 +1739,9 @@ const SCROLL_STAR_PARALLAX_SPEED = 0.4 // Stars move slower than camera (depth e
 const SCROLL_ROTATION_SPEED = 1.6 // How much Earth rotates per scroll unit (radians)
 
 // Smooth scroll interpolation settings
-const SCROLL_CAMERA_SPEED = 5.0  // Exponential smooth speed for camera (lower = more floaty)
+// Lenis handles input jitter
+// Our expSmooth handles the floaty, cinematic camera follow
+const SCROLL_CAMERA_SPEED = 5.0  // Camera follow speed (lower = more floaty)
 const SCROLL_ROTATION_SMOOTH = 3.5 // How quickly scroll rotation catches up
 
 // Frame-rate independent exponential smoothing
@@ -1773,7 +1775,6 @@ export default function EarthWithStates({ scrollTargetRef }) {
   const prevScrollProgressRef = useRef(0) // Track previous scroll for rotation delta
 
   // Smooth scroll refs for buttery 3D animations
-  // Single-pass exponential smoothing â€” no React re-renders in the scroll path
   const smoothScrollProgressRef = useRef(0) // Smoothed 0â†’1 scroll (shared with children)
   const smoothCameraDistanceRef = useRef(DEFAULT_CAMERA_DISTANCE)
   const smoothScrollRotationRef = useRef(0) // Accumulated rotation from scrolling
@@ -1784,10 +1785,12 @@ export default function EarthWithStates({ scrollTargetRef }) {
 
   // Responsive viewport scaling — tracks window size for mobile camera adjustment
   const viewportScaleRef = useRef(getViewportCameraScale())
+  const windowHeightRef = useRef(window.innerHeight) // Cache for direct scroll reads in useFrame
 
   useEffect(() => {
     const handleResize = () => {
       viewportScaleRef.current = getViewportCameraScale()
+      windowHeightRef.current = window.innerHeight
     }
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
@@ -1812,11 +1815,9 @@ export default function EarthWithStates({ scrollTargetRef }) {
     if (introComplete) return
 
     const prevent = (e) => { e.preventDefault() }
-    // Block all scroll-related events during intro
     window.addEventListener('wheel', prevent, { passive: false })
     window.addEventListener('touchmove', prevent, { passive: false })
     window.addEventListener('scroll', prevent, { passive: false })
-    // Also pin position
     document.body.style.overflow = 'hidden'
     document.body.style.position = 'fixed'
     document.body.style.width = '100%'
@@ -1831,6 +1832,13 @@ export default function EarthWithStates({ scrollTargetRef }) {
       document.body.style.width = ''
       document.body.style.top = ''
       window.scrollTo(0, 0)
+
+      // Start Lenis now that intro is done — smooth scroll begins
+      const lenis = window.__lenis
+      if (lenis) {
+        lenis.scrollTo(0, { immediate: true }) // Reset any accumulated targets
+        lenis.start()
+      }
     }
   }, [introComplete])
   const [statesVisible, setStatesVisible] = useState(false) // Triggers state mesh mounting
@@ -1847,7 +1855,9 @@ export default function EarthWithStates({ scrollTargetRef }) {
   const clearPendingZoom = useStore(state => state.clearPendingZoom)
   const setHoveredState = useStore(state => state.setHoveredState)
   const viewMode = useStore(state => state.viewMode)
+  const setStoreSceneReady = useStore(state => state.setSceneReady)
   const isCountyView = viewMode === 'state-counties'
+
   const settings = useStore(state => state.settings) || {
     earthTexture: 'daymap6',
     skyboxTexture: 'default',
@@ -1984,6 +1994,11 @@ export default function EarthWithStates({ scrollTargetRef }) {
     }, 2000)
     return () => clearTimeout(fallbackTimer)
   }, [sceneReady])
+
+  // Propagate sceneReady to Zustand store so App.jsx can dismiss loading overlay
+  useEffect(() => {
+    if (sceneReady) setStoreSceneReady(true)
+  }, [sceneReady, setStoreSceneReady])
 
   // Callback for MilkyWaySkybox to report texture loaded
   const handleTextureLoaded = useCallback((textureName) => {
@@ -2621,10 +2636,10 @@ export default function EarthWithStates({ scrollTargetRef }) {
       anim.earthScale = INTRO_EARTH_SCALE_START + (1 - INTRO_EARTH_SCALE_START) * scaleEased
 
       // EARTH FADE-IN ANIMATION
-      // Earth starts fading in after 5% progress, fully visible by 90%
+      // Earth starts fading in after 10% progress, fully visible by 85%
       // Uses ultra-smooth ease-out-quint for gentle emergence from deep space
-      const earthFadeStart = 0.05
-      const earthFadeEnd = 0.90
+      const earthFadeStart = 0.10
+      const earthFadeEnd = 0.85
       let earthFadeProgress = 0
       if (rawProgress > earthFadeStart) {
         earthFadeProgress = Math.min(1, (rawProgress - earthFadeStart) / (earthFadeEnd - earthFadeStart))
@@ -2794,11 +2809,14 @@ export default function EarthWithStates({ scrollTargetRef }) {
       anim.velocity = 0
     }
 
-    // Read raw scroll target directly from shared ref - NO React re-renders
-    // During intro, force to 0 so scroll doesn't accumulate and cause a jump when intro finishes
-    const rawScrollTarget = (selectedState || isCountyView || !introComplete) ? 0 : (scrollTargetRef?.current ?? 0)
+    // Read scroll position directly from DOM every frame
+    // window.scrollY is a cached getter — always has the latest value, no layout reflow
+    const windowH = windowHeightRef.current
+    const directScrollProgress = windowH > 0 ? Math.min(1, Math.max(0, window.scrollY / windowH)) : 0
+    const rawScrollTarget = (selectedState || isCountyView || !introComplete) ? 0 : directScrollProgress
 
-    // Exponential smooth the scroll progress (frame-rate independent)
+    // SMOOTH CAMERA FOLLOW
+    // Lenis already smoothed the raw input (erratic trackpad → smooth ramp).
     smoothScrollProgressRef.current = expSmooth(
       smoothScrollProgressRef.current, rawScrollTarget, SCROLL_CAMERA_SPEED, delta
     )
@@ -2941,6 +2959,7 @@ export default function EarthWithStates({ scrollTargetRef }) {
       const targetScrollYOffset = easedScrollProgress * 1.5
 
       // Exponential smooth â€” frame-rate independent, no jitter
+      // Fast follow — scroll progress is already smoothed, so this just prevents micro-jitter
       smoothCameraDistanceRef.current = expSmooth(
         smoothCameraDistanceRef.current, targetCameraDistance, SCROLL_CAMERA_SPEED, delta
       )

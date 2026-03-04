@@ -386,13 +386,19 @@ export default function ComparisonMode() {
   const [animate, setAnimate] = useState(false)
   const geoFeatures = useDetailedGeo()
 
-  // Lock page scroll when modal is open (scroll lives on <html>)
+  // Lock page scroll when modal is open — use Lenis if available
   useEffect(() => {
     if (comparisonOpen) {
-      const html = document.documentElement
-      const prev = html.style.overflow
-      html.style.overflow = 'hidden'
-      return () => { html.style.overflow = prev }
+      const lenis = window.__lenis
+      if (lenis) {
+        lenis.stop()
+        return () => lenis.start()
+      } else {
+        const html = document.documentElement
+        const prev = html.style.overflow
+        html.style.overflow = 'hidden'
+        return () => { html.style.overflow = prev }
+      }
     }
   }, [comparisonOpen])
 

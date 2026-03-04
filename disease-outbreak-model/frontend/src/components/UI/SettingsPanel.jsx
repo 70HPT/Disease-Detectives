@@ -91,6 +91,7 @@ export default function SettingsPanel() {
       <div
         className={`sp-panel ${isOpen ? 'open' : ''}`}
         ref={panelRef}
+        data-lenis-prevent
         style={{
           position: 'fixed',
           top: 0,

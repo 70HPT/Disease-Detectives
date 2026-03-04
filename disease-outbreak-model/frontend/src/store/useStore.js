@@ -152,6 +152,12 @@ const useStore = create((set, get) => ({
   viewMode: 'globe',
 
   // ============================================
+  // SCENE LOADING — gates the loading overlay
+  // ============================================
+  sceneReady: false,
+  setSceneReady: (ready) => set({ sceneReady: ready }),
+
+  // ============================================
   // STATE SELECTION
   // ============================================
   selectedState: null,

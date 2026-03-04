@@ -26,11 +26,13 @@
 .cs-animated {
   opacity: 0;
   transform: translateY(40px);
-  will-change: opacity, transform;
 }
 
-.cs-animated.animate-in {
+/* Animation triggered by parent class — toggled via direct DOM manipulation,
+   zero React re-renders. Each child's inline animation-delay still applies. */
+.content-wrapper.sections-animated .cs-animated {
   animation: csFadeInUp 1s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  will-change: opacity, transform;
 }
 
 /* ============================================

@@ -24,7 +24,7 @@
 }
 
 html {
-  scroll-behavior: smooth;
+  /* scroll-behavior handled by Lenis — native smooth scroll removed to avoid conflicts */
 }
 
 body {
@@ -242,6 +242,13 @@ body {
   animation: bounce 2s ease-in-out infinite;
 }
 
+/* Hidden by scroll progress — CSS class toggled directly, no React re-render */
+.scroll-indicator.scroll-hidden {
+  opacity: 0 !important;
+  pointer-events: none;
+  transition: opacity 0.4s ease;
+}
+
 @keyframes fadeInUp {
   from {
     opacity: 0;
@@ -269,7 +276,6 @@ body {
   transition: opacity 1.2s cubic-bezier(0.22, 1, 0.36, 1),
               transform 1.4s cubic-bezier(0.22, 1, 0.36, 1);
   pointer-events: none;
-  will-change: opacity, transform;
 
   /* Glassmorphic frosted glass effect â€” reduced blur for scroll performance */
   background: linear-gradient(
@@ -291,6 +297,7 @@ body {
   opacity: 1;
   transform: translateY(0) scale(1);
   pointer-events: auto;
+  will-change: opacity, transform;
 }
 
 /* ============================================
@@ -317,7 +324,7 @@ body {
 }
 
 .breadcrumb.raised {
-  bottom: 140px;
+  bottom: 145px;
 }
 
 .breadcrumb.hidden {

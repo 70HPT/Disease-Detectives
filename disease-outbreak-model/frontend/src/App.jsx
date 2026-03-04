@@ -1,5 +1,6 @@
 import { Canvas } from '@react-three/fiber'
 import { Suspense, useRef, useEffect, useState } from 'react'
+import Lenis from 'lenis'
 import useStore from './store/useStore'
 import StatePanel from './components/UI/StatePanel'
 import StateHealthRings from './components/UI/StateHealthRings'
@@ -15,54 +16,91 @@ import ContentSections from './components/UI/ContentSections'
 import Navbar from './components/Layout/Navbar'
 import SettingsPanel from './components/UI/SettingsPanel'
 
+import 'lenis/dist/lenis.css'
 import './App.css'
 
-// ============================================
-// SCROLL PROGRESS HOOK - Enhanced with smooth lerping
-// Provides both raw (for thresholds) and smooth (for animations) values
-// ============================================
-// SCROLL PROGRESS — Performance-optimized
-// scrollTargetRef: Raw ref for 3D scene — NO React re-renders, read in useFrame
-// headerFaded / showScrollIndicator: Only update on threshold crossing (not every tick)
-// ============================================
+let lenisInstance = null
+
+function useLenis() {
+  useEffect(() => {
+    lenisInstance = new Lenis({
+      duration: 1.2,
+      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+      smoothWheel: true,
+      wheelMultiplier: 1,
+      touchMultiplier: 2,
+      autoRaf: false, // We drive RAF manually for tighter control
+    })
+
+    // Start stopped — EarthWithStates will start Lenis when intro completes
+    // This prevents Lenis from accumulating scroll targets during the intro
+    lenisInstance.stop()
+    window.__lenis = lenisInstance
+
+    function raf(time) {
+      lenisInstance?.raf(time)
+      requestAnimationFrame(raf)
+    }
+    requestAnimationFrame(raf)
+
+    return () => {
+      lenisInstance.destroy()
+      lenisInstance = null
+      window.__lenis = null
+    }
+  }, [])
+}
+
 function useScrollProgress() {
-  const [headerFaded, setHeaderFaded] = useState(false)
-  const [showScrollIndicator, setShowScrollIndicator] = useState(true)
-  const [contentVisible, setContentVisible] = useState(false)
-  const [contentAnimated, setContentAnimated] = useState(false)
-  const [breadcrumbHidden, setBreadcrumbHidden] = useState(false)
   const scrollTargetRef = useRef(0)
 
+  // DOM refs — manipulated directly, bypassing React
+  const headerRef = useRef(null)
+  const scrollIndicatorRef = useRef(null)
+  const contentWrapperRef = useRef(null)
+  const breadcrumbRef = useRef(null)
+
   useEffect(() => {
-    let ticking = false
-    // Track previous states to avoid redundant setState calls
-    let prev = { faded: false, indicator: false, content: false, animated: false, breadcrumb: false }
+    let prev = { faded: false, indicator: true, content: false, breadcrumb: false }
+
+    const updateDOM = (progress) => {
+      const faded = progress > 0.3
+      const indicator = progress < 0.1
+      const content = progress > 0.2
+      const animated = progress > 0.3
+      const breadcrumb = progress > 0.5
+
+      if (faded !== prev.faded) {
+        prev.faded = faded
+        headerRef.current?.classList.toggle('faded', faded)
+      }
+      if (indicator !== prev.indicator) {
+        prev.indicator = indicator
+        scrollIndicatorRef.current?.classList.toggle('scroll-hidden', !indicator)
+      }
+      if (content !== prev.content) {
+        prev.content = content
+        contentWrapperRef.current?.classList.toggle('visible', content)
+      }
+      // LATCH: sections-animated only gets ADDED, never removed.
+      // CSS animation fill-mode: forwards keeps sections visible after animation.
+      // Removing the class would snap them back to opacity: 0.
+      // On content remount (state deselect), fresh DOM has no class — resets naturally.
+      if (animated && !contentWrapperRef.current?.classList.contains('sections-animated')) {
+        contentWrapperRef.current?.classList.add('sections-animated')
+      }
+      if (breadcrumb !== prev.breadcrumb) {
+        prev.breadcrumb = breadcrumb
+        breadcrumbRef.current?.classList.toggle('hidden', breadcrumb)
+      }
+    }
 
     const handleScroll = () => {
-      if (!ticking) {
-        ticking = true
-        requestAnimationFrame(() => {
-          const scrollY = window.scrollY
-          const windowHeight = window.innerHeight
-          const progress = Math.min(1, Math.max(0, scrollY / windowHeight))
-          scrollTargetRef.current = progress
-
-          // Only trigger React re-render when crossing thresholds
-          const faded = progress > 0.3
-          const indicator = progress >= 0.1
-          const content = progress > 0.2
-          const animated = progress > 0.3
-          const breadcrumb = progress > 0.5
-
-          if (faded !== prev.faded) { prev.faded = faded; setHeaderFaded(faded) }
-          if (indicator !== prev.indicator) { prev.indicator = indicator; setShowScrollIndicator(!indicator) }
-          if (content !== prev.content) { prev.content = content; setContentVisible(content) }
-          if (animated !== prev.animated) { prev.animated = animated; setContentAnimated(animated) }
-          if (breadcrumb !== prev.breadcrumb) { prev.breadcrumb = breadcrumb; setBreadcrumbHidden(breadcrumb) }
-
-          ticking = false
-        })
-      }
+      const scrollY = window.scrollY
+      const windowHeight = window.innerHeight
+      const progress = Math.min(1, Math.max(0, scrollY / windowHeight))
+      scrollTargetRef.current = progress
+      updateDOM(progress)
     }
 
     window.addEventListener('scroll', handleScroll, { passive: true })
@@ -70,10 +108,35 @@ function useScrollProgress() {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
-  return { headerFaded, showScrollIndicator, contentVisible, contentAnimated, breadcrumbHidden, scrollTargetRef }
+  return { scrollTargetRef, headerRef, scrollIndicatorRef, contentWrapperRef, breadcrumbRef }
+}
+
+// ============================================
+// LOADING SCREEN DISMISSAL
+// The loading animation lives in index.html as pure CSS — renders instantly
+// before any JS loads. This hook fades it out when Three.js is ready.
+// ============================================
+function useDismissLoadingScreen() {
+  const sceneReady = useStore((state) => state.sceneReady)
+
+  useEffect(() => {
+    if (sceneReady) {
+      const overlay = document.getElementById('loading-screen')
+      if (overlay) {
+        overlay.classList.add('fade-out')
+        setTimeout(() => overlay.remove(), 800)
+      }
+    }
+  }, [sceneReady])
 }
 
 function App() {
+  // Smooth scroll — Lenis intercepts wheel/touch and smooths them out
+  useLenis()
+
+  // Dismiss the index.html loading screen when Three.js scene is ready
+  useDismissLoadingScreen()
+
   const selectedState = useStore((state) => state.selectedState)
   const viewMode = useStore((state) => state.viewMode)
   const clearSelection = useStore((state) => state.clearSelection)
@@ -102,13 +165,17 @@ function App() {
     }
   }, [isCountyView])
 
-  // Scroll state — threshold-based, only re-renders on crossing specific points
-  const { headerFaded, showScrollIndicator, contentVisible, contentAnimated, breadcrumbHidden, scrollTargetRef } = useScrollProgress()
+  // Scroll — direct DOM manipulation, zero re-renders during scroll
+  const { scrollTargetRef, headerRef, scrollIndicatorRef, contentWrapperRef, breadcrumbRef } = useScrollProgress()
 
   // Scroll to top when state is selected
   useEffect(() => {
     if (selectedState) {
-      window.scrollTo({ top: 0, behavior: 'instant' })
+      if (lenisInstance) {
+        lenisInstance.scrollTo(0, { immediate: true })
+      } else {
+        window.scrollTo({ top: 0, behavior: 'instant' })
+      }
     }
   }, [selectedState])
 
@@ -122,7 +189,7 @@ function App() {
 
       {/* Dashboard title — appears below navbar, fades on scroll */}
       {!isCountyView && !selectedState && (
-        <header className={`header ${navVisible ? 'visible' : ''} ${headerFaded ? 'faded' : ''}`}>
+        <header ref={headerRef} className={`header ${navVisible ? 'visible' : ''}`}>
           <h1>Disease Detectives</h1>
           <p className="subtitle">Public Health Intelligence Dashboard</p>
         </header>
@@ -148,9 +215,9 @@ function App() {
         </Canvas>
       </div>
 
-      {/* Scroll indicator - only when no state selected */}
-      {!selectedState && showScrollIndicator && (
-        <div className="scroll-indicator">
+      {/* Scroll indicator - always rendered when no state, hidden via CSS class */}
+      {!selectedState && (
+        <div ref={scrollIndicatorRef} className="scroll-indicator">
           <span>Scroll to explore</span>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M12 5v14M19 12l-7 7-7-7" />
@@ -162,8 +229,8 @@ function App() {
       {!selectedState && (
         <>
           <div className="scroll-spacer" />
-          <div className={`content-wrapper ${contentVisible ? 'visible' : ''}`}>
-            <ContentSections isVisible={contentAnimated} />
+          <div ref={contentWrapperRef} className="content-wrapper">
+            <ContentSections />
           </div>
         </>
       )}
@@ -175,7 +242,7 @@ function App() {
       {selectedState && <StateTimeline />}
 
       {/* Breadcrumb */}
-      <div className={`breadcrumb ${breadcrumbHidden && !selectedState ? 'hidden' : ''} ${selectedState && !isCountyView ? 'raised' : ''}`}>
+      <div ref={breadcrumbRef} className={`breadcrumb ${selectedState && !isCountyView ? 'raised' : ''}`}>
         <span
           className="crumb clickable"
           onClick={() => {
@@ -183,7 +250,11 @@ function App() {
               exitCountyView()
             } else {
               clearSelection()
-              window.scrollTo({ top: 0, behavior: 'smooth' })
+              if (lenisInstance) {
+                lenisInstance.scrollTo(0)
+              } else {
+                window.scrollTo({ top: 0, behavior: 'smooth' })
+              }
             }
           }}
         >
