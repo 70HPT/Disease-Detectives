@@ -1,203 +1,260 @@
-"""
-ML Prediction Service.
-Wraps Braulio's FluPredictor model for serving predictions via the API.
-Loads the trained .pth checkpoint and runs inference on demand.
-"""
-
-import torch
-import numpy as np
 import logging
-from typing import Optional
 from datetime import datetime
+from pathlib import Path
+from typing import Optional
 
-# Import Braulio's model class (same repo)
-import sys, os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
-from src.models.flu_predictor import FluPredictor
+import numpy as np
+import pandas as pd
+import torch
+from sklearn.preprocessing import StandardScaler
+
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+from src.models.Disease_Predictor import OutbreakLSTMClassifier
 
 logger = logging.getLogger(__name__)
 
 
-class PredictionService:
-    """Singleton-style service that holds the loaded model in memory."""
+EXCLUDE_COLS = {
+    "Year",
+    "State",
+    "FIPS",
+    "County",
+    "Disease",
+    "Sex",
+    "Outbreak",
+    "NAME",
+    "state",
+    "county",
+    "Region",
+    "Source",
+    "Season",
+    "Week Ending Date",
+    "WeekOfYear",
+    "WeekIndex",
+}
 
+
+class PredictionService:
     def __init__(self):
-        self.model: Optional[FluPredictor] = None
-        self.scaler = None
-        self.feature_cols: list[str] = []
-        self.target_col: str = ""
-        self.disease: str = "unknown"
-        self.model_version: str = "none"
+        self.model: Optional[OutbreakLSTMClassifier] = None
         self.device = torch.device("cpu")
+        self.model_version: str = "none"
         self._loaded = False
 
-    # ── Load ─────────────────────────────────────────────────────────
-
-    def load_model(self, model_path: str, device: str = "cpu") -> None:
-        """Load a trained checkpoint from disk."""
-        if not os.path.exists(model_path):
-            logger.warning(f"Model file not found: {model_path}")
-            return
-
-        self.device = torch.device(device)
-
-        checkpoint = torch.load(model_path, map_location=self.device, weights_only=False)
-
-        self.feature_cols = checkpoint["feature_cols"]
-        self.target_col = checkpoint["target_col"]
-        self.scaler = checkpoint["scaler"]
-        self.disease = checkpoint.get("disease", "unknown")
-        self.model_version = f"{self.disease}_v{checkpoint.get('epoch', 0)}"
-
-        input_dim = len(self.feature_cols)
-        self.model = FluPredictor(input_dim)
-        self.model.load_state_dict(checkpoint["model_state_dict"])
-        self.model.to(self.device)
-        self.model.eval()
-        self._loaded = True
-
-        logger.info(
-            f"Model loaded: {self.disease} | features={input_dim} | device={self.device}"
-        )
+        self.seq_length = 8
+        self.threshold = 0.67
+        self.feature_cols: list[str] = []
+        self.state_probs: dict[str, float] = {}
+        self.state_last_cases: dict[str, float] = {}
 
     @property
     def is_loaded(self) -> bool:
         return self._loaded
 
-    # ── Predict ──────────────────────────────────────────────────────
+    def _project_root(self) -> Path:
+        return Path(__file__).resolve().parents[3]
+
+    def _resolve_file(self, configured_path: str, fallbacks: list[str]) -> Optional[Path]:
+        root = self._project_root()
+        candidates = [configured_path, *fallbacks]
+
+        for candidate in candidates:
+            p = Path(candidate)
+            if p.is_absolute() and p.exists():
+                return p
+            p2 = root / candidate
+            if p2.exists():
+                return p2
+            p3 = root / "backend" / candidate
+            if p3.exists():
+                return p3
+
+        return None
+
+    def _create_sequences(self, data: pd.DataFrame):
+        sequences = []
+        states = []
+
+        for state, group in data.groupby("State"):
+            group = group.sort_values("Week Ending Date")
+            if len(group) < self.seq_length:
+                continue
+
+            features = group[self.feature_cols].values
+            for i in range(len(group) - self.seq_length + 1):
+                sequences.append(features[i : i + self.seq_length])
+                states.append(state)
+
+        return np.array(sequences), states
+
+    def load_model(self, model_path: str, device: str = "cpu") -> None:
+        self._loaded = False
+
+        self.device = torch.device(device)
+
+        model_file = self._resolve_file(
+            model_path,
+            [
+                "models/best_influenza_lstm_classifier.pth",
+                "../models/best_influenza_lstm_classifier.pth",
+            ],
+        )
+        if not model_file:
+            logger.warning("Influenza model file not found. Checked configured path and fallbacks.")
+            return
+
+        train_file = self._resolve_file(
+            "data/flu_national_weekly_train.csv",
+            ["../data/flu_national_weekly_train.csv"],
+        )
+        all_file = self._resolve_file(
+            "data/flu_national_weekly_all.csv",
+            ["../data/flu_national_weekly_all.csv"],
+        )
+
+        if not train_file or not all_file:
+            logger.warning("Flu weekly data files not found for backend inference cache.")
+            return
+
+        train_df = pd.read_csv(train_file)
+        all_df = pd.read_csv(all_file)
+
+        train_df["Week Ending Date"] = pd.to_datetime(train_df["Week Ending Date"])
+        all_df["Week Ending Date"] = pd.to_datetime(all_df["Week Ending Date"])
+
+        self.feature_cols = [
+            col
+            for col in train_df.columns
+            if col not in EXCLUDE_COLS and pd.api.types.is_numeric_dtype(train_df[col])
+        ]
+
+        scaler = StandardScaler()
+        scaler.fit(train_df[self.feature_cols])
+        all_df[self.feature_cols] = scaler.transform(all_df[self.feature_cols])
+
+        sequences, sequence_states = self._create_sequences(all_df)
+        if len(sequences) == 0:
+            logger.warning("No sequences created from flu weekly data; backend model not activated.")
+            return
+
+        input_dim = sequences.shape[2]
+        model = OutbreakLSTMClassifier(
+            input_dim=input_dim,
+            hidden_dim=64,
+            num_layers=2,
+            dropout=0.3,
+        ).to(self.device)
+        model.load_state_dict(torch.load(model_file, map_location=self.device))
+        model.eval()
+
+        with torch.no_grad():
+            probs = torch.sigmoid(
+                model(torch.tensor(sequences, dtype=torch.float32, device=self.device)).squeeze()
+            ).cpu().numpy()
+
+        all_seq_df = pd.DataFrame(
+            {
+                "State": sequence_states,
+                "Prob": probs,
+            }
+        )
+
+        state_list = all_seq_df.groupby("State").tail(1)["State"].tolist()
+        prob_list = all_seq_df.groupby("State").tail(1)["Prob"].tolist()
+        self.state_probs = {s: float(p) for s, p in zip(state_list, prob_list)}
+
+        latest_rows = all_df.sort_values(["State", "Week Ending Date"]).groupby("State").tail(1)
+        if "Cases" in latest_rows.columns:
+            self.state_last_cases = {
+                row["State"]: float(row["Cases"])
+                for _, row in latest_rows.iterrows()
+            }
+
+        self.model = model
+        self.model_version = f"influenza_lstm_{model_file.stem}"
+        self._loaded = True
+
+        logger.info(
+            "Influenza LSTM backend model ready | file=%s | states=%d | features=%d",
+            model_file,
+            len(self.state_probs),
+            len(self.feature_cols),
+        )
+
+    def _risk_level(self, score: float) -> str:
+        if score < 33:
+            return "low"
+        if score < 66:
+            return "moderate"
+        return "high"
+
+    def _compute_factors(self, features: dict, prob: float) -> dict:
+        density = features.get("population_density", 0)
+        vacc = features.get("vaccination_rate", 0.5)
+        temp = features.get("avg_temp", 60)
+
+        return {
+            "population_density": round(min(float(density) / 5000, 1.0), 3),
+            "climate_risk": round(max(1 - float(temp) / 90, 0), 3),
+            "vaccination_coverage": round(1 - float(vacc), 3),
+            "historical_trend": round(float(prob), 3),
+            "search_trend": round(float(features.get("otc_search_index", 30)) / 100, 3),
+        }
 
     def predict(self, features: dict) -> dict:
-        """
-        Run a single prediction.
-
-        Args:
-            features: dict with keys matching self.feature_cols.
-                      Example:
-                      {
-                          "population": 1500000,
-                          "population_density": 2100.5,
-                          "unemployment_rate": 0.045,
-                          "vaccination_rate": 0.62,
-                          "avg_temp": 58.3,
-                          "avg_humidity": 0.55,
-                          "otc_search_index": 42.1,
-                          "flu_cases_lag_1": 320,
-                          "flu_cases_lag_2": 280,
-                          "flu_cases_lag_3": 250,
-                      }
-
-        Returns:
-            {
-                "raw_prediction": float,   # predicted case count
-                "risk_score": float,       # normalized 0-100
-                "confidence": float,       # 0-1
-                "risk_level": str,         # "low" / "moderate" / "high"
-                "factors": {...},
-                "model_version": str,
-            }
-        """
         if not self._loaded:
             return self._mock_predict(features)
 
-        # Build feature vector in the correct column order
-        feature_vector = []
-        for col in self.feature_cols:
-            feature_vector.append(features.get(col, 0.0))
+        state = str(features.get("state", "")).upper()
+        if state not in self.state_probs:
+            return self._mock_predict(features)
 
-        X = np.array([feature_vector], dtype=np.float32)
-        X_scaled = self.scaler.transform(X)
-        X_tensor = torch.tensor(X_scaled, dtype=torch.float32).to(self.device)
-
-        with torch.no_grad():
-            raw_pred = self.model(X_tensor).cpu().item()
-
-        # Normalize raw case-count prediction into 0-100 risk score
-        risk_score = self._normalize_risk(raw_pred)
-        confidence = self._estimate_confidence(features)
-        risk_level = self._risk_level(risk_score)
+        prob = float(self.state_probs[state])
+        risk_score = prob * 100.0
+        confidence = max(prob, 1.0 - prob)
+        raw_pred = self.state_last_cases.get(state, prob * 1000.0)
 
         return {
             "raw_prediction": round(raw_pred, 2),
             "risk_score": round(risk_score, 2),
             "confidence": round(confidence, 4),
-            "risk_level": risk_level,
-            "factors": self._compute_factors(features),
+            "risk_level": self._risk_level(risk_score),
+            "factors": self._compute_factors(features, prob),
             "model_version": self.model_version,
             "generated_at": datetime.utcnow().isoformat(),
         }
 
     def predict_batch(self, feature_list: list[dict]) -> list[dict]:
-        """Run predictions for multiple locations at once."""
         return [self.predict(f) for f in feature_list]
 
-    # ── Helpers ───────────────────────────────────────────────────────
+    def get_state_map_data(self) -> list[dict]:
+        if not self._loaded:
+            return []
 
-    @staticmethod
-    def _normalize_risk(raw_prediction: float) -> float:
-        """
-        Convert raw case count prediction to 0-100 risk score.
-        Uses a sigmoid-like mapping so the score saturates toward 100
-        for very high predicted counts.
-        """
-        # Clamp negatives (model might predict < 0)
-        pred = max(raw_prediction, 0)
-        # Sigmoid scaling: 100 * (1 - e^(-pred/5000))
-        # Tune the 5000 denominator based on your data distribution
-        score = 100 * (1 - np.exp(-pred / 5000))
-        return float(np.clip(score, 0, 100))
+        rows = []
+        for state, prob in sorted(self.state_probs.items()):
+            score = float(prob) * 100.0
+            rows.append(
+                {
+                    "state": state,
+                    "avg_risk_score": round(score, 2),
+                    "max_risk_score": round(score, 2),
+                    "county_count": 1,
+                    "risk_level": self._risk_level(score),
+                }
+            )
+        return rows
 
-    @staticmethod
-    def _risk_level(score: float) -> str:
-        if score < 33:
-            return "low"
-        elif score < 66:
-            return "moderate"
-        else:
-            return "high"
-
-    @staticmethod
-    def _estimate_confidence(features: dict) -> float:
-        """
-        Heuristic confidence based on data completeness.
-        More complete input → higher confidence.
-        """
-        expected_keys = [
-            "population", "population_density", "avg_temp",
-            "avg_humidity", "vaccination_rate", "flu_cases_lag_1",
-        ]
-        present = sum(1 for k in expected_keys if features.get(k) is not None)
-        return round(present / len(expected_keys), 2)
-
-    @staticmethod
-    def _compute_factors(features: dict) -> dict:
-        """Break down contributing factors for the frontend panel."""
-        density = features.get("population_density", 0)
-        temp = features.get("avg_temp", 60)
-        vacc = features.get("vaccination_rate", 0.5)
-        lag1 = features.get("flu_cases_lag_1", 0)
-        search = features.get("otc_search_index", 30)
-
-        # Simple relative contribution heuristics (will refine with SHAP later)
-        return {
-            "population_density": round(min(density / 5000, 1.0), 3),
-            "climate_risk": round(max(1 - temp / 90, 0), 3),   # colder → higher
-            "vaccination_coverage": round(1 - vacc, 3),          # lower vacc → higher risk
-            "historical_trend": round(min(lag1 / 10000, 1.0), 3),
-            "search_trend": round(search / 100, 3),
-        }
-
-    # ── Fallback ─────────────────────────────────────────────────────
-
-    @staticmethod
-    def _mock_predict(features: dict) -> dict:
-        """Fallback when no model is loaded — returns plausible mock data."""
+    def _mock_predict(self, features: dict) -> dict:
         import random
+
         score = random.uniform(15, 85)
         return {
             "raw_prediction": score * 50,
             "risk_score": round(score, 2),
             "confidence": 0.0,
-            "risk_level": PredictionService._risk_level(score),
+            "risk_level": self._risk_level(score),
             "factors": {
                 "population_density": round(random.random(), 3),
                 "climate_risk": round(random.random(), 3),
@@ -210,5 +267,4 @@ class PredictionService:
         }
 
 
-# Module-level singleton
 prediction_service = PredictionService()

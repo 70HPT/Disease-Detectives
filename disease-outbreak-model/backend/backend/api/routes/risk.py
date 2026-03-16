@@ -39,6 +39,8 @@ async def predict_risk(req: RiskRequest, db: AsyncSession = Depends(get_db)):
     # Assemble features from external APIs
     features = await build_features_for_location(req.fips)
 
+    features["state"] = location.state
+
     # Run ML prediction
     prediction = prediction_service.predict(features)
 
@@ -146,6 +148,25 @@ async def get_map_data(db: AsyncSession = Depends(get_db)):
 
     result = await db.execute(query)
     rows = result.all()
+
+    if not rows:
+        model_rows = prediction_service.get_state_map_data()
+        states = [
+            StateRiskSummary(
+                state=row["state"],
+                state_name=_state_name(row["state"]),
+                avg_risk_score=row["avg_risk_score"],
+                max_risk_score=row["max_risk_score"],
+                county_count=row["county_count"],
+                risk_level=row["risk_level"],
+            )
+            for row in model_rows
+        ]
+        return MapDataResponse(
+            states=states,
+            generated_at=datetime.utcnow(),
+            model_version=prediction_service.model_version,
+        )
 
     states = []
     for row in rows:
