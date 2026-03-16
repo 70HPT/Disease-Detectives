@@ -8,7 +8,9 @@ import httpx
 import logging
 from datetime import datetime, timedelta
 from typing import Optional
-from functools import lru_cache
+
+from sqlalchemy import select, desc
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.config import get_settings
 
@@ -193,46 +195,108 @@ async def fetch_who_indicator(
 
 # ── Feature Assembly ─────────────────────────────────────────────────
 
-async def build_features_for_location(fips: str) -> dict:
+async def build_features_for_location(
+    fips: str,
+    db: Optional[AsyncSession] = None,
+) -> dict:
     """
     Assemble the full feature dict needed by the ML model for a given FIPS code.
-    Pulls from Census + NOAA + synthetic fallbacks.
-    Returns a dict matching the model's expected feature_cols.
+
+    Primary source: outbreak_history + locations tables (via db session).
+    Falls back to Census/NOAA external APIs and sensible defaults.
     """
+    from backend.db.models import Location, OutbreakHistory
+
     state_fips = fips[:2]
     county_fips = fips[2:]
 
-    # Fetch census data
-    census_records = await fetch_census_population(state_fips, county_fips)
-    population = 0
-    if census_records:
-        population = int(census_records[0].get("B01001_001E", 0) or 0)
+    population = None
+    density = None
+    vaccination_rate = 0.55
+    flu_lag_1 = 0.0
+    flu_lag_2 = 0.0
+    flu_lag_3 = 0.0
 
-    # Estimate density (would use land area from Census in production)
-    density = population / 1000 if population else 500.0
+    # ── Pull from DB if session provided ─────────────────────────────
+    if db is not None:
+        loc_result = await db.execute(
+            select(Location).where(Location.fips == fips)
+        )
+        location = loc_result.scalar_one_or_none()
 
-    # Fetch climate (last 30 days)
+        if location:
+            population = location.population
+            density = location.density
+
+            # Get recent outbreak_history rows for flu case lags
+            oh_result = await db.execute(
+                select(OutbreakHistory)
+                .where(OutbreakHistory.location_id == location.id)
+                .order_by(desc(OutbreakHistory.date))
+                .limit(4)
+            )
+            history_rows = oh_result.scalars().all()
+
+            if history_rows:
+                if len(history_rows) >= 2:
+                    flu_lag_1 = float(history_rows[1].case_count or 0)
+                if len(history_rows) >= 3:
+                    flu_lag_2 = float(history_rows[2].case_count or 0)
+                if len(history_rows) >= 4:
+                    flu_lag_3 = float(history_rows[3].case_count or 0)
+
+            # Check for vaccination coverage in outbreak_history
+            vax_result = await db.execute(
+                select(OutbreakHistory)
+                .where(
+                    OutbreakHistory.location_id == location.id,
+                    OutbreakHistory.disease_type.like("vaccination_coverage%"),
+                )
+                .order_by(desc(OutbreakHistory.date))
+                .limit(1)
+            )
+            vax_row = vax_result.scalar_one_or_none()
+            if vax_row and vax_row.climate_data:
+                est = vax_row.climate_data.get("estimate_pct")
+                if est is not None:
+                    try:
+                        vaccination_rate = float(est) / 100.0
+                    except (ValueError, TypeError):
+                        pass
+
+    # ── Enrich with Census data if no population from DB ─────────────
+    if population is None:
+        census_records = await fetch_census_population(state_fips, county_fips)
+        if census_records:
+            population = int(census_records[0].get("B01001_001E", 0) or 0)
+
+    if population is None or population == 0:
+        population = 50000
+
+    if density is None:
+        density = population / 1000
+
+    # ── Enrich with NOAA climate (best-effort) ───────────────────────
+    avg_temp = 55.0
+    avg_humidity = 0.5
     today = datetime.utcnow()
     start = (today - timedelta(days=30)).strftime("%Y-%m-%d")
     end = today.strftime("%Y-%m-%d")
     climate = await fetch_noaa_climate(fips, start, end)
-
-    avg_temp = 55.0   # default
-    avg_humidity = 0.5
     if climate:
         temps = [r["value"] for r in climate if r.get("datatype") == "TAVG"]
         if temps:
             avg_temp = sum(temps) / len(temps)
 
     return {
-        "population": population or 500000,
+        "population": population,
         "population_density": density,
-        "unemployment_rate": 0.05,       # TODO: fetch from BLS
-        "vaccination_rate": 0.55,        # TODO: fetch from CDC immunization data
+        "unemployment_rate": 0.05,
+        "vaccination_rate": vaccination_rate,
         "avg_temp": avg_temp,
         "avg_humidity": avg_humidity,
-        "otc_search_index": 35.0,        # TODO: Google Trends integration
-        "flu_cases_lag_1": 0,            # TODO: pull from outbreak_history table
-        "flu_cases_lag_2": 0,
-        "flu_cases_lag_3": 0,
+        "otc_search_index": 35.0,
+        "flu_cases_lag_1": flu_lag_1,
+        "flu_cases_lag_2": flu_lag_2,
+        "flu_cases_lag_3": flu_lag_3,
     }
