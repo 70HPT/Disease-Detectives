@@ -9,6 +9,7 @@ import os
 import sys
 import asyncio
 import logging
+from datetime import datetime
 from pathlib import Path
 
 import requests
@@ -154,7 +155,7 @@ async def main():
             outbreak = OutbreakHistory(
                 location_id=location.id,
                 disease_type=f"vaccination_coverage::{row.get('vaccine', 'unknown')}",
-                date=f"{year}-01-01",
+                date=datetime(int(year), 1, 1),
                 case_count=0,
                 population=None,
                 climate_data={
