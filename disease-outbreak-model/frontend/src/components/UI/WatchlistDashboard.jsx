@@ -2,39 +2,53 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import useStore from '../../store/useStore'
 import './WatchlistDashboard.css'
 
-// ============================================
-// SIMULATED ALERTS (generated per state)
-// ============================================
 function generateAlerts(watchlist, stateData) {
-  const alertTemplates = [
-    { type: 'increase', icon: '▲', severity: 'warning', template: (s) => `${s} risk score increased by ${Math.floor(Math.random() * 12) + 3} points` },
-    { type: 'decrease', icon: '▼', severity: 'good', template: (s) => `${s} vaccination rate improved to ${stateData[s]?.vaccinationRate + Math.floor(Math.random() * 5)}%` },
-    { type: 'outbreak', icon: '◆', severity: 'critical', template: (s) => `New outbreak cluster detected in ${s}` },
-    { type: 'update', icon: '●', severity: 'info', template: (s) => `${s} health index data updated for ${new Date().getFullYear()}` },
-    { type: 'threshold', icon: '⚠', severity: 'warning', template: (s) => `${s} hospital capacity below 70% threshold` },
-    { type: 'resolved', icon: '✓', severity: 'good', template: (s) => `${s} air quality advisory has been lifted` },
-  ]
-
   const alerts = []
   const now = Date.now()
 
   watchlist.forEach((state, si) => {
-    // 2-3 alerts per state
-    const count = 2 + (si % 2)
-    for (let i = 0; i < count; i++) {
-      const tmpl = alertTemplates[(si * 3 + i) % alertTemplates.length]
+    const d = stateData[state]
+    if (!d) return
+    const stateAlerts = []
+
+    if (d.outbreakRisk === 'High') {
+      stateAlerts.push({ type: 'outbreak', icon: '◆', severity: 'critical',
+        message: `${state} outbreak risk is elevated — risk score at ${d.riskScore}` })
+    }
+
+    if (d.vaccinationRate < 60) {
+      stateAlerts.push({ type: 'threshold', icon: '⚠', severity: 'warning',
+        message: `${state} vaccination rate at ${d.vaccinationRate}% — below 60% threshold` })
+    }
+
+    if (d.outbreakRisk === 'Medium' && d.healthIndex < 60) {
+      stateAlerts.push({ type: 'increase', icon: '▲', severity: 'warning',
+        message: `${state} showing compounding risk — moderate outbreak risk with health index at ${d.healthIndex}` })
+    }
+
+    if (d.healthIndex >= 75) {
+      stateAlerts.push({ type: 'resolved', icon: '✓', severity: 'good',
+        message: `${state} health index strong at ${d.healthIndex} — above national benchmark` })
+    }
+
+    if (d.vaccinationRate >= 70) {
+      stateAlerts.push({ type: 'decrease', icon: '▼', severity: 'good',
+        message: `${state} vaccination coverage at ${d.vaccinationRate}% — exceeds target` })
+    }
+
+    stateAlerts.push({ type: 'update', icon: '●', severity: 'info',
+      message: `${state} health index data current for ${new Date().getFullYear()}` })
+
+    stateAlerts.slice(0, 3).forEach((alert, i) => {
       alerts.push({
         id: `${state}-${i}`,
         state,
-        message: tmpl.template(state),
-        severity: tmpl.severity,
-        icon: tmpl.icon,
-        time: new Date(now - (si * 3 + i) * 3600000 * (1 + Math.random() * 2)), // Staggered hours ago
+        ...alert,
+        time: new Date(now - (si * 3 + i) * 3600000 * 1.5),
       })
-    }
+    })
   })
 
-  // Sort newest first
   alerts.sort((a, b) => b.time - a.time)
   return alerts
 }
