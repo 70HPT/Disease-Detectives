@@ -15,6 +15,7 @@
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   box-shadow: -10px 0 40px rgba(0, 0, 0, 0.5),
               inset 1px 0 0 rgba(0, 255, 204, 0.1);
   /* NOTE: backdrop-filter removed from scrollable element for scroll performance */

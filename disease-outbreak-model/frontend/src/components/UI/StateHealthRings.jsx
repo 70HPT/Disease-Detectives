@@ -82,8 +82,8 @@ export default function StateHealthRings() {
 
   if (!selectedState || isCountyView) return null
 
-  const { healthIndex = 65 } = selectedState
-  const gradeInfo = getHealthGrade(healthIndex)
+  const healthIndex = selectedState.healthIndex
+  const gradeInfo = healthIndex != null ? getHealthGrade(healthIndex) : { grade: '\u2014', pct: 0, color: '#8892a4', glow: 'transparent' }
   const facts = STATE_FACTS[selectedState.name] || DEFAULT_FACT
 
   return (

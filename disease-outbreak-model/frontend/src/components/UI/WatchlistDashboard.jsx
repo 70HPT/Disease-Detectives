@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import useStore from '../../store/useStore'
+import { getOutbreakHistory } from '../../services/dataService'
 import './WatchlistDashboard.css'
 
 function generateAlerts(watchlist, stateData) {
@@ -11,33 +12,36 @@ function generateAlerts(watchlist, stateData) {
     if (!d) return
     const stateAlerts = []
 
+    // Only generate metric-based alerts when data exists
     if (d.outbreakRisk === 'High') {
-      stateAlerts.push({ type: 'outbreak', icon: '◆', severity: 'critical',
-        message: `${state} outbreak risk is elevated — risk score at ${d.riskScore}` })
+      stateAlerts.push({ type: 'outbreak', icon: '\u25C6', severity: 'critical',
+        message: `${state} outbreak risk is elevated \u2014 risk score at ${d.riskScore}` })
     }
 
-    if (d.vaccinationRate < 60) {
-      stateAlerts.push({ type: 'threshold', icon: '⚠', severity: 'warning',
-        message: `${state} vaccination rate at ${d.vaccinationRate}% — below 60% threshold` })
+    if (d.vaccinationRate != null && d.vaccinationRate < 60) {
+      stateAlerts.push({ type: 'threshold', icon: '\u26A0', severity: 'warning',
+        message: `${state} vaccination rate at ${d.vaccinationRate}% \u2014 below 60% threshold` })
     }
 
-    if (d.outbreakRisk === 'Medium' && d.healthIndex < 60) {
-      stateAlerts.push({ type: 'increase', icon: '▲', severity: 'warning',
-        message: `${state} showing compounding risk — moderate outbreak risk with health index at ${d.healthIndex}` })
+    if (d.outbreakRisk === 'Medium' && d.healthIndex != null && d.healthIndex < 60) {
+      stateAlerts.push({ type: 'increase', icon: '\u25B2', severity: 'warning',
+        message: `${state} showing compounding risk \u2014 moderate outbreak risk with health index at ${d.healthIndex}` })
     }
 
-    if (d.healthIndex >= 75) {
-      stateAlerts.push({ type: 'resolved', icon: '✓', severity: 'good',
-        message: `${state} health index strong at ${d.healthIndex} — above national benchmark` })
+    if (d.healthIndex != null && d.healthIndex >= 75) {
+      stateAlerts.push({ type: 'resolved', icon: '\u2713', severity: 'good',
+        message: `${state} health index strong at ${d.healthIndex} \u2014 above national benchmark` })
     }
 
-    if (d.vaccinationRate >= 70) {
-      stateAlerts.push({ type: 'decrease', icon: '▼', severity: 'good',
-        message: `${state} vaccination coverage at ${d.vaccinationRate}% — exceeds target` })
+    if (d.vaccinationRate != null && d.vaccinationRate >= 70) {
+      stateAlerts.push({ type: 'decrease', icon: '\u25BC', severity: 'good',
+        message: `${state} vaccination coverage at ${d.vaccinationRate}% \u2014 exceeds target` })
     }
 
-    stateAlerts.push({ type: 'update', icon: '●', severity: 'info',
-      message: `${state} health index data current for ${new Date().getFullYear()}` })
+    if (stateAlerts.length === 0) {
+      stateAlerts.push({ type: 'update', icon: '\u25CF', severity: 'info',
+        message: `${state} \u2014 awaiting data from backend` })
+    }
 
     stateAlerts.slice(0, 3).forEach((alert, i) => {
       alerts.push({
@@ -98,39 +102,44 @@ function MiniRing({ value, max = 100, color, size = 44, strokeWidth = 3 }) {
 }
 
 // ============================================
-// SPARKLINE (fake trend)
+// SPARKLINE — real outbreak history data
 // ============================================
-function Sparkline({ seed, color, width = 80, height = 28 }) {
-  const points = useMemo(() => {
-    const pts = []
-    let val = 50 + (seed % 30)
-    for (let i = 0; i < 12; i++) {
-      val += (Math.sin(seed * 0.7 + i) * 8) + (Math.cos(seed * 0.3 + i * 2) * 4)
-      val = Math.max(10, Math.min(90, val))
-      pts.push(val)
-    }
-    return pts
-  }, [seed])
+function Sparkline({ stateName, color, width = 80, height = 28 }) {
+  const [pathData, setPathData] = useState(null)
+  const [endPt, setEndPt] = useState(null)
+  const stateFips = useStore(s => s.stateFips)
 
-  const min = Math.min(...points)
-  const max = Math.max(...points)
-  const range = max - min || 1
+  useEffect(() => {
+    if (!stateName || !stateFips[stateName]) return
+    let cancelled = false
+    const fips = stateFips[stateName] + '001'
+    getOutbreakHistory(fips, { diseaseType: 'influenza', limit: 12 }).then(data => {
+      if (cancelled || !data || data.length < 2) return
+      const cases = data.map(d => d.caseCount ?? 0).reverse()
+      const min = Math.min(...cases)
+      const max = Math.max(...cases, 1)
+      const range = max - min || 1
+      const pts = cases.map((c, i) => {
+        const x = (i / (cases.length - 1)) * width
+        const y = height - ((c - min) / range) * (height - 4) - 2
+        return { x, y }
+      })
+      setPathData(pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' '))
+      setEndPt(pts[pts.length - 1])
+    })
+    return () => { cancelled = true }
+  }, [stateName, stateFips, width, height])
 
-  const pathData = points.map((p, i) => {
-    const x = (i / (points.length - 1)) * width
-    const y = height - ((p - min) / range) * (height - 4) - 2
-    return `${i === 0 ? 'M' : 'L'}${x},${y}`
-  }).join(' ')
+  if (!pathData) {
+    return <svg width={width} height={height} className="sparkline-svg">
+      <line x1="0" y1={height / 2} x2={width} y2={height / 2} stroke="rgba(255,255,255,0.08)" strokeWidth="1" strokeDasharray="3,3" />
+    </svg>
+  }
 
   return (
     <svg width={width} height={height} className="sparkline-svg">
       <path d={pathData} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.6" />
-      {/* End dot */}
-      <circle
-        cx={width}
-        cy={height - ((points[points.length - 1] - min) / range) * (height - 4) - 2}
-        r="2.5" fill={color}
-      />
+      {endPt && <circle cx={endPt.x} cy={endPt.y} r="2.5" fill={color} />}
     </svg>
   )
 }
@@ -172,34 +181,37 @@ function StateCard({ stateName, data, index, onRemove, onView, animate }) {
       <div className="wl-card-header">
         <div>
           <h3 className="wl-card-name">{stateName}</h3>
-          <span className="wl-card-abbr">{data.abbr} · {data.population}</span>
+          <span className="wl-card-abbr">{data.abbr}{data.population ? ` \u00B7 ${data.population}` : ''}</span>
         </div>
         <div className="wl-card-risk-badge" style={{ borderColor: `${riskColor}50`, background: `${riskColor}10` }}>
           <span className="wl-card-risk-dot" style={{ background: riskColor, boxShadow: `0 0 6px ${riskColor}` }} />
-          <span style={{ color: riskColor }}>{data.outbreakRisk}</span>
+          <span style={{ color: riskColor }}>{data.outbreakRisk || '\u2014'}</span>
         </div>
       </div>
 
       {/* Metrics row */}
       <div className="wl-card-metrics">
         <div className="wl-card-metric">
-          <MiniRing value={data.healthIndex} color={getHealthColor(data.healthIndex)} />
-          <span className="wl-card-metric-label">Health</span>
+          <MiniRing value={data.healthIndex ?? 0} color={data.healthIndex != null ? getHealthColor(data.healthIndex) : '#8892a4'} />
+          <span className="wl-card-metric-label">{data.healthIndex != null ? 'Health' : '\u2014'}</span>
         </div>
         <div className="wl-card-metric">
-          <MiniRing value={data.vaccinationRate} color={getHealthColor(data.vaccinationRate)} />
-          <span className="wl-card-metric-label">Vax Rate</span>
+          <MiniRing value={data.vaccinationRate ?? 0} color={data.vaccinationRate != null ? getHealthColor(data.vaccinationRate) : '#8892a4'} />
+          <span className="wl-card-metric-label">{data.vaccinationRate != null ? 'Vax Rate' : '\u2014'}</span>
         </div>
         <div className="wl-card-metric">
-          <MiniRing value={data.riskScore} color={data.riskScore > 45 ? '#ff4060' : data.riskScore > 30 ? '#f0c040' : '#00ffcc'} />
-          <span className="wl-card-metric-label">Risk</span>
+          <MiniRing value={data.riskScore ?? 0} color={data.riskScore != null ? (data.riskScore > 45 ? '#ff4060' : data.riskScore > 30 ? '#f0c040' : '#00ffcc') : '#8892a4'} />
+          <span className="wl-card-metric-label">{data.riskScore != null ? 'Risk' : '\u2014'}</span>
         </div>
       </div>
 
       {/* Trend sparkline */}
       <div className="wl-card-trend">
         <span className="wl-card-trend-label">30-day trend</span>
-        <Sparkline seed={stateName.length * 7 + data.riskScore} color={getHealthColor(data.healthIndex)} />
+        {data.riskScore != null
+          ? <Sparkline stateName={stateName} color={getHealthColor(data.healthIndex ?? 50)} />
+          : <span style={{ color: '#8892a4', fontSize: '11px' }}>{'\u2014'}</span>
+        }
       </div>
 
       {/* View button */}

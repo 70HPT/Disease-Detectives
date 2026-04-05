@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import useStore from '../../store/useStore'
 import TRANSMISSION_CORRIDORS from '../../data/transmissionCorridors'
 import { useMapData, useLocationRisk } from '../../services'
@@ -7,7 +7,7 @@ import './LoadingStates.css'
 import './StatePanel.css'
 
 // ============================================
-// CIRCULAR GAUGE â€” animated ring with value
+// CIRCULAR GAUGE â€" animated ring with value
 // ============================================
 function CircularGauge({ value, max = 100, size = 56, strokeWidth = 4, color, label, suffix = '' }) {
   const radius = (size - strokeWidth * 2) / 2
@@ -36,7 +36,7 @@ function CircularGauge({ value, max = 100, size = 56, strokeWidth = 4, color, la
         </text>
         <text x={size/2} y={size/2 + 11} textAnchor="middle"
           fill="rgba(255,255,255,0.25)" fontSize="6" fontFamily="'JetBrains Mono', monospace"
-          textTransform="uppercase" letterSpacing="0.06em">
+          style={{ textTransform: 'uppercase', letterSpacing: '0.06em' }}>
           /{max}
         </text>
       </svg>
@@ -46,37 +46,47 @@ function CircularGauge({ value, max = 100, size = 56, strokeWidth = 4, color, la
 }
 
 // ============================================
-// MINI SPARKLINE â€” procedural trend line
+// MINI SPARKLINE â€" procedural trend line
 // ============================================
-function MiniSparkline({ value, color, width = 80, height = 24 }) {
-  // Generate deterministic "trend" from value
-  const points = useMemo(() => {
-    const pts = []
-    const steps = 12
-    let y = 50
-    const seed = value * 137.5
-    for (let i = 0; i <= steps; i++) {
-      const noise = Math.sin(seed + i * 1.8) * 18 + Math.cos(seed * 0.7 + i * 2.4) * 10
-      y = Math.max(5, Math.min(95, 50 + noise - (i / steps) * (value > 50 ? -15 : 15)))
-      pts.push({ x: (i / steps) * width, y: (y / 100) * height })
-    }
-    return pts
-  }, [value, width, height])
+function MiniSparkline({ fips, color, width = 80, height = 24 }) {
+  const [points, setPoints] = useState(null)
+
+  useEffect(() => {
+    if (!fips) return
+    let cancelled = false
+    import('../../services/dataService').then(({ getOutbreakHistory }) => {
+      getOutbreakHistory(fips, { diseaseType: 'influenza', limit: 12 }).then(data => {
+        if (cancelled || !data || data.length < 2) return
+        const cases = data.map(d => d.caseCount ?? 0).reverse()
+        const max = Math.max(...cases, 1)
+        const pts = cases.map((c, i) => ({
+          x: (i / (cases.length - 1)) * width,
+          y: height - 2 - (c / max) * (height - 4)
+        }))
+        setPoints(pts)
+      })
+    })
+    return () => { cancelled = true }
+  }, [fips, width, height])
+
+  if (!points) {
+    return <svg width={width} height={height} className="mini-sparkline">
+      <line x1="0" y1={height / 2} x2={width} y2={height / 2} stroke="rgba(255,255,255,0.1)" strokeWidth="1" strokeDasharray="3,3" />
+    </svg>
+  }
 
   const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ')
+  const gradId = `spark-${fips}`
 
   return (
     <svg width={width} height={height} className="mini-sparkline">
       <defs>
-        <linearGradient id={`spark-${value}`} x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={color} stopOpacity="0.3" />
           <stop offset="100%" stopColor={color} stopOpacity="0" />
         </linearGradient>
       </defs>
-      <path
-        d={`${pathD} L ${width} ${height} L 0 ${height} Z`}
-        fill={`url(#spark-${value})`}
-      />
+      <path d={`${pathD} L ${width} ${height} L 0 ${height} Z`} fill={`url(#${gradId})`} />
       <path d={pathD} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
       <circle cx={points[points.length - 1].x} cy={points[points.length - 1].y} r="2" fill={color} />
     </svg>
@@ -84,7 +94,7 @@ function MiniSparkline({ value, color, width = 80, height = 24 }) {
 }
 
 // ============================================
-// HEALTH GRADE RING â€” A-F letter grade
+// HEALTH GRADE RING â€" A-F letter grade
 // ============================================
 function HealthGradeRing({ healthIndex }) {
   let grade, color
@@ -128,7 +138,7 @@ function HealthGradeRing({ healthIndex }) {
 }
 
 // ============================================
-// TRANSMISSION ANALYSIS â€” AI context card
+// TRANSMISSION ANALYSIS â€" AI context card
 // ============================================
 function TransmissionAnalysis({ stateName }) {
   const corridors = useMemo(() => {
@@ -197,14 +207,14 @@ function TransmissionAnalysis({ stateName }) {
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <circle cx="12" cy="12" r="10" /><path d="M12 16v-4M12 8h.01" />
         </svg>
-        Placeholder analysis â€” awaiting ML model
+        Placeholder analysis â€" awaiting ML model
       </div>
     </div>
   )
 }
 
 // ============================================
-// COUNTY TRANSMISSION ANALYSIS â€” WHO-style epi brief
+// COUNTY TRANSMISSION ANALYSIS â€" WHO-style epi brief
 // ============================================
 function CountyTransmissionAnalysis({ countyData, stateName, allCounties }) {
   const analysis = useMemo(() => {
@@ -225,7 +235,7 @@ function CountyTransmissionAnalysis({ countyData, stateName, allCounties }) {
                      : populationNum > 50000 ? Math.floor(200 + pr(hash + 21) * 600)
                      : Math.floor(20 + pr(hash + 22) * 180)
 
-    // Effective reproduction number (Rt) â€” derived from risk score and vaccination
+    // Effective reproduction number (Rt) â€" derived from risk score and vaccination
     const vaccGap = 100 - vaccinationRate
     const rt = (0.5 + (riskScore / 100) * 1.8 + (vaccGap / 100) * 0.5).toFixed(2)
     const rtStatus = rt > 1.5 ? 'critical' : rt > 1.0 ? 'concerning' : 'controlled'
@@ -306,7 +316,7 @@ function CountyTransmissionAnalysis({ countyData, stateName, allCounties }) {
         <div className="cta-ind-divider" />
         <div className="cta-indicator">
           <span className="cta-ind-value" style={{ color: 'rgba(255,255,255,0.6)' }}>
-            {analysis.doublingTime ? `${analysis.doublingTime}d` : 'â€”'}
+            {analysis.doublingTime ? `${analysis.doublingTime}d` : '\u2014'}
           </span>
           <span className="cta-ind-label">Doubling</span>
         </div>
@@ -331,7 +341,7 @@ function CountyTransmissionAnalysis({ countyData, stateName, allCounties }) {
         {analysis.spreadPaths.map((path, i) => (
           <div key={path.name} className="cta-path" style={{ animationDelay: `${i * 80}ms` }}>
             <div className="cta-path-top">
-              <span className="cta-path-name">â†’ {path.name} Co.</span>
+              <span className="cta-path-name">{'\u2192'} {path.name} Co.</span>
               <span className="cta-path-risk" style={{
                 color: path.pathRisk > 65 ? '#ef4444' : path.pathRisk > 40 ? '#f0a030' : '#10b981'
               }}>
@@ -356,7 +366,7 @@ function CountyTransmissionAnalysis({ countyData, stateName, allCounties }) {
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <circle cx="12" cy="12" r="10" /><path d="M12 16v-4M12 8h.01" />
         </svg>
-        WHO methodology placeholder â€” awaiting ML model
+        WHO methodology placeholder â€" awaiting ML model
       </div>
     </div>
   )
@@ -378,6 +388,16 @@ export default function StatePanel() {
   const { data: countyRisk, loading: countyLoading } = useLocationRisk(
     selectedCounty?.fips || null
   )
+
+  // Stop Lenis while panel is open so it doesn't fight panel scroll
+  useEffect(() => {
+    if (!selectedState) return
+    const lenis = window.__lenis
+    if (lenis) {
+      lenis.stop()
+      return () => lenis.start()
+    }
+  }, [selectedState])
 
   if (!selectedState) return null
 
@@ -418,9 +438,15 @@ export default function StatePanel() {
     // Override with real API values for county-level view
     ...(countyRisk && selectedCounty ? {
       riskScore: countyRisk.riskScore,
+      outbreakRisk: countyRisk.riskScore < 33 ? 'Low' : countyRisk.riskScore < 66 ? 'Medium' : 'High',
       vaccinationRate: Math.round(countyRisk.factors.vaccinationCoverage * 100),
+      populationDensity: Math.round(countyRisk.factors.populationDensity * 100),
+      climateRisk: Math.round(countyRisk.factors.climateRisk * 100),
+      historicalTrend: Math.round(countyRisk.factors.historicalTrend * 100),
+      searchTrend: Math.round(countyRisk.factors.searchTrend * 100),
     } : {}),
   }
+  const hasApiFactors = !!(countyRisk && selectedCounty)
   const isCountyView = viewMode === 'state-counties'
   const isShowingCounty = !!selectedCounty
 
@@ -456,16 +482,16 @@ export default function StatePanel() {
       <div className="panel-header">
         {isShowingCounty && (
           <span className="breadcrumb-mini">
-            {selectedState.abbr} â€º County
+            {selectedState.abbr} {'\u203A'} County
           </span>
         )}
         <h2>{displayData.name}</h2>
         <p className="population">
-          {isShowingCounty ? `${selectedState.name}` : `Population: ${displayData.population}`}
+          {isShowingCounty ? `${selectedState.name}` : `Population: ${displayData.population || '\u2014'}`}
         </p>
         {isShowingCounty && (
           <p className="population" style={{ marginTop: '0.25rem' }}>
-            Population: {displayData.population}
+            Population: {displayData.population || '\u2014'}
           </p>
         )}
       </div>
@@ -477,15 +503,15 @@ export default function StatePanel() {
         <>
           {/* Health Grade + Risk Badge Row */}
           <div className="county-grade-row">
-            <HealthGradeRing healthIndex={displayData.healthIndex} />
+            <HealthGradeRing healthIndex={displayData.healthIndex ?? 0} />
             <div className="county-risk-card">
               <span className="county-risk-title">Outbreak Risk</span>
               <span className="county-risk-level" style={{ color: getRiskColor(displayData.outbreakRisk) }}>
-                {displayData.outbreakRisk}
+                {displayData.outbreakRisk || '\u2014'}
               </span>
               <MiniSparkline
-                value={displayData.riskScore}
-                color={getMetricColor(100 - displayData.riskScore)}
+                fips={displayData.fips}
+                color={displayData.riskScore != null ? getMetricColor(100 - displayData.riskScore) : '#8892a4'}
                 width={90}
                 height={20}
               />
@@ -495,102 +521,151 @@ export default function StatePanel() {
           {/* Circular Gauges Grid */}
           <div className="county-gauges-grid">
             <CircularGauge
-              value={displayData.riskScore}
-              color={getMetricColor(100 - displayData.riskScore)}
+              value={displayData.riskScore ?? 0}
+              color={displayData.riskScore != null ? getMetricColor(100 - displayData.riskScore) : '#8892a4'}
               label="Risk Score"
             />
             <CircularGauge
-              value={displayData.vaccinationRate}
-              color={getMetricColor(displayData.vaccinationRate)}
+              value={displayData.vaccinationRate ?? 0}
+              color={displayData.vaccinationRate != null ? getMetricColor(displayData.vaccinationRate) : '#8892a4'}
               label="Vaccination"
               suffix="%"
             />
             <CircularGauge
-              value={displayData.healthIndex}
-              color={getMetricColor(displayData.healthIndex)}
+              value={displayData.healthIndex ?? 0}
+              color={displayData.healthIndex != null ? getMetricColor(displayData.healthIndex) : '#8892a4'}
               label="Health Idx"
             />
           </div>
 
-          {/* Additional Metrics */}
+          {/* Contributing Factors — real API data when available */}
           <div className="county-detail-metrics">
-            <div className="county-detail-row">
-              <div className="county-detail-icon">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-                </svg>
-              </div>
-              <span className="county-detail-label">Active Cases</span>
-              <span className="county-detail-value">{displayData.activeCases}</span>
-            </div>
-            <div className="county-detail-row">
-              <div className="county-detail-icon">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18M9 3v18" />
-                </svg>
-              </div>
-              <span className="county-detail-label">Hospital Capacity</span>
-              <div className="county-detail-bar-wrap">
-                <div className="county-detail-bar">
-                  <div
-                    className="county-detail-bar-fill"
-                    style={{
-                      width: `${displayData.hospitalCapacity}%`,
-                      backgroundColor: getMetricColor(displayData.hospitalCapacity)
-                    }}
-                  />
+            {hasApiFactors ? (
+              <>
+                <div className="county-detail-row">
+                  <div className="county-detail-icon">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><circle cx="9" cy="7" r="4" />
+                    </svg>
+                  </div>
+                  <span className="county-detail-label">Population Density</span>
+                  <div className="county-detail-bar-wrap">
+                    <div className="county-detail-bar">
+                      <div className="county-detail-bar-fill" style={{ width: `${displayData.populationDensity}%`, backgroundColor: getMetricColor(100 - displayData.populationDensity) }} />
+                    </div>
+                    <span className="county-detail-value">{displayData.populationDensity}%</span>
+                  </div>
                 </div>
-                <span className="county-detail-value">{displayData.hospitalCapacity}%</span>
-              </div>
-            </div>
-            <div className="county-detail-row">
-              <div className="county-detail-icon">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="10" /><path d="M12 8v4l2 2" />
-                </svg>
-              </div>
-              <span className="county-detail-label">Testing Rate</span>
-              <div className="county-detail-bar-wrap">
-                <div className="county-detail-bar">
-                  <div
-                    className="county-detail-bar-fill"
-                    style={{
-                      width: `${displayData.testingRate}%`,
-                      backgroundColor: getMetricColor(displayData.testingRate)
-                    }}
-                  />
+                <div className="county-detail-row">
+                  <div className="county-detail-icon">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7z" />
+                    </svg>
+                  </div>
+                  <span className="county-detail-label">Climate Risk</span>
+                  <div className="county-detail-bar-wrap">
+                    <div className="county-detail-bar">
+                      <div className="county-detail-bar-fill" style={{ width: `${displayData.climateRisk}%`, backgroundColor: getMetricColor(100 - displayData.climateRisk) }} />
+                    </div>
+                    <span className="county-detail-value">{displayData.climateRisk}%</span>
+                  </div>
                 </div>
-                <span className="county-detail-value">{displayData.testingRate}%</span>
-              </div>
-            </div>
-            <div className="county-detail-row">
-              <div className="county-detail-icon">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><circle cx="9" cy="7" r="4" />
-                </svg>
-              </div>
-              <span className="county-detail-label">Air Quality</span>
-              <span className="county-detail-value air-quality">{displayData.airQuality}</span>
-            </div>
+                <div className="county-detail-row">
+                  <div className="county-detail-icon">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+                    </svg>
+                  </div>
+                  <span className="county-detail-label">Historical Trend</span>
+                  <div className="county-detail-bar-wrap">
+                    <div className="county-detail-bar">
+                      <div className="county-detail-bar-fill" style={{ width: `${displayData.historicalTrend}%`, backgroundColor: getMetricColor(100 - displayData.historicalTrend) }} />
+                    </div>
+                    <span className="county-detail-value">{displayData.historicalTrend}%</span>
+                  </div>
+                </div>
+                <div className="county-detail-row">
+                  <div className="county-detail-icon">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                  </div>
+                  <span className="county-detail-label">Search Trend</span>
+                  <div className="county-detail-bar-wrap">
+                    <div className="county-detail-bar">
+                      <div className="county-detail-bar-fill" style={{ width: `${displayData.searchTrend}%`, backgroundColor: getMetricColor(100 - displayData.searchTrend) }} />
+                    </div>
+                    <span className="county-detail-value">{displayData.searchTrend}%</span>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="county-detail-row">
+                  <div className="county-detail-icon">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+                    </svg>
+                  </div>
+                  <span className="county-detail-label">Active Cases</span>
+                  <span className="county-detail-value">{displayData.activeCases ?? '\u2014'}</span>
+                </div>
+                <div className="county-detail-row">
+                  <div className="county-detail-icon">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18M9 3v18" />
+                    </svg>
+                  </div>
+                  <span className="county-detail-label">Hospital Capacity</span>
+                  <span className="county-detail-value">{displayData.hospitalCapacity != null ? `${displayData.hospitalCapacity}%` : '\u2014'}</span>
+                </div>
+                <div className="county-detail-row">
+                  <div className="county-detail-icon">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="12" cy="12" r="10" /><path d="M12 8v4l2 2" />
+                    </svg>
+                  </div>
+                  <span className="county-detail-label">Testing Rate</span>
+                  <span className="county-detail-value">{displayData.testingRate != null ? `${displayData.testingRate}%` : '\u2014'}</span>
+                </div>
+                <div className="county-detail-row">
+                  <div className="county-detail-icon">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><circle cx="9" cy="7" r="4" />
+                    </svg>
+                  </div>
+                  <span className="county-detail-label">Air Quality</span>
+                  <span className="county-detail-value air-quality">{displayData.airQuality || '\u2014'}</span>
+                </div>
+              </>
+            )}
           </div>
 
-          {/* County Epidemiological Brief */}
-          <CountyTransmissionAnalysis
-            countyData={displayData}
-            stateName={selectedState.name}
-          />
+          {/* Epi brief — only show when no real API factors */}
+          {!hasApiFactors && (
+            <CountyTransmissionAnalysis
+              countyData={displayData}
+              stateName={selectedState.name}
+            />
+          )}
 
           {/* Footer */}
           <div className="panel-footer">
-            <p className="hint">County health metrics (placeholder data)</p>
-            <div className="data-notice">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-                <circle cx="12" cy="12" r="10" />
-                <line x1="12" y1="8" x2="12" y2="12" />
-                <line x1="12" y1="16" x2="12.01" y2="16" />
-              </svg>
-              <span>Data ready for backend integration</span>
-            </div>
+            {hasApiFactors ? (
+              <p className="hint">ML model contributing factors</p>
+            ) : (
+              <>
+                <p className="hint">County health metrics (placeholder data)</p>
+                <div className="data-notice">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                  </svg>
+                  <span>Data ready for backend integration</span>
+                </div>
+              </>
+            )}
           </div>
         </>
       ) : (
@@ -603,7 +678,7 @@ export default function StatePanel() {
           <div className="risk-badge" style={{ borderColor: getRiskColor(displayData.outbreakRisk) }}>
             <span className="risk-label">Outbreak Risk</span>
             <span className="risk-value" style={{ color: getRiskColor(displayData.outbreakRisk) }}>
-              {displayData.outbreakRisk}
+              {displayData.outbreakRisk || '\u2014'}
             </span>
           </div>
 
@@ -612,14 +687,14 @@ export default function StatePanel() {
             <div className="metric">
               <div className="metric-header">
                 <span className="metric-label">Risk Score</span>
-                <span className="metric-value">{displayData.riskScore}/100</span>
+                <span className="metric-value">{displayData.riskScore != null ? `${displayData.riskScore}/100` : '\u2014'}</span>
               </div>
               <div className="progress-bar">
                 <div
                   className="progress-fill"
                   style={{
-                    width: `${displayData.riskScore}%`,
-                    backgroundColor: getProgressColor(100 - displayData.riskScore)
+                    width: `${displayData.riskScore ?? 0}%`,
+                    backgroundColor: displayData.riskScore != null ? getProgressColor(100 - displayData.riskScore) : '#8892a4'
                   }}
                 />
               </div>
@@ -628,14 +703,14 @@ export default function StatePanel() {
             <div className="metric">
               <div className="metric-header">
                 <span className="metric-label">Vaccination Rate</span>
-                <span className="metric-value">{displayData.vaccinationRate}%</span>
+                <span className="metric-value">{displayData.vaccinationRate != null ? `${displayData.vaccinationRate}%` : '\u2014'}</span>
               </div>
               <div className="progress-bar">
                 <div
                   className="progress-fill"
                   style={{
-                    width: `${displayData.vaccinationRate}%`,
-                    backgroundColor: getProgressColor(displayData.vaccinationRate)
+                    width: `${displayData.vaccinationRate ?? 0}%`,
+                    backgroundColor: displayData.vaccinationRate != null ? getProgressColor(displayData.vaccinationRate) : '#8892a4'
                   }}
                 />
               </div>
@@ -644,14 +719,14 @@ export default function StatePanel() {
             <div className="metric">
               <div className="metric-header">
                 <span className="metric-label">Health Index</span>
-                <span className="metric-value">{displayData.healthIndex}/100</span>
+                <span className="metric-value">{displayData.healthIndex != null ? `${displayData.healthIndex}/100` : '\u2014'}</span>
               </div>
               <div className="progress-bar">
                 <div
                   className="progress-fill"
                   style={{
-                    width: `${displayData.healthIndex}%`,
-                    backgroundColor: getProgressColor(displayData.healthIndex)
+                    width: `${displayData.healthIndex ?? 0}%`,
+                    backgroundColor: displayData.healthIndex != null ? getProgressColor(displayData.healthIndex) : '#8892a4'
                   }}
                 />
               </div>
@@ -659,11 +734,11 @@ export default function StatePanel() {
 
             <div className="metric simple">
               <span className="metric-label">Air Quality</span>
-              <span className="metric-value">{displayData.airQuality}</span>
+              <span className="metric-value">{displayData.airQuality || '\u2014'}</span>
             </div>
           </div>
 
-          {/* Transmission Analysis â€” AI context card */}
+          {/* Transmission Analysis â€" AI context card */}
           <TransmissionAnalysis stateName={selectedState.name} />
 
           {/* Footer */}
