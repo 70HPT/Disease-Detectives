@@ -4,7 +4,7 @@ import { useWHOPulse } from '../../services/useWHOPulse'
 import './ContentSections.css'
 
 // ============================================
-// MOCK DATA â€” Shaped exactly like future API responses
+// MOCK DATA — Shaped exactly like future API responses
 // Replace these functions with API calls when backend is ready
 // ============================================
 
@@ -80,14 +80,14 @@ function fetchInsights(year) {
     {
       type: 'trend',
       title: 'Respiratory Illness Surge',
-      body: `Influenza-like illness (ILI) rates in ${year} ran 15% above the CDC baseline across 23 states during weeks 48â€“52. Highest excess seen in the Southeast and Midwest regions.`,
+      body: `Influenza-like illness (ILI) rates in ${year} ran 15% above the CDC baseline across 23 states during weeks 48—52. Highest excess seen in the Southeast and Midwest regions.`,
       severity: 'warning',
       confidence: 92
     },
     {
       type: 'comparison',
       title: `${year} vs. 5-Year Average`,
-      body: `Overall reportable disease incidence in ${year} was 4% below the 2019â€“${year - 1} average, driven primarily by sustained declines in hepatitis A following widespread vaccination campaigns.`,
+      body: `Overall reportable disease incidence in ${year} was 4% below the 2019—${year - 1} average, driven primarily by sustained declines in hepatitis A following widespread vaccination campaigns.`,
       severity: 'positive',
       confidence: 88
     },
@@ -115,7 +115,7 @@ function fetchInsights(year) {
     {
       type: 'pattern',
       title: 'Urban Heat-Health Nexus',
-      body: `Emergency department visits for heat-related illness in ${year} showed a 0.94 correlation with days exceeding 100Â°F across 15 major metros. Phoenix, Houston, and Miami led in absolute case counts.`,
+      body: `Emergency department visits for heat-related illness in ${year} showed a 0.94 correlation with days exceeding 100°F across 15 major metros. Phoenix, Houston, and Miami led in absolute case counts.`,
       severity: 'warning',
       confidence: 84
     }
@@ -171,7 +171,7 @@ function fetchDiseaseSpotlight(disease, year) {
       keyFinding: 'New R21/Matrix-M vaccine showed 75% efficacy in Phase III trials'
     },
     'Dengue': {
-      overview: `${year} set records for dengue cases in the Americas, driven by El NiÃ±o-amplified mosquito range expansion. The US saw locally-acquired cases in Florida, Texas, and Hawaii. The Dengvaxia vaccine remained controversial due to serostatus requirements.`,
+      overview: `${year} set records for dengue cases in the Americas, driven by El Niño-amplified mosquito range expansion. The US saw locally-acquired cases in Florida, Texas, and Hawaii. The Dengvaxia vaccine remained controversial due to serostatus requirements.`,
       globalCases: '5.2M',
       usCases: '4.8K',
       mortality: '4.1K global',
@@ -213,9 +213,9 @@ const INSIGHT_ICONS = {
 }
 
 const TREND_ARROWS = {
-  up: 'â†‘',
-  down: 'â†“',
-  stable: 'â†’'
+  up: ‘↑’,
+  down: ‘↓’,
+  stable: ‘→’
 }
 
 // ============================================
@@ -240,7 +240,7 @@ function ChevronIcon({ isOpen, size = 16 }) {
 }
 
 // ============================================
-// SECTION WRAPPER â€” handles scroll-triggered animation
+// SECTION WRAPPER — handles scroll-triggered animation
 // ============================================
 function AnimatedSection({ children, className, delay = 0, isVisible }) {
   return (
@@ -324,7 +324,7 @@ function GlobalHealthPulse({ year, isVisible }) {
 }
 
 // ============================================
-// WATCHLIST â€” Monitored states with AI digests
+// WATCHLIST — Monitored states with AI digests
 // ============================================
 function Watchlist({ year, isVisible }) {
   const requestStateZoom = useStore((state) => state.requestStateZoom)
@@ -494,7 +494,7 @@ function Watchlist({ year, isVisible }) {
 }
 
 // ============================================
-// AI INSIGHTS FEED â€” Year-reactive intelligence cards
+// AI INSIGHTS FEED — Year-reactive intelligence cards
 // ============================================
 function InsightsFeed({ year, isVisible }) {
   const insights = fetchInsights(year)
@@ -503,7 +503,7 @@ function InsightsFeed({ year, isVisible }) {
   return (
     <section className="cs-section cs-insights">
       <AnimatedSection className="cs-section-header" isVisible={isVisible} delay={100}>
-        <span className="cs-section-tag">Analysis Â· {year}</span>
+        <span className="cs-section-tag">Analysis · {year}</span>
         <h2 className="cs-section-title">Intelligence Feed</h2>
         <p className="cs-section-subtitle">Patterns, trends, and anomalies identified from health surveillance data</p>
       </AnimatedSection>
@@ -551,7 +551,7 @@ function InsightsFeed({ year, isVisible }) {
 }
 
 // ============================================
-// DISEASE SPOTLIGHT â€” Deep-dive on a single disease
+// DISEASE SPOTLIGHT — Deep-dive on a single disease
 // ============================================
 function DiseaseSpotlight({ year, isVisible }) {
   const [selectedDisease, setSelectedDisease] = useState('Influenza')
@@ -573,7 +573,7 @@ function DiseaseSpotlight({ year, isVisible }) {
   return (
     <section className="cs-section cs-spotlight">
       <AnimatedSection className="cs-section-header" isVisible={isVisible} delay={100}>
-        <span className="cs-section-tag">Deep Dive Â· {year}</span>
+        <span className="cs-section-tag">Deep Dive · {year}</span>
         <h2 className="cs-section-title">Disease Spotlight</h2>
       </AnimatedSection>
 
@@ -648,7 +648,7 @@ function DiseaseSpotlight({ year, isVisible }) {
 }
 
 // ============================================
-// DATA SOURCES â€” Enhanced with real WHO dataset names
+// DATA SOURCES — Enhanced with real WHO dataset names
 // ============================================
 function DataSources({ isVisible }) {
   const sources = [
@@ -656,7 +656,7 @@ function DataSources({ isVisible }) {
     { name: 'CDC Socrata', full: 'Disease Surveillance API', type: 'State-level disease reporting (via backend)', status: 'pending' },
     { name: 'Census Bureau', full: 'American Community Survey', type: 'County population & demographics (via backend)', status: 'pending' },
     { name: 'NOAA CDO', full: 'Climate Data Online', type: 'Climate observations by county (via backend)', status: 'pending' },
-    { name: 'ML Model', full: 'FluPredictor Neural Network', type: 'County-level outbreak risk predictions', status: 'pending' },
+    { name: 'ML Model', full: 'DiseasePredictor LSTM', type: 'County-level outbreak risk predictions', status: 'pending' },
     { name: 'NNDSS', full: 'National Notifiable Diseases', type: 'Reportable disease counts', status: 'pending' }
   ]
 
@@ -732,8 +732,8 @@ export default function ContentSections({ isVisible }) {
 
       {/* Footer */}
       <footer className="cs-footer">
-        <p>Disease Detectives Â© {new Date().getFullYear()} â€” Senior Capstone Project</p>
-        <p className="cs-footer-note">Mock data shown for demonstration â€” ready for backend integration</p>
+        <p>Disease Detectives © {new Date().getFullYear()} — Senior Capstone Project</p>
+        <p className=”cs-footer-note”>Mock data shown for demonstration — ready for backend integration</p>
       </footer>
     </div>
   )
