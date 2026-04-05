@@ -189,7 +189,7 @@
 
   opacity: 0;
   transform: translateY(12px);
-  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
 }
 
 .wl-card.animate {
@@ -204,6 +204,7 @@
 .wl-card:hover {
   border-color: rgba(0, 255, 204, 0.15);
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3), 0 0 30px rgba(0, 255, 204, 0.03);
+  transform: translateY(-2px);
 }
 
 .wl-card-remove {
@@ -347,6 +348,8 @@
   border-color: rgba(0, 255, 204, 0.3);
   color: rgba(0, 255, 204, 0.95);
   box-shadow: 0 0 20px rgba(0, 255, 204, 0.1);
+  transform: translateX(2px);
+  transition: background 0.2s ease, transform 0.2s ease;
 }
 
 /* Empty state */

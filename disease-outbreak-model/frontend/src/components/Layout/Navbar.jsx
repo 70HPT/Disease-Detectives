@@ -284,7 +284,7 @@ function StateSearch({ onStateSelect }) {
 // ============================================
 // USER MENU — profile dropdown with animated chevron
 // ============================================
-function UserMenu({ user, onLogout, onOpenSettings, onOpenProfile }) {
+function UserMenu({ user, onLogout, onOpenSettings }) {
   const [isOpen, setIsOpen] = useState(false)
   const menuRef = useRef(null)
 
@@ -333,13 +333,6 @@ function UserMenu({ user, onLogout, onOpenSettings, onOpenProfile }) {
             </div>
           </div>
           <div className="user-dropdown-divider" />
-          <button className="user-dropdown-item" onClick={() => { setIsOpen(false); onOpenProfile?.() }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-              <circle cx="12" cy="7" r="4" />
-            </svg>
-            Profile
-          </button>
           <button className="user-dropdown-item" onClick={() => { setIsOpen(false); onOpenSettings?.() }}>
             <SettingsIcon />
             Settings
@@ -378,8 +371,7 @@ export default function Navbar({ visible = false, onLogin }) {
   const toggleSettings = useStore((state) => state.toggleSettings)
   const toggleWatchlist = useStore((state) => state.toggleWatchlist)
   const watchlistCount = useStore((state) => state.watchlist.length)
-  const openProfile = useStore((state) => state.openProfile)
-  const openComparison = useStore((state) => state.openComparison)
+const openComparison = useStore((state) => state.openComparison)
   const heatmapEnabled = useStore((state) => state.heatmapEnabled)
   const toggleHeatmap = useStore((state) => state.toggleHeatmap)
 
@@ -470,7 +462,7 @@ export default function Navbar({ visible = false, onLogin }) {
                 <SettingsIcon />
               </button>
               <div className="right-divider" />
-              <UserMenu user={user} onLogout={handleLogout} onOpenSettings={toggleSettings} onOpenProfile={openProfile} />
+              <UserMenu user={user} onLogout={handleLogout} onOpenSettings={toggleSettings} />
             </>
           ) : (
             <button className="login-btn" onClick={onLogin}>

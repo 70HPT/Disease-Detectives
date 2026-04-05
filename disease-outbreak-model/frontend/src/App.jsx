@@ -6,7 +6,6 @@ import StatePanel from './components/UI/StatePanel'
 import StateHealthRings from './components/UI/StateHealthRings'
 import StateTimeline from './components/UI/StateTimeline'
 import WatchlistDashboard from './components/UI/WatchlistDashboard'
-import ProfilePage from './components/UI/ProfilePage'
 import ComparisonMode from './components/UI/ComparisonMode'
 import HeatmapLegend from './components/UI/HeatmapLegend'
 import CorridorPanel from './components/UI/CorridorPanel'
@@ -281,7 +280,6 @@ function App() {
 
       {/* Watchlist Dashboard Overlay */}
       <WatchlistDashboard />
-      <ProfilePage />
       <ComparisonMode />
       <HeatmapLegend />
       <CorridorPanel />

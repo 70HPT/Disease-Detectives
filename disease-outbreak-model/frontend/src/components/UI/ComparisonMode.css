@@ -134,7 +134,7 @@
   cursor: default;
   opacity: 0;
   transform: translateY(8px) scale(0.95);
-  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.3s ease;
 }
 
 .cmp-state-card.animate {
@@ -149,6 +149,8 @@
 .cmp-state-card:hover {
   border-color: var(--card-color, rgba(0, 255, 204, 0.2));
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3), 0 0 20px var(--card-glow, rgba(0, 255, 204, 0.08));
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.1);
 }
 
 /* Blurred silhouette background */

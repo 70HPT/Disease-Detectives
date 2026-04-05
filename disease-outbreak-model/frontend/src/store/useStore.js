@@ -207,14 +207,6 @@ const useStore = create((set, get) => ({
   })),
 
   // ============================================
-  // PROFILE PAGE
-  // ============================================
-  profileOpen: false,
-  toggleProfile: () => set((state) => ({ profileOpen: !state.profileOpen })),
-  openProfile: () => set({ profileOpen: true }),
-  closeProfile: () => set({ profileOpen: false }),
-
-  // ============================================
   // WATCHLIST
   // ============================================
   watchlist: ['California', 'New York', 'Texas', 'Florida'], // Default watched states
