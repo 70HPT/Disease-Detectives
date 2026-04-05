@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import useStore from '../../store/useStore'
 import { NATIONAL_EVENTS, STATE_EVENTS } from '../../data/stateHealthData'
+import { getOutbreakHistory } from '../../services/dataService'
 import './StateTimeline.css'
 
 // ============================================
@@ -93,6 +94,71 @@ function EventCard({ event, onClose }) {
       </div>
 
       <p className="tl-card-desc">{event.desc}</p>
+    </div>
+  )
+}
+
+// ============================================
+// CASE TREND CHART — real surveillance data from API
+// ============================================
+function CaseTrendChart({ stateName, animate }) {
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const stateFips = useStore(s => s.stateFips)
+
+  useEffect(() => {
+    if (!stateName || !stateFips[stateName]) return
+    setLoading(true)
+    setData(null)
+    const fips = stateFips[stateName] + '001'
+    getOutbreakHistory(fips, { diseaseType: 'influenza', limit: 52 }).then(result => {
+      if (result && result.length > 0) {
+        setData(result.reverse())
+      }
+      setLoading(false)
+    })
+  }, [stateName, stateFips])
+
+  if (loading) return <div className="tl-trend-loading">Loading surveillance data...</div>
+  if (!data) return null
+
+  const cases = data.map(d => d.case_count ?? d.caseCount ?? 0)
+  const maxCase = Math.max(...cases, 1)
+  const w = 400, h = 60, pad = 2
+
+  const points = cases.map((c, i) => {
+    const x = pad + (i / (cases.length - 1)) * (w - pad * 2)
+    const y = h - pad - (c / maxCase) * (h - pad * 2)
+    return `${x.toFixed(1)},${y.toFixed(1)}`
+  })
+
+  const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p}`).join(' ')
+  const areaPath = `${linePath} L${(w - pad).toFixed(1)},${h} L${pad},${h} Z`
+
+  const dateRange = data.length > 1
+    ? `${data[0].date?.slice(0, 7) || ''} \u2013 ${data[data.length - 1].date?.slice(0, 7) || ''}`
+    : ''
+
+  return (
+    <div className={`tl-trend-chart ${animate ? 'visible' : ''}`}>
+      <div className="tl-trend-header">
+        <span className="tl-trend-title">Flu Surveillance</span>
+        <span className="tl-trend-range">{dateRange}</span>
+      </div>
+      <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="tl-trend-svg">
+        <defs>
+          <linearGradient id="trendGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#0ea5e9" stopOpacity="0.3" />
+            <stop offset="100%" stopColor="#0ea5e9" stopOpacity="0.02" />
+          </linearGradient>
+        </defs>
+        <path d={areaPath} fill="url(#trendGrad)" />
+        <path d={linePath} fill="none" stroke="#0ea5e9" strokeWidth="1.5" strokeLinejoin="round" />
+      </svg>
+      <div className="tl-trend-footer">
+        <span>Peak: {maxCase.toLocaleString()} cases</span>
+        <span className="tl-trend-source">Source: NNDSS</span>
+      </div>
     </div>
   )
 }
@@ -191,6 +257,9 @@ export default function StateTimeline() {
           ))}
         </div>
       </div>
+
+      {/* Real surveillance data chart */}
+      <CaseTrendChart stateName={selectedState.name} animate={animate} />
 
       {/* Timeline track */}
       <div className="tl-track-wrapper">

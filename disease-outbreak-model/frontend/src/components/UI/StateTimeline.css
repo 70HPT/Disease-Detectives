@@ -450,6 +450,67 @@
   }
 }
 
+/* Case Trend Chart */
+.tl-trend-chart {
+  padding: 8px 20px;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.5s ease 0.3s, transform 0.5s ease 0.3s;
+}
+
+.tl-trend-chart.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.tl-trend-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.tl-trend-title {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: #0ea5e9;
+}
+
+.tl-trend-range {
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.35);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.tl-trend-svg {
+  width: 100%;
+  height: 50px;
+  display: block;
+}
+
+.tl-trend-footer {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.3);
+  margin-top: 2px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.tl-trend-source {
+  color: rgba(14, 165, 233, 0.4);
+}
+
+.tl-trend-loading {
+  padding: 8px 20px;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.3);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
 @media (max-width: 900px) {
   .state-timeline {
     display: none;

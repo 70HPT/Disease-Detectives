@@ -260,9 +260,15 @@ function GlobalHealthPulse({ year, isVisible }) {
   const { stats: whoStats, loading, source } = useWHOPulse(year)
   const mockData = fetchGlobalPulse(year)
 
-  // Use real WHO stats if available, otherwise fall back to mock
-  const displayStats = whoStats || mockData.stats
-  const isLive = !!whoStats
+  const noDataStats = [
+    { key: 'lifeExp', value: '\u2014', label: 'US Life Expectancy', trend: 'stable', change: '' },
+    { key: 'measles', value: '\u2014', label: 'Measles Immunization (US)', trend: 'stable', change: '' },
+    { key: 'tb', value: '\u2014', label: 'TB Incidence (per 100K)', trend: 'stable', change: '' },
+    { key: 'healthExp', value: '\u2014', label: 'Health Spending (% GDP)', trend: 'stable', change: '' },
+  ]
+
+  const displayStats = whoStats || noDataStats
+  const isLive = whoStats && whoStats.some(s => s.source === 'WHO')
 
   return (
     <section className="cs-section cs-pulse">
@@ -654,10 +660,10 @@ function DataSources({ isVisible }) {
   const sources = [
     { name: 'WHO GHO', full: 'Global Health Observatory', type: 'National health indicators via direct API', status: 'ready' },
     { name: 'CDC Socrata', full: 'Disease Surveillance API', type: 'State-level disease reporting (via backend)', status: 'pending' },
-    { name: 'Census Bureau', full: 'American Community Survey', type: 'County population & demographics (via backend)', status: 'pending' },
+    { name: 'Census Bureau', full: 'American Community Survey', type: 'County population & demographics (via backend)', status: 'ready' },
     { name: 'NOAA CDO', full: 'Climate Data Online', type: 'Climate observations by county (via backend)', status: 'pending' },
-    { name: 'ML Model', full: 'DiseasePredictor LSTM', type: 'County-level outbreak risk predictions', status: 'pending' },
-    { name: 'NNDSS', full: 'National Notifiable Diseases', type: 'Reportable disease counts', status: 'pending' }
+    { name: 'ML Model', full: 'DiseasePredictor LSTM', type: 'County-level outbreak risk predictions', status: 'ready' },
+    { name: 'NNDSS', full: 'National Notifiable Diseases', type: 'Flu surveillance weekly case counts', status: 'ready' }
   ]
 
   return (
@@ -733,7 +739,7 @@ export default function ContentSections({ isVisible }) {
       {/* Footer */}
       <footer className="cs-footer">
         <p>Disease Detectives © {new Date().getFullYear()} — Senior Capstone Project</p>
-        <p className="cs-footer-note">Mock data shown for demonstration — ready for backend integration</p>
+        <p className="cs-footer-note">Live data from WHO GHO API and backend ML model — some sections use curated demo content</p>
       </footer>
     </div>
   )

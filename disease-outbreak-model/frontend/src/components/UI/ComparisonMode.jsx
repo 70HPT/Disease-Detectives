@@ -28,12 +28,18 @@ const TOPO_URL = 'https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json'
 let cachedFeatures = null
 
 function getNumericData(state) {
+  const hi = state.healthIndex ?? 0
+  const vr = state.vaccinationRate ?? 0
+  const rs = state.riskScore ?? 0
+  const aq = AIR_QUALITY_MAP[state.airQuality] ?? 0
   return {
-    healthIndex: state.healthIndex || 50,
-    vaccinationRate: state.vaccinationRate || 50,
-    riskScoreInv: 100 - (state.riskScore || 50),
-    airQualityNum: AIR_QUALITY_MAP[state.airQuality] || 50,
-    infrastructureScore: Math.round(((state.healthIndex || 50) * 0.4 + (state.vaccinationRate || 50) * 0.4 + (100 - (state.riskScore || 50)) * 0.2)),
+    healthIndex: hi,
+    vaccinationRate: vr,
+    riskScoreInv: state.riskScore != null ? 100 - rs : 0,
+    airQualityNum: aq,
+    infrastructureScore: (state.healthIndex != null || state.vaccinationRate != null)
+      ? Math.round(hi * 0.4 + vr * 0.4 + (100 - rs) * 0.2)
+      : 0,
   }
 }
 
@@ -172,10 +178,10 @@ function StateCard({ stateName, colorIndex, onRemove, animate, stateInfo, geoFea
       <div className="cmp-card-content">
         <div className="cmp-card-info">
           <h3 className="cmp-card-name" style={{ color: color.text }}>{stateName}</h3>
-          <span className="cmp-card-pop">{stateInfo?.population || '—'}</span>
+          <span className="cmp-card-pop">{stateInfo?.population || '\u2014'}</span>
         </div>
         <span className="cmp-card-grade" style={{ color: color.stroke }}>
-          {(stateInfo?.healthIndex || 50) >= 70 ? 'A' : (stateInfo?.healthIndex || 50) >= 60 ? 'B' : 'C'}
+          {stateInfo?.healthIndex != null ? (stateInfo.healthIndex >= 70 ? 'A' : stateInfo.healthIndex >= 60 ? 'B' : 'C') : '\u2014'}
         </span>
       </div>
 
