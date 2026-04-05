@@ -253,60 +253,97 @@ const useStore = create((set, get) => ({
   stateCapitals,
 
   // ============================================
-  // STATE HEALTH DATA (2024/2025 Census Population Data)
+  // STATE HEALTH DATA — empty defaults, hydrated from API on mount
   // ============================================
   stateData: {
-    'Alabama': { name: 'Alabama', abbr: 'AL', population: '5.2M', outbreakRisk: 'Medium', riskScore: 42, vaccinationRate: 52, airQuality: 'Good', healthIndex: 58 },
-    'Alaska': { name: 'Alaska', abbr: 'AK', population: '747K', outbreakRisk: 'Low', riskScore: 28, vaccinationRate: 58, airQuality: 'Good', healthIndex: 68 },
-    'Arizona': { name: 'Arizona', abbr: 'AZ', population: '7.8M', outbreakRisk: 'Medium', riskScore: 45, vaccinationRate: 60, airQuality: 'Moderate', healthIndex: 62 },
-    'Arkansas': { name: 'Arkansas', abbr: 'AR', population: '3.1M', outbreakRisk: 'Medium', riskScore: 48, vaccinationRate: 54, airQuality: 'Good', healthIndex: 55 },
-    'California': { name: 'California', abbr: 'CA', population: '39.9M', outbreakRisk: 'Low', riskScore: 23, vaccinationRate: 78, airQuality: 'Moderate', healthIndex: 72 },
-    'Colorado': { name: 'Colorado', abbr: 'CO', population: '6.1M', outbreakRisk: 'Low', riskScore: 25, vaccinationRate: 72, airQuality: 'Good', healthIndex: 75 },
-    'Connecticut': { name: 'Connecticut', abbr: 'CT', population: '3.7M', outbreakRisk: 'Low', riskScore: 22, vaccinationRate: 82, airQuality: 'Good', healthIndex: 78 },
-    'Delaware': { name: 'Delaware', abbr: 'DE', population: '1.1M', outbreakRisk: 'Low', riskScore: 30, vaccinationRate: 70, airQuality: 'Good', healthIndex: 70 },
-    'Florida': { name: 'Florida', abbr: 'FL', population: '24.3M', outbreakRisk: 'Medium', riskScore: 52, vaccinationRate: 65, airQuality: 'Good', healthIndex: 61 },
-    'Georgia': { name: 'Georgia', abbr: 'GA', population: '11.4M', outbreakRisk: 'Medium', riskScore: 48, vaccinationRate: 56, airQuality: 'Good', healthIndex: 59 },
-    'Hawaii': { name: 'Hawaii', abbr: 'HI', population: '1.5M', outbreakRisk: 'Low', riskScore: 20, vaccinationRate: 80, airQuality: 'Good', healthIndex: 82 },
-    'Idaho': { name: 'Idaho', abbr: 'ID', population: '2.1M', outbreakRisk: 'Medium', riskScore: 40, vaccinationRate: 48, airQuality: 'Good', healthIndex: 65 },
-    'Illinois': { name: 'Illinois', abbr: 'IL', population: '12.8M', outbreakRisk: 'Low', riskScore: 33, vaccinationRate: 72, airQuality: 'Moderate', healthIndex: 68 },
-    'Indiana': { name: 'Indiana', abbr: 'IN', population: '7.0M', outbreakRisk: 'Medium', riskScore: 42, vaccinationRate: 55, airQuality: 'Moderate', healthIndex: 60 },
-    'Iowa': { name: 'Iowa', abbr: 'IA', population: '3.3M', outbreakRisk: 'Low', riskScore: 32, vaccinationRate: 62, airQuality: 'Good', healthIndex: 68 },
-    'Kansas': { name: 'Kansas', abbr: 'KS', population: '3.0M', outbreakRisk: 'Low', riskScore: 35, vaccinationRate: 58, airQuality: 'Good', healthIndex: 65 },
-    'Kentucky': { name: 'Kentucky', abbr: 'KY', population: '4.7M', outbreakRisk: 'Medium', riskScore: 45, vaccinationRate: 55, airQuality: 'Moderate', healthIndex: 55 },
-    'Louisiana': { name: 'Louisiana', abbr: 'LA', population: '4.6M', outbreakRisk: 'Medium', riskScore: 50, vaccinationRate: 52, airQuality: 'Moderate', healthIndex: 52 },
-    'Maine': { name: 'Maine', abbr: 'ME', population: '1.4M', outbreakRisk: 'Low', riskScore: 22, vaccinationRate: 78, airQuality: 'Good', healthIndex: 75 },
-    'Maryland': { name: 'Maryland', abbr: 'MD', population: '6.4M', outbreakRisk: 'Low', riskScore: 28, vaccinationRate: 76, airQuality: 'Moderate', healthIndex: 72 },
-    'Massachusetts': { name: 'Massachusetts', abbr: 'MA', population: '7.3M', outbreakRisk: 'Low', riskScore: 20, vaccinationRate: 85, airQuality: 'Good', healthIndex: 80 },
-    'Michigan': { name: 'Michigan', abbr: 'MI', population: '10.3M', outbreakRisk: 'Low', riskScore: 29, vaccinationRate: 70, airQuality: 'Good', healthIndex: 69 },
-    'Minnesota': { name: 'Minnesota', abbr: 'MN', population: '5.9M', outbreakRisk: 'Low', riskScore: 24, vaccinationRate: 72, airQuality: 'Good', healthIndex: 76 },
-    'Mississippi': { name: 'Mississippi', abbr: 'MS', population: '2.9M', outbreakRisk: 'High', riskScore: 58, vaccinationRate: 48, airQuality: 'Good', healthIndex: 48 },
-    'Missouri': { name: 'Missouri', abbr: 'MO', population: '6.3M', outbreakRisk: 'Medium', riskScore: 42, vaccinationRate: 55, airQuality: 'Moderate', healthIndex: 60 },
-    'Montana': { name: 'Montana', abbr: 'MT', population: '1.1M', outbreakRisk: 'Low', riskScore: 32, vaccinationRate: 55, airQuality: 'Good', healthIndex: 68 },
-    'Nebraska': { name: 'Nebraska', abbr: 'NE', population: '2.0M', outbreakRisk: 'Low', riskScore: 30, vaccinationRate: 60, airQuality: 'Good', healthIndex: 70 },
-    'Nevada': { name: 'Nevada', abbr: 'NV', population: '3.4M', outbreakRisk: 'Medium', riskScore: 40, vaccinationRate: 58, airQuality: 'Moderate', healthIndex: 62 },
-    'New Hampshire': { name: 'New Hampshire', abbr: 'NH', population: '1.4M', outbreakRisk: 'Low', riskScore: 22, vaccinationRate: 75, airQuality: 'Good', healthIndex: 78 },
-    'New Jersey': { name: 'New Jersey', abbr: 'NJ', population: '9.7M', outbreakRisk: 'Low', riskScore: 28, vaccinationRate: 78, airQuality: 'Moderate', healthIndex: 72 },
-    'New Mexico': { name: 'New Mexico', abbr: 'NM', population: '2.1M', outbreakRisk: 'Medium', riskScore: 38, vaccinationRate: 65, airQuality: 'Good', healthIndex: 60 },
-    'New York': { name: 'New York', abbr: 'NY', population: '20.1M', outbreakRisk: 'Low', riskScore: 31, vaccinationRate: 81, airQuality: 'Moderate', healthIndex: 74 },
-    'North Carolina': { name: 'North Carolina', abbr: 'NC', population: '11.4M', outbreakRisk: 'Low', riskScore: 35, vaccinationRate: 67, airQuality: 'Good', healthIndex: 66 },
-    'North Dakota': { name: 'North Dakota', abbr: 'ND', population: '812K', outbreakRisk: 'Low', riskScore: 35, vaccinationRate: 52, airQuality: 'Good', healthIndex: 68 },
-    'Ohio': { name: 'Ohio', abbr: 'OH', population: '12.0M', outbreakRisk: 'Medium', riskScore: 41, vaccinationRate: 58, airQuality: 'Moderate', healthIndex: 62 },
-    'Oklahoma': { name: 'Oklahoma', abbr: 'OK', population: '4.2M', outbreakRisk: 'Medium', riskScore: 48, vaccinationRate: 52, airQuality: 'Good', healthIndex: 55 },
-    'Oregon': { name: 'Oregon', abbr: 'OR', population: '4.3M', outbreakRisk: 'Low', riskScore: 28, vaccinationRate: 70, airQuality: 'Moderate', healthIndex: 72 },
-    'Pennsylvania': { name: 'Pennsylvania', abbr: 'PA', population: '13.2M', outbreakRisk: 'Low', riskScore: 28, vaccinationRate: 75, airQuality: 'Moderate', healthIndex: 70 },
-    'Rhode Island': { name: 'Rhode Island', abbr: 'RI', population: '1.1M', outbreakRisk: 'Low', riskScore: 25, vaccinationRate: 82, airQuality: 'Good', healthIndex: 76 },
-    'South Carolina': { name: 'South Carolina', abbr: 'SC', population: '5.7M', outbreakRisk: 'Medium', riskScore: 45, vaccinationRate: 55, airQuality: 'Good', healthIndex: 58 },
-    'South Dakota': { name: 'South Dakota', abbr: 'SD', population: '937K', outbreakRisk: 'Low', riskScore: 35, vaccinationRate: 55, airQuality: 'Good', healthIndex: 68 },
-    'Tennessee': { name: 'Tennessee', abbr: 'TN', population: '7.4M', outbreakRisk: 'Medium', riskScore: 48, vaccinationRate: 52, airQuality: 'Moderate', healthIndex: 55 },
-    'Texas': { name: 'Texas', abbr: 'TX', population: '32.4M', outbreakRisk: 'Medium', riskScore: 45, vaccinationRate: 62, airQuality: 'Good', healthIndex: 65 },
-    'Utah': { name: 'Utah', abbr: 'UT', population: '3.6M', outbreakRisk: 'Low', riskScore: 28, vaccinationRate: 60, airQuality: 'Moderate', healthIndex: 75 },
-    'Vermont': { name: 'Vermont', abbr: 'VT', population: '648K', outbreakRisk: 'Low', riskScore: 18, vaccinationRate: 82, airQuality: 'Good', healthIndex: 82 },
-    'Virginia': { name: 'Virginia', abbr: 'VA', population: '9.0M', outbreakRisk: 'Low', riskScore: 30, vaccinationRate: 72, airQuality: 'Moderate', healthIndex: 70 },
-    'Washington': { name: 'Washington', abbr: 'WA', population: '8.2M', outbreakRisk: 'Low', riskScore: 25, vaccinationRate: 75, airQuality: 'Moderate', healthIndex: 74 },
-    'West Virginia': { name: 'West Virginia', abbr: 'WV', population: '1.8M', outbreakRisk: 'High', riskScore: 55, vaccinationRate: 48, airQuality: 'Moderate', healthIndex: 48 },
-    'Wisconsin': { name: 'Wisconsin', abbr: 'WI', population: '6.0M', outbreakRisk: 'Low', riskScore: 30, vaccinationRate: 65, airQuality: 'Good', healthIndex: 70 },
-    'Wyoming': { name: 'Wyoming', abbr: 'WY', population: '593K', outbreakRisk: 'Low', riskScore: 32, vaccinationRate: 48, airQuality: 'Good', healthIndex: 68 }
+    'Alabama': { name: 'Alabama', abbr: 'AL', population: null, outbreakRisk: null, riskScore: null, vaccinationRate: null, airQuality: null, healthIndex: null },
+    'Alaska': { name: 'Alaska', abbr: 'AK', population: null, outbreakRisk: null, riskScore: null, vaccinationRate: null, airQuality: null, healthIndex: null },
+    'Arizona': { name: 'Arizona', abbr: 'AZ', population: null, outbreakRisk: null, riskScore: null, vaccinationRate: null, airQuality: null, healthIndex: null },
+    'Arkansas': { name: 'Arkansas', abbr: 'AR', population: null, outbreakRisk: null, riskScore: null, vaccinationRate: null, airQuality: null, healthIndex: null },
+    'California': { name: 'California', abbr: 'CA', population: null, outbreakRisk: null, riskScore: null, vaccinationRate: null, airQuality: null, healthIndex: null },
+    'Colorado': { name: 'Colorado', abbr: 'CO', population: null, outbreakRisk: null, riskScore: null, vaccinationRate: null, airQuality: null, healthIndex: null },
+    'Connecticut': { name: 'Connecticut', abbr: 'CT', population: null, outbreakRisk: null, riskScore: null, vaccinationRate: null, airQuality: null, healthIndex: null },
+    'Delaware': { name: 'Delaware', abbr: 'DE', population: null, outbreakRisk: null, riskScore: null, vaccinationRate: null, airQuality: null, healthIndex: null },
+    'Florida': { name: 'Florida', abbr: 'FL', population: null, outbreakRisk: null, riskScore: null, vaccinationRate: null, airQuality: null, healthIndex: null },
+    'Georgia': { name: 'Georgia', abbr: 'GA', population: null, outbreakRisk: null, riskScore: null, vaccinationRate: null, airQuality: null, healthIndex: null },
+    'Hawaii': { name: 'Hawaii', abbr: 'HI', population: null, outbreakRisk: null, riskScore: null, vaccinationRate: null, airQuality: null, healthIndex: null },
+    'Idaho': { name: 'Idaho', abbr: 'ID', population: null, outbreakRisk: null, riskScore: null, vaccinationRate: null, airQuality: null, healthIndex: null },
+    'Illinois': { name: 'Illinois', abbr: 'IL', population: null, outbreakRisk: null, riskScore: null, vaccinationRate: null, airQuality: null, healthIndex: null },
+    'Indiana': { name: 'Indiana', abbr: 'IN', population: null, outbreakRisk: null, riskScore: null, vaccinationRate: null, airQuality: null, healthIndex: null },
+    'Iowa': { name: 'Iowa', abbr: 'IA', population: null, outbreakRisk: null, riskScore: null, vaccinationRate: null, airQuality: null, healthIndex: null },
+    'Kansas': { name: 'Kansas', abbr: 'KS', population: null, outbreakRisk: null, riskScore: null, vaccinationRate: null, airQuality: null, healthIndex: null },
+    'Kentucky': { name: 'Kentucky', abbr: 'KY', population: null, outbreakRisk: null, riskScore: null, vaccinationRate: null, airQuality: null, healthIndex: null },
+    'Louisiana': { name: 'Louisiana', abbr: 'LA', population: null, outbreakRisk: null, riskScore: null, vaccinationRate: null, airQuality: null, healthIndex: null },
+    'Maine': { name: 'Maine', abbr: 'ME', population: null, outbreakRisk: null, riskScore: null, vaccinationRate: null, airQuality: null, healthIndex: null },
+    'Maryland': { name: 'Maryland', abbr: 'MD', population: null, outbreakRisk: null, riskScore: null, vaccinationRate: null, airQuality: null, healthIndex: null },
+    'Massachusetts': { name: 'Massachusetts', abbr: 'MA', population: null, outbreakRisk: null, riskScore: null, vaccinationRate: null, airQuality: null, healthIndex: null },
+    'Michigan': { name: 'Michigan', abbr: 'MI', population: null, outbreakRisk: null, riskScore: null, vaccinationRate: null, airQuality: null, healthIndex: null },
+    'Minnesota': { name: 'Minnesota', abbr: 'MN', population: null, outbreakRisk: null, riskScore: null, vaccinationRate: null, airQuality: null, healthIndex: null },
+    'Mississippi': { name: 'Mississippi', abbr: 'MS', population: null, outbreakRisk: null, riskScore: null, vaccinationRate: null, airQuality: null, healthIndex: null },
+    'Missouri': { name: 'Missouri', abbr: 'MO', population: null, outbreakRisk: null, riskScore: null, vaccinationRate: null, airQuality: null, healthIndex: null },
+    'Montana': { name: 'Montana', abbr: 'MT', population: null, outbreakRisk: null, riskScore: null, vaccinationRate: null, airQuality: null, healthIndex: null },
+    'Nebraska': { name: 'Nebraska', abbr: 'NE', population: null, outbreakRisk: null, riskScore: null, vaccinationRate: null, airQuality: null, healthIndex: null },
+    'Nevada': { name: 'Nevada', abbr: 'NV', population: null, outbreakRisk: null, riskScore: null, vaccinationRate: null, airQuality: null, healthIndex: null },
+    'New Hampshire': { name: 'New Hampshire', abbr: 'NH', population: null, outbreakRisk: null, riskScore: null, vaccinationRate: null, airQuality: null, healthIndex: null },
+    'New Jersey': { name: 'New Jersey', abbr: 'NJ', population: null, outbreakRisk: null, riskScore: null, vaccinationRate: null, airQuality: null, healthIndex: null },
+    'New Mexico': { name: 'New Mexico', abbr: 'NM', population: null, outbreakRisk: null, riskScore: null, vaccinationRate: null, airQuality: null, healthIndex: null },
+    'New York': { name: 'New York', abbr: 'NY', population: null, outbreakRisk: null, riskScore: null, vaccinationRate: null, airQuality: null, healthIndex: null },
+    'North Carolina': { name: 'North Carolina', abbr: 'NC', population: null, outbreakRisk: null, riskScore: null, vaccinationRate: null, airQuality: null, healthIndex: null },
+    'North Dakota': { name: 'North Dakota', abbr: 'ND', population: null, outbreakRisk: null, riskScore: null, vaccinationRate: null, airQuality: null, healthIndex: null },
+    'Ohio': { name: 'Ohio', abbr: 'OH', population: null, outbreakRisk: null, riskScore: null, vaccinationRate: null, airQuality: null, healthIndex: null },
+    'Oklahoma': { name: 'Oklahoma', abbr: 'OK', population: null, outbreakRisk: null, riskScore: null, vaccinationRate: null, airQuality: null, healthIndex: null },
+    'Oregon': { name: 'Oregon', abbr: 'OR', population: null, outbreakRisk: null, riskScore: null, vaccinationRate: null, airQuality: null, healthIndex: null },
+    'Pennsylvania': { name: 'Pennsylvania', abbr: 'PA', population: null, outbreakRisk: null, riskScore: null, vaccinationRate: null, airQuality: null, healthIndex: null },
+    'Rhode Island': { name: 'Rhode Island', abbr: 'RI', population: null, outbreakRisk: null, riskScore: null, vaccinationRate: null, airQuality: null, healthIndex: null },
+    'South Carolina': { name: 'South Carolina', abbr: 'SC', population: null, outbreakRisk: null, riskScore: null, vaccinationRate: null, airQuality: null, healthIndex: null },
+    'South Dakota': { name: 'South Dakota', abbr: 'SD', population: null, outbreakRisk: null, riskScore: null, vaccinationRate: null, airQuality: null, healthIndex: null },
+    'Tennessee': { name: 'Tennessee', abbr: 'TN', population: null, outbreakRisk: null, riskScore: null, vaccinationRate: null, airQuality: null, healthIndex: null },
+    'Texas': { name: 'Texas', abbr: 'TX', population: null, outbreakRisk: null, riskScore: null, vaccinationRate: null, airQuality: null, healthIndex: null },
+    'Utah': { name: 'Utah', abbr: 'UT', population: null, outbreakRisk: null, riskScore: null, vaccinationRate: null, airQuality: null, healthIndex: null },
+    'Vermont': { name: 'Vermont', abbr: 'VT', population: null, outbreakRisk: null, riskScore: null, vaccinationRate: null, airQuality: null, healthIndex: null },
+    'Virginia': { name: 'Virginia', abbr: 'VA', population: null, outbreakRisk: null, riskScore: null, vaccinationRate: null, airQuality: null, healthIndex: null },
+    'Washington': { name: 'Washington', abbr: 'WA', population: null, outbreakRisk: null, riskScore: null, vaccinationRate: null, airQuality: null, healthIndex: null },
+    'West Virginia': { name: 'West Virginia', abbr: 'WV', population: null, outbreakRisk: null, riskScore: null, vaccinationRate: null, airQuality: null, healthIndex: null },
+    'Wisconsin': { name: 'Wisconsin', abbr: 'WI', population: null, outbreakRisk: null, riskScore: null, vaccinationRate: null, airQuality: null, healthIndex: null },
+    'Wyoming': { name: 'Wyoming', abbr: 'WY', population: null, outbreakRisk: null, riskScore: null, vaccinationRate: null, airQuality: null, healthIndex: null }
   },
+
+  stateDataLoaded: false,
+
+  hydrateStateData: (mapData) => set((state) => {
+    if (!mapData?.states) return {}
+    const updated = { ...state.stateData }
+    const riskLabel = { low: 'Low', moderate: 'Medium', high: 'High' }
+
+    for (const [abbr, apiState] of Object.entries(mapData.states)) {
+      const name = apiState.name
+      if (updated[name]) {
+        updated[name] = {
+          ...updated[name],
+          riskScore: Math.round(apiState.avgRiskScore),
+          outbreakRisk: riskLabel[apiState.riskLevel] || null,
+        }
+      }
+    }
+    return { stateData: updated, stateDataLoaded: true }
+  }),
+
+  // Merge population totals keyed by 2-letter state code
+  hydratePopulations: (pops) => set((state) => {
+    const updated = { ...state.stateData }
+    const fmt = (n) => {
+      if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
+      if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`
+      return n.toString()
+    }
+    for (const [name, entry] of Object.entries(updated)) {
+      const abbr = entry.abbr
+      if (pops[abbr]) {
+        updated[name] = { ...entry, population: fmt(pops[abbr]) }
+      }
+    }
+    return { stateData: updated }
+  }),
 
   // ============================================
   // ACTIONS - STATE SELECTION
@@ -315,12 +352,12 @@ const useStore = create((set, get) => ({
     const stateInfo = state.stateData[stateName] || {
       name: stateName,
       abbr: '--',
-      population: 'N/A',
-      outbreakRisk: 'Unknown',
-      riskScore: 50,
-      vaccinationRate: 50,
-      airQuality: 'Unknown',
-      healthIndex: 50
+      population: null,
+      outbreakRisk: null,
+      riskScore: null,
+      vaccinationRate: null,
+      airQuality: null,
+      healthIndex: null
     }
 
     // If clicking same selected state, enter county view
@@ -381,8 +418,9 @@ const useStore = create((set, get) => ({
   // ============================================
   // ACTIONS - COUNTY SELECTION
   // ============================================
-  selectCounty: (countyName, stateName) => set((state) => {
+  selectCounty: (countyName, stateName, fips) => set((state) => {
     const countyData = generateCountyData(countyName, stateName)
+    if (fips) countyData.fips = fips
     return {
       selectedCounty: countyData
     }

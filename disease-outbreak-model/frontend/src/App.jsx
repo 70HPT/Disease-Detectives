@@ -14,6 +14,8 @@ import StateCountyMap from './components/Map/StateCountyMap'
 import ContentSections from './components/UI/ContentSections'
 import Navbar from './components/Layout/Navbar'
 import SettingsPanel from './components/UI/SettingsPanel'
+import { getMapData } from './services/riskService'
+import { listLocations } from './services/locationService'
 
 import 'lenis/dist/lenis.css'
 import './App.css'
@@ -135,6 +137,25 @@ function App() {
 
   // Dismiss the index.html loading screen when Three.js scene is ready
   useDismissLoadingScreen()
+
+  // Hydrate store with live API data on mount
+  const hydrateStateData = useStore((state) => state.hydrateStateData)
+  useEffect(() => {
+    getMapData().then((data) => {
+      if (data) hydrateStateData(data)
+    })
+    // Fetch populations from locations endpoint
+    listLocations({ limit: 4000 }).then((locations) => {
+      if (!locations) return
+      const pops = {}
+      for (const loc of locations) {
+        if (!loc.population) continue
+        if (!pops[loc.state]) pops[loc.state] = 0
+        pops[loc.state] += loc.population
+      }
+      useStore.getState().hydratePopulations(pops)
+    })
+  }, [])
 
   const selectedState = useStore((state) => state.selectedState)
   const viewMode = useStore((state) => state.viewMode)

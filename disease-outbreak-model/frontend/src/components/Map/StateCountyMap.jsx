@@ -2,6 +2,7 @@ import { useRef, useState, useEffect, useMemo, useCallback } from 'react'
 import * as d3 from 'd3'
 import { feature } from 'topojson-client'
 import useStore from '../../store/useStore'
+import { batchPredictRisk } from '../../services/riskService'
 import './StateCountyMap.css'
 
 // Cubic bezier easing functions for Web Animations API
@@ -307,15 +308,35 @@ export default function StateCountyMap() {
           return acc
         }, {})
 
-        const enrichedCounties = stateCounties.map(f => ({
-          ...f,
-          properties: {
-            ...f.properties,
-            name: countyNames[f.id] || `County ${f.id}`,
-            fips: f.id.toString().padStart(5, '0'),
-            ...generateCountyData(countyNames[f.id] || `County ${f.id}`, selectedState.name)
+        const fipsList = stateCounties.map(f => f.id.toString().padStart(5, '0'))
+
+        // Fetch real risk data for all counties in parallel with rendering
+        let riskData = null
+        try {
+          riskData = await batchPredictRisk(fipsList)
+        } catch (e) { /* backend offline — use fallback */ }
+
+        const enrichedCounties = stateCounties.map(f => {
+          const fips = f.id.toString().padStart(5, '0')
+          const name = countyNames[f.id] || `County ${f.id}`
+          const fallback = generateCountyData(name, selectedState.name)
+          const real = riskData?.[fips]
+          return {
+            ...f,
+            properties: {
+              ...f.properties,
+              name,
+              fips,
+              ...fallback,
+              ...(real ? {
+                riskScore: Math.round(real.riskScore),
+                outbreakRisk: real.riskScore < 33 ? 'Low' : real.riskScore < 66 ? 'Medium' : 'High',
+                vaccinationRate: Math.round(real.factors.vaccinationCoverage * 100),
+                healthIndex: Math.round((real.factors.vaccinationCoverage * 50 + (1 - real.factors.climateRisk) * 30 + (1 - real.factors.historicalTrend) * 20) * 100 / 100),
+              } : {}),
+            }
           }
-        }))
+        })
 
         setCounties(enrichedCounties)
         setLoading(false)
@@ -456,7 +477,7 @@ export default function StateCountyMap() {
       duration: 300,
       easing: EASING.bounce
     })
-    selectCounty(county.properties.name, selectedState.name)
+    selectCounty(county.properties.name, selectedState.name, county.properties.fips)
   }, [selectCounty, selectedState])
 
   // Enhanced hover with full data + position
@@ -511,7 +532,7 @@ export default function StateCountyMap() {
 
   // Rankings click
   const handleRankingClick = useCallback((county) => {
-    selectCounty(county.properties.name, selectedState.name)
+    selectCounty(county.properties.name, selectedState.name, county.properties.fips)
   }, [selectCounty, selectedState])
 
   // Gauge color helper

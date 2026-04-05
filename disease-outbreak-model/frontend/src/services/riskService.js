@@ -93,6 +93,20 @@ export async function predictRisk(fips) {
   return normalizeRiskResponse(data)
 }
 
+// ── POST /risk/batch — Multiple county predictions at once ─────────
+// Used by: StateCountyMap (to get real risk scores for all counties)
+export async function batchPredictRisk(fipsCodes) {
+  if (!fipsCodes || fipsCodes.length === 0) return null
+  const data = await api.post('/risk/batch', { fips_codes: fipsCodes })
+  if (!data?.predictions) return null
+
+  const result = {}
+  for (const pred of data.predictions) {
+    result[pred.fips] = normalizeRiskResponse(pred)
+  }
+  return result
+}
+
 // ── Normalize backend response to frontend-friendly shape ──────────
 function normalizeRiskResponse(data) {
   return {

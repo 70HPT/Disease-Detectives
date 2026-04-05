@@ -1608,8 +1608,9 @@ const SphericalState = React.memo(function SphericalState({ feature, isHovered, 
 
   const stateName = feature.properties?.name || `State ${feature.id}`
 
-  // Get risk level for this state
-  const riskLevel = STATE_RISK_LEVELS[stateName] || 'Unknown'
+  // Get risk level from live store data, fall back to hardcoded map
+  const storeRisk = useStore(s => s.stateData[stateName]?.outbreakRisk)
+  const riskLevel = storeRisk || STATE_RISK_LEVELS[stateName] || 'Unknown'
   const riskConfig = heatmapColor || RISK_COLORS[riskLevel]
 
   useEffect(() => {

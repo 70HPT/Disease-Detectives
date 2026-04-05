@@ -72,42 +72,39 @@ export function useWHOPulse(year) {
         const hePrev = findYearValue(healthExp, year - 1)
 
         const result = [
-          le !== null ? {
+          {
             key: 'lifeExp',
-            value: `${le.toFixed(1)} yr`,
+            value: le !== null ? `${le.toFixed(1)} yr` : '\u2014',
             label: 'US Life Expectancy',
-            trend: getTrend(le, lePrev),
-            change: getChange(le, lePrev, 1),
-            source: 'WHO'
-          } : null,
-
-          mv !== null ? {
+            trend: le !== null ? getTrend(le, lePrev) : 'stable',
+            change: le !== null ? getChange(le, lePrev, 1) : '',
+            source: le !== null ? 'WHO' : null
+          },
+          {
             key: 'measles',
-            value: `${Math.round(mv)}%`,
+            value: mv !== null ? `${Math.round(mv)}%` : '\u2014',
             label: 'Measles Immunization (US)',
-            trend: getTrend(mv, mvPrev),
-            change: getChange(mv, mvPrev, 0),
-            source: 'WHO'
-          } : null,
-
-          tbi !== null ? {
+            trend: mv !== null ? getTrend(mv, mvPrev) : 'stable',
+            change: mv !== null ? getChange(mv, mvPrev, 0) : '',
+            source: mv !== null ? 'WHO' : null
+          },
+          {
             key: 'tb',
-            value: `${tbi.toFixed(1)}`,
+            value: tbi !== null ? `${tbi.toFixed(1)}` : '\u2014',
             label: 'TB Incidence (per 100K)',
-            trend: getTrend(tbi, tbiPrev, true), // inverted — lower is better
-            change: getChange(tbi, tbiPrev, 1),
-            source: 'WHO'
-          } : null,
-
-          he !== null ? {
+            trend: tbi !== null ? getTrend(tbi, tbiPrev, true) : 'stable',
+            change: tbi !== null ? getChange(tbi, tbiPrev, 1) : '',
+            source: tbi !== null ? 'WHO' : null
+          },
+          {
             key: 'healthExp',
-            value: `${he.toFixed(1)}%`,
+            value: he !== null ? `${he.toFixed(1)}%` : '\u2014',
             label: 'Health Spending (% GDP)',
-            trend: getTrend(he, hePrev),
-            change: getChange(he, hePrev, 1),
-            source: 'WHO'
-          } : null,
-        ].filter(Boolean)
+            trend: he !== null ? getTrend(he, hePrev) : 'stable',
+            change: he !== null ? getChange(he, hePrev, 1) : '',
+            source: he !== null ? 'WHO' : null
+          },
+        ]
 
         cache[year] = result
         setStats(result)
