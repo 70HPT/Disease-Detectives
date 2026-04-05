@@ -213,9 +213,9 @@ const INSIGHT_ICONS = {
 }
 
 const TREND_ARROWS = {
-  up: ‘↑’,
-  down: ‘↓’,
-  stable: ‘→’
+  up: '\u2191',
+  down: '\u2193',
+  stable: '\u2192'
 }
 
 // ============================================
@@ -733,7 +733,7 @@ export default function ContentSections({ isVisible }) {
       {/* Footer */}
       <footer className="cs-footer">
         <p>Disease Detectives © {new Date().getFullYear()} — Senior Capstone Project</p>
-        <p className=”cs-footer-note”>Mock data shown for demonstration — ready for backend integration</p>
+        <p className="cs-footer-note">Mock data shown for demonstration — ready for backend integration</p>
       </footer>
     </div>
   )
