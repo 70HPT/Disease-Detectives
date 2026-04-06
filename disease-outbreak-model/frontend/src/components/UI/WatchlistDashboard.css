@@ -1,5 +1,5 @@
 /* ============================================
-   WATCHLIST DASHBOARD â€” Full-screen overlay
+   WATCHLIST DASHBOARD — Full-screen overlay
    ============================================ */
 
 .wl-overlay {
@@ -83,7 +83,7 @@
 .wl-subtitle {
   font-family: 'Rajdhani', sans-serif;
   font-size: 0.7rem;
-  color: rgba(255, 255, 255, 0.35);
+  color: rgba(255, 255, 255, 0.4);
   text-transform: uppercase;
   letter-spacing: 0.1em;
 }
@@ -99,7 +99,7 @@
   align-items: center;
   justify-content: center;
   color: rgba(255, 255, 255, 0.4);
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .wl-close:hover {
@@ -109,7 +109,7 @@
 }
 
 /* ============================================
-   BODY â€” Two columns
+   BODY — Two columns
    ============================================ */
 
 .wl-body {
@@ -129,7 +129,7 @@
 
 .wl-section-header > span {
   font-family: 'Orbitron', sans-serif;
-  font-size: 0.6rem;
+  font-size: 0.65rem;
   font-weight: 500;
   letter-spacing: 0.15em;
   text-transform: uppercase;
@@ -137,7 +137,7 @@
 }
 
 /* ============================================
-   LEFT â€” STATE CARDS
+   LEFT — STATE CARDS
    ============================================ */
 
 .wl-cards-section {
@@ -181,7 +181,7 @@
     rgba(6, 10, 20, 0.9) 100%
   );
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 14px;
+  border-radius: 12px;
   padding: 16px 18px;
   display: flex;
   flex-direction: column;
@@ -189,7 +189,7 @@
 
   opacity: 0;
   transform: translateY(12px);
-  transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
+  transition: border-color 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .wl-card.animate {
@@ -221,7 +221,7 @@
   justify-content: center;
   color: rgba(255, 255, 255, 0.15);
   border-radius: 4px;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .wl-card-remove:hover {
@@ -248,8 +248,8 @@
 
 .wl-card-abbr {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.6rem;
-  color: rgba(255, 255, 255, 0.3);
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.4);
 }
 
 .wl-card-risk-badge {
@@ -260,7 +260,7 @@
   border: 1px solid;
   border-radius: 16px;
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.5rem;
+  font-size: 0.55rem;
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -290,11 +290,11 @@
 
 .wl-card-metric-label {
   font-family: 'Rajdhani', sans-serif;
-  font-size: 0.5rem;
+  font-size: 0.65rem;
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.4);
 }
 
 .mini-ring-svg {
@@ -312,10 +312,10 @@
 
 .wl-card-trend-label {
   font-family: 'Rajdhani', sans-serif;
-  font-size: 0.55rem;
+  font-size: 0.65rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.4);
 }
 
 .sparkline-svg {
@@ -340,7 +340,7 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  transition: all 0.25s ease;
+  transition: all 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .wl-card-view:hover {
@@ -349,7 +349,7 @@
   color: rgba(0, 255, 204, 0.95);
   box-shadow: 0 0 20px rgba(0, 255, 204, 0.1);
   transform: translateX(2px);
-  transition: background 0.2s ease, transform 0.2s ease;
+  transition: background 0.2s cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Empty state */
@@ -367,7 +367,7 @@
 
 .wl-empty-hint {
   font-size: 0.7rem;
-  color: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.35);
 }
 
 /* ============================================
@@ -387,7 +387,7 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 8px;
   color: rgba(0, 255, 204, 0.5);
-  transition: border-color 0.2s ease;
+  transition: border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .wl-add-input-wrapper:focus-within {
@@ -405,7 +405,7 @@
 }
 
 .wl-add-input-wrapper input::placeholder {
-  color: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.4);
 }
 
 .wl-add-dropdown {
@@ -432,7 +432,7 @@
   font-size: 0.75rem;
   text-align: left;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .wl-add-option:hover {
@@ -441,7 +441,7 @@
 }
 
 /* ============================================
-   RIGHT â€” ALERT FEED
+   RIGHT — ALERT FEED
    ============================================ */
 
 .wl-alerts-section {
@@ -465,13 +465,13 @@
   background: transparent;
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 12px;
-  color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.4);
   font-family: 'Rajdhani', sans-serif;
-  font-size: 0.55rem;
+  font-size: 0.65rem;
   font-weight: 500;
   text-transform: capitalize;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .wl-alert-filter:hover {
@@ -519,7 +519,7 @@
   border: 1px solid rgba(255, 255, 255, 0.03);
   opacity: 0;
   transform: translateX(10px);
-  transition: background 0.2s ease;
+  transition: background 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .wl-alert.animate {
@@ -584,14 +584,14 @@
 
 .wl-alert-time {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.55rem;
-  color: rgba(255, 255, 255, 0.2);
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.4);
 }
 
 .wl-alerts-empty {
   padding: 32px 0;
   text-align: center;
-  color: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.4);
   font-family: 'Rajdhani', sans-serif;
   font-size: 0.75rem;
 }
@@ -693,7 +693,7 @@
   }
 
   .wl-alert-filter {
-    font-size: 0.5rem;
+    font-size: 0.6rem;
     padding: 3px 6px;
   }
 

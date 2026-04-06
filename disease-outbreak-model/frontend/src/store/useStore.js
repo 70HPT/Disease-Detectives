@@ -97,49 +97,20 @@ const stateCapitals = {
   'Wyoming': { name: 'Cheyenne', lat: 41.140259, lon: -104.820236 }
 }
 
-// Generate placeholder county health data
 const generateCountyData = (countyName, stateName) => {
-  // Use hash of name to generate consistent "random" values
-  const hash = (countyName + stateName).split('').reduce((a, b) => {
-    a = ((a << 5) - a) + b.charCodeAt(0)
-    return a & a
-  }, 0)
-
-  const pseudoRandom = (seed) => {
-    const x = Math.sin(seed) * 10000
-    return x - Math.floor(x)
-  }
-
-  const riskScore = Math.floor(pseudoRandom(hash) * 100)
-  const vaccinationRate = Math.floor(50 + pseudoRandom(hash + 1) * 45)
-  const healthIndex = Math.floor(40 + pseudoRandom(hash + 2) * 55)
-
-  const riskLevels = ['Low', 'Medium', 'High']
-  const outbreakRisk = riskLevels[Math.floor(pseudoRandom(hash + 3) * 3)]
-
-  const airQualities = ['Good', 'Moderate', 'Unhealthy for Sensitive Groups']
-  const airQuality = airQualities[Math.floor(pseudoRandom(hash + 4) * 3)]
-
-  // Generate placeholder population (between 10k and 500k for most counties)
-  const population = Math.floor(10000 + pseudoRandom(hash + 5) * 490000)
-  const populationStr = population >= 1000000
-    ? `${(population / 1000000).toFixed(1)}M`
-    : `${(population / 1000).toFixed(0)}K`
-
   return {
     name: countyName,
     state: stateName,
-    population: populationStr,
-    populationNum: population,
-    outbreakRisk,
-    riskScore,
-    vaccinationRate,
-    airQuality,
-    healthIndex,
-    // Placeholder for backend integration
-    activeCases: Math.floor(pseudoRandom(hash + 6) * 500),
-    hospitalCapacity: Math.floor(60 + pseudoRandom(hash + 7) * 35),
-    testingRate: Math.floor(pseudoRandom(hash + 8) * 100),
+    population: null,
+    populationNum: null,
+    outbreakRisk: null,
+    riskScore: null,
+    vaccinationRate: null,
+    airQuality: null,
+    healthIndex: null,
+    activeCases: null,
+    hospitalCapacity: null,
+    testingRate: null,
   }
 }
 

@@ -1,6 +1,6 @@
 // ============================================
 // USE API DATA — React hooks for fetching backend data
-// Provides loading/error states and automatic fallback to mock data
+// Provides loading/error states and automatic fallback
 // ============================================
 // Usage:
 //   const { data, loading, error, refetch } = useMapData()
@@ -92,7 +92,7 @@ export function useLocationRisk(fips) {
 }
 
 // ── Fresh prediction for a county ──────────────────────────────────
-// Triggers the ML model (or mock) on the backend
+// Triggers the ML model on the backend
 export function usePrediction(fips) {
   return useAsyncData(
     () => predictRisk(fips),

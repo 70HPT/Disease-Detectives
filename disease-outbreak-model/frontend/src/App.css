@@ -101,7 +101,7 @@ body {
   /* Start hidden for animate-in */
   opacity: 0;
   transform: translateY(-30px);
-  transition: opacity 0.5s ease, transform 0.5s ease;
+  transition: opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1), transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* Animate in state */
@@ -140,24 +140,6 @@ body {
   transform: translateY(0);
 }
 
-.header .subtitle {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.7rem;
-  color: var(--text-secondary);
-  margin-top: 0.4rem;
-  letter-spacing: 0.25em;
-  text-transform: uppercase;
-  /* Staggered animate-in - slightly delayed */
-  opacity: 0;
-  transform: translateY(10px);
-  transition: opacity 1s cubic-bezier(0.22, 1, 0.36, 1) 0.4s,
-              transform 1s cubic-bezier(0.22, 1, 0.36, 1) 0.4s;
-}
-
-.header.visible .subtitle {
-  opacity: 0.8;
-  transform: translateY(0);
-}
 
 /* ============================================
    3D CANVAS - Fixed background, always interactive
@@ -170,7 +152,7 @@ body {
   height: 100vh;
   z-index: 1;
   pointer-events: auto;
-  transition: opacity 0.4s ease;
+  transition: opacity 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .canvas-wrapper canvas {
@@ -246,7 +228,7 @@ body {
 .scroll-indicator.scroll-hidden {
   opacity: 0 !important;
   pointer-events: none;
-  transition: opacity 0.4s ease;
+  transition: opacity 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 @keyframes fadeInUp {
@@ -277,7 +259,7 @@ body {
               transform 1.4s cubic-bezier(0.22, 1, 0.36, 1);
   pointer-events: none;
 
-  /* Glassmorphic frosted glass effect â€” reduced blur for scroll performance */
+  /* Glassmorphic frosted glass effect — reduced blur for scroll performance */
   background: linear-gradient(
     180deg,
     rgba(5, 15, 30, 0.6) 0%,
@@ -324,7 +306,7 @@ body {
 }
 
 .breadcrumb.raised {
-  bottom: 225px;
+  bottom: calc(50% + 275px);
 }
 
 .breadcrumb.hidden {
@@ -335,7 +317,7 @@ body {
 
 .breadcrumb .crumb {
   color: var(--text-muted);
-  transition: color 0.2s ease;
+  transition: color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .breadcrumb .crumb.clickable {
@@ -378,10 +360,6 @@ body {
   .header h1 {
     font-size: 1.2rem;
     letter-spacing: 0.08em;
-  }
-
-  .header .subtitle {
-    font-size: 0.6rem;
   }
 
   .breadcrumb {

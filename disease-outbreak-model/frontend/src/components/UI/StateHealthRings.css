@@ -1,5 +1,5 @@
 /* ============================================
-   STATE HEALTH RINGS â€” Floating left island
+   STATE HEALTH RINGS — Floating left island
    ============================================ */
 
 .health-rings {
@@ -109,7 +109,7 @@
 
 .grade-sublabel {
   font-family: 'Rajdhani', sans-serif;
-  font-size: 0.6rem;
+  font-size: 0.65rem;
   font-weight: 500;
   color: rgba(255, 255, 255, 0.35);
   text-transform: uppercase;
@@ -127,7 +127,7 @@
   width: 100%;
   opacity: 0;
   transform: translateY(8px);
-  transition: opacity 0.5s ease 0.4s, transform 0.5s ease 0.4s;
+  transition: opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.4s, transform 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.4s;
 }
 
 .quick-facts.visible {
@@ -155,9 +155,9 @@
 
 .fact-label {
   font-family: 'Rajdhani', sans-serif;
-  font-size: 0.6rem;
+  font-size: 0.65rem;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.4);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   min-width: 56px;
@@ -179,7 +179,7 @@
   width: 100%;
   opacity: 0;
   transform: translateY(8px);
-  transition: opacity 0.5s ease 0.6s, transform 0.5s ease 0.6s;
+  transition: opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.6s, transform 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.6s;
 }
 
 .fun-fact.visible {

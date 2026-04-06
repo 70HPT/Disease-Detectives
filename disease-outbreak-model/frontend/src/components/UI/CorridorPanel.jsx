@@ -31,11 +31,21 @@ export default function CorridorPanel() {
   const [visible, setVisible] = useState(false)
   const [expanded, setExpanded] = useState(null)
 
+  const stateData = useStore(s => s.stateData)
   const stateName = selectedState?.name
   const corridors = useMemo(() => {
     if (!stateName) return []
-    return (TRANSMISSION_CORRIDORS[stateName] || []).sort((a, b) => b.riskWeight - a.riskWeight)
-  }, [stateName])
+    const raw = TRANSMISSION_CORRIDORS[stateName] || []
+    const sourceRisk = stateData[stateName]?.riskScore
+
+    return raw.map(c => {
+      const targetRisk = stateData[c.target]?.riskScore
+      const dynamicWeight = (sourceRisk != null && targetRisk != null)
+        ? (sourceRisk + targetRisk) / 200
+        : c.riskWeight
+      return { ...c, riskWeight: dynamicWeight }
+    }).sort((a, b) => b.riskWeight - a.riskWeight)
+  }, [stateName, stateData])
 
   useEffect(() => {
     if (stateName && corridors.length > 0) {
@@ -97,7 +107,9 @@ export default function CorridorPanel() {
                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <circle cx="12" cy="12" r="10" /><path d="M12 16v-4M12 8h.01" />
                   </svg>
-                  Placeholder — awaiting ML model integration
+                  {stateData[stateName]?.riskScore != null
+                    ? 'Risk weights derived from ML model scores'
+                    : 'Placeholder — awaiting ML model integration'}
                 </div>
               </div>
             )}

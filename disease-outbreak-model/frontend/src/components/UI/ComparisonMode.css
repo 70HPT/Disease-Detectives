@@ -1,5 +1,5 @@
 /* ============================================
-   COMPARISON MODE â€” Full-screen overlay
+   COMPARISON MODE — Full-screen overlay
    ============================================ */
 
 .cmp-overlay {
@@ -32,7 +32,7 @@
   overflow: hidden;
   opacity: 0;
   transform: scale(0.96) translateY(8px);
-  transition: opacity 0.4s ease, transform 0.4s ease;
+  transition: opacity 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .cmp-page.visible {
@@ -71,8 +71,8 @@
 
 .cmp-subtitle {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.55rem;
-  color: rgba(255, 255, 255, 0.25);
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.4);
 }
 
 .cmp-close {
@@ -86,7 +86,7 @@
   border-radius: 10px;
   color: rgba(255, 255, 255, 0.5);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .cmp-close:hover {
@@ -119,7 +119,7 @@
 }
 
 /* ============================================
-   STATE CARD â€” silhouette background
+   STATE CARD — silhouette background
    ============================================ */
 
 .cmp-state-card {
@@ -127,14 +127,14 @@
   width: 260px;
   height: 140px;
   flex-shrink: 0;
-  border-radius: 16px;
+  border-radius: 12px;
   overflow: hidden;
   background: rgba(8, 12, 24, 0.7);
   border: 1px solid rgba(255, 255, 255, 0.05);
   cursor: default;
   opacity: 0;
   transform: translateY(8px) scale(0.95);
-  transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.3s ease;
+  transition: border-color 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .cmp-state-card.animate {
@@ -206,8 +206,8 @@
 
 .cmp-card-pop {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.55rem;
-  color: rgba(255, 255, 255, 0.3);
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.4);
 }
 
 .cmp-card-grade {
@@ -246,7 +246,7 @@
   border-radius: 6px;
   color: rgba(255, 255, 255, 0.4);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   opacity: 0;
 }
 
@@ -261,7 +261,7 @@
 }
 
 /* ============================================
-   SEARCH BAR â€” above slider
+   SEARCH BAR — above slider
    ============================================ */
 
 .cmp-search-bar {
@@ -279,7 +279,7 @@
   background: rgba(255, 255, 255, 0.025);
   border: 1px solid rgba(255, 255, 255, 0.07);
   border-radius: 12px;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .cmp-search-box.focused {
@@ -304,7 +304,7 @@
 }
 
 .cmp-search-box input::placeholder {
-  color: rgba(255, 255, 255, 0.18);
+  color: rgba(255, 255, 255, 0.35);
 }
 
 .cmp-search-box input:disabled {
@@ -323,7 +323,7 @@
   border-radius: 50%;
   color: rgba(255, 255, 255, 0.3);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .cmp-search-clear:hover {
@@ -355,7 +355,7 @@
   border: none;
   border-radius: 8px;
   cursor: pointer;
-  transition: all 0.12s ease;
+  transition: all 0.12s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .cmp-search-dropdown-item:hover {
@@ -375,7 +375,7 @@
 
 .cmp-search-item-add {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.55rem;
+  font-size: 0.65rem;
   font-weight: 500;
   color: rgba(0, 255, 204, 0.3);
   text-transform: uppercase;
@@ -415,11 +415,11 @@
 .cmp-empty span {
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.65rem;
-  color: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.35);
 }
 
 /* ============================================
-   SHARED â€” Panel labels
+   SHARED — Panel labels
    ============================================ */
 
 .cmp-panel-label {
@@ -427,7 +427,7 @@
   align-items: center;
   gap: 7px;
   font-family: 'Orbitron', sans-serif;
-  font-size: 0.5rem;
+  font-size: 0.65rem;
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.12em;
@@ -527,7 +527,7 @@
 
 .cmp-metric-state-tag {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.55rem;
+  font-size: 0.65rem;
   font-weight: 600;
   letter-spacing: 0.08em;
   min-width: 30px;
@@ -558,12 +558,12 @@
 .cmp-metric-val.winner::after {
   content: 'â˜…';
   margin-left: 3px;
-  font-size: 0.5rem;
+  font-size: 0.55rem;
   opacity: 0.7;
 }
 
 /* ============================================
-   RESPONSIVE â€” Tablet
+   RESPONSIVE — Tablet
    ============================================ */
 
 @media (max-width: 900px) {
@@ -598,7 +598,7 @@
 }
 
 /* ============================================
-   RESPONSIVE â€” Phone
+   RESPONSIVE — Phone
    ============================================ */
 
 @media (max-width: 600px) {
@@ -685,7 +685,7 @@
 
   .cmp-metric-state-tag {
     min-width: 28px;
-    font-size: 0.58rem;
+    font-size: 0.6rem;
   }
 
   .cmp-metric-track {

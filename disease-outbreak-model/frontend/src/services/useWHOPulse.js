@@ -1,16 +1,7 @@
 // ============================================
 // USE WHO PULSE — Year-specific WHO data for Global Health Pulse
 // Fetches real indicators and formats them for the stat cards
-// Falls back to mock data if the API fails or data isn't available
-// ============================================
-// Usage in ContentSections.jsx:
-//   import { useWHOPulse } from '../../services/useWHOPulse'
-//   ...
-//   function GlobalHealthPulse({ year, isVisible }) {
-//     const { stats, source, loading } = useWHOPulse(year)
-//     const mockData = fetchGlobalPulse(year)
-//     ...
-//   }
+// Falls back to null stats if the API fails or data isn't available
 // ============================================
 
 import { useState, useEffect, useRef } from 'react'
@@ -121,7 +112,7 @@ export function useWHOPulse(year) {
   }, [year])
 
   return {
-    stats,           // null = use mock data, array = real WHO stats
+    stats,           // null = no data available, array = real WHO stats
     loading,
     source: stats ? 'WHO GHO API' : 'demo',
   }

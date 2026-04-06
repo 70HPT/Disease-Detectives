@@ -7,7 +7,7 @@ import './LoadingStates.css'
 import './StatePanel.css'
 
 // ============================================
-// CIRCULAR GAUGE â€" animated ring with value
+// CIRCULAR GAUGE — animated ring with value
 // ============================================
 function CircularGauge({ value, max = 100, size = 56, strokeWidth = 4, color, label, suffix = '' }) {
   const radius = (size - strokeWidth * 2) / 2
@@ -46,7 +46,7 @@ function CircularGauge({ value, max = 100, size = 56, strokeWidth = 4, color, la
 }
 
 // ============================================
-// MINI SPARKLINE â€" procedural trend line
+// MINI SPARKLINE — procedural trend line
 // ============================================
 function MiniSparkline({ fips, color, width = 80, height = 24 }) {
   const [points, setPoints] = useState(null)
@@ -94,7 +94,7 @@ function MiniSparkline({ fips, color, width = 80, height = 24 }) {
 }
 
 // ============================================
-// HEALTH GRADE RING â€" A-F letter grade
+// HEALTH GRADE RING — A-F letter grade
 // ============================================
 function HealthGradeRing({ healthIndex }) {
   let grade, color
@@ -138,7 +138,7 @@ function HealthGradeRing({ healthIndex }) {
 }
 
 // ============================================
-// TRANSMISSION ANALYSIS â€" AI context card
+// TRANSMISSION ANALYSIS — AI context card
 // ============================================
 function TransmissionAnalysis({ stateName }) {
   const corridors = useMemo(() => {
@@ -207,166 +207,7 @@ function TransmissionAnalysis({ stateName }) {
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <circle cx="12" cy="12" r="10" /><path d="M12 16v-4M12 8h.01" />
         </svg>
-        Placeholder analysis â€" awaiting ML model
-      </div>
-    </div>
-  )
-}
-
-// ============================================
-// COUNTY TRANSMISSION ANALYSIS â€" WHO-style epi brief
-// ============================================
-function CountyTransmissionAnalysis({ countyData, stateName, allCounties }) {
-  const analysis = useMemo(() => {
-    if (!countyData) return null
-
-    const { name, populationNum, riskScore, vaccinationRate, hospitalCapacity,
-            testingRate, activeCases, healthIndex } = countyData
-
-    // Deterministic pseudo-random from county name
-    const hash = (name + stateName).split('').reduce((a, b) => {
-      a = ((a << 5) - a) + b.charCodeAt(0); return a & a
-    }, 0)
-    const pr = (seed) => { const x = Math.sin(seed) * 10000; return x - Math.floor(x) }
-
-    // WHO-style metrics
-    const popDensity = populationNum > 200000 ? 'high' : populationNum > 50000 ? 'moderate' : 'low'
-    const densityPer = populationNum > 200000 ? Math.floor(800 + pr(hash + 20) * 4000)
-                     : populationNum > 50000 ? Math.floor(200 + pr(hash + 21) * 600)
-                     : Math.floor(20 + pr(hash + 22) * 180)
-
-    // Effective reproduction number (Rt) â€" derived from risk score and vaccination
-    const vaccGap = 100 - vaccinationRate
-    const rt = (0.5 + (riskScore / 100) * 1.8 + (vaccGap / 100) * 0.5).toFixed(2)
-    const rtStatus = rt > 1.5 ? 'critical' : rt > 1.0 ? 'concerning' : 'controlled'
-
-    // Case doubling time (days)
-    const doublingTime = rt > 1.0
-      ? Math.max(3, Math.floor(14 / (parseFloat(rt) - 0.3)))
-      : null
-
-    // Vulnerable population estimate
-    const vulnerablePct = Math.floor(12 + pr(hash + 30) * 18)
-
-    // Generate 2-3 plausible neighboring counties as spread targets
-    const neighborNames = [
-      ['Washington', 'Jefferson', 'Lincoln', 'Franklin', 'Jackson', 'Madison',
-       'Monroe', 'Hamilton', 'Adams', 'Marshall', 'Clay', 'Warren',
-       'Union', 'Lake', 'Greene', 'Marion', 'Fayette', 'Clark'],
-      ['Riverside', 'Clearwater', 'Oakdale', 'Summit', 'Valley', 'Highland',
-       'Fairview', 'Cedar', 'Pine', 'Maple', 'Eagle', 'Stone']
-    ]
-
-    const hashIdx = Math.abs(hash)
-    const neighbors = [
-      neighborNames[0][(hashIdx + 3) % neighborNames[0].length],
-      neighborNames[0][(hashIdx + 7) % neighborNames[0].length],
-      neighborNames[1][(hashIdx + 2) % neighborNames[1].length],
-    ].filter(n => n !== name).slice(0, 3)
-
-    // Spread risk per neighbor
-    const spreadPaths = neighbors.map((n, i) => {
-      const pathRisk = Math.min(95, Math.max(15, riskScore + Math.floor(pr(hash + 40 + i) * 30) - 15))
-      const dailyCommuters = Math.floor(500 + pr(hash + 50 + i) * (populationNum > 100000 ? 8000 : 2000))
-      const mechanism = [
-        'Highway corridor / commuter traffic',
-        'Shared healthcare facilities',
-        'School district overlap / youth contact',
-        'Commercial hub / retail workers',
-        'Agricultural supply chain',
-        'Public transit connectivity',
-      ][Math.floor(pr(hash + 60 + i) * 6)]
-      return { name: n, pathRisk, dailyCommuters, mechanism }
-    })
-
-    // Capacity strain assessment
-    const strainLevel = hospitalCapacity < 70 ? 'strained' : hospitalCapacity < 85 ? 'moderate load' : 'adequate'
-    const surgeCapacity = hospitalCapacity < 70
-      ? `${Math.floor(pr(hash + 70) * 5 + 2)} day surge buffer`
-      : `${Math.floor(pr(hash + 70) * 14 + 7)} day surge buffer`
-
-    return {
-      popDensity, densityPer, rt, rtStatus, doublingTime, vulnerablePct,
-      spreadPaths, strainLevel, surgeCapacity, testingAdequacy:
-        testingRate > 70 ? 'adequate' : testingRate > 40 ? 'below threshold' : 'critically low'
-    }
-  }, [countyData, stateName])
-
-  if (!analysis) return null
-
-  const rtColor = analysis.rtStatus === 'critical' ? '#ef4444'
-    : analysis.rtStatus === 'concerning' ? '#f0a030' : '#10b981'
-
-  return (
-    <div className="county-transmission-analysis">
-      <div className="cta-header">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <circle cx="12" cy="12" r="10" /><path d="M12 8v4M12 16h.01" />
-        </svg>
-        <span className="cta-title">Epidemiological Brief</span>
-        <span className="ta-badge">Demo</span>
-      </div>
-
-      {/* Key indicators row */}
-      <div className="cta-indicators">
-        <div className="cta-indicator">
-          <span className="cta-ind-value" style={{ color: rtColor }}>{analysis.rt}</span>
-          <span className="cta-ind-label">R<sub>t</sub> Est.</span>
-        </div>
-        <div className="cta-ind-divider" />
-        <div className="cta-indicator">
-          <span className="cta-ind-value" style={{ color: 'rgba(255,255,255,0.6)' }}>
-            {analysis.doublingTime ? `${analysis.doublingTime}d` : '\u2014'}
-          </span>
-          <span className="cta-ind-label">Doubling</span>
-        </div>
-        <div className="cta-ind-divider" />
-        <div className="cta-indicator">
-          <span className="cta-ind-value" style={{ color: 'rgba(255,255,255,0.6)' }}>{analysis.vulnerablePct}%</span>
-          <span className="cta-ind-label">Vulnerable</span>
-        </div>
-      </div>
-
-      {/* Brief summary */}
-      <p className="cta-brief">
-        {analysis.popDensity === 'high' ? 'High' : analysis.popDensity === 'moderate' ? 'Moderate' : 'Low'} density
-        county (~{analysis.densityPer}/miÂ²) with R<sub>t</sub> {analysis.rtStatus === 'critical' ? 'above critical threshold' : analysis.rtStatus === 'concerning' ? 'above 1.0 indicating active spread' : 'below 1.0 indicating decline'}.
-        Hospital capacity {analysis.strainLevel} with {analysis.surgeCapacity}.
-        Testing coverage {analysis.testingAdequacy}.
-      </p>
-
-      {/* Spread pathways */}
-      <div className="cta-spread-header">Projected Spread Pathways</div>
-      <div className="cta-spread-paths">
-        {analysis.spreadPaths.map((path, i) => (
-          <div key={path.name} className="cta-path" style={{ animationDelay: `${i * 80}ms` }}>
-            <div className="cta-path-top">
-              <span className="cta-path-name">{'\u2192'} {path.name} Co.</span>
-              <span className="cta-path-risk" style={{
-                color: path.pathRisk > 65 ? '#ef4444' : path.pathRisk > 40 ? '#f0a030' : '#10b981'
-              }}>
-                {path.pathRisk}
-              </span>
-            </div>
-            <div className="cta-path-bar">
-              <div className="cta-path-fill" style={{
-                width: `${path.pathRisk}%`,
-                backgroundColor: path.pathRisk > 65 ? '#ef4444' : path.pathRisk > 40 ? '#f0a030' : '#10b981'
-              }} />
-            </div>
-            <div className="cta-path-meta">
-              <span>{path.mechanism}</span>
-              <span>~{path.dailyCommuters.toLocaleString()}/day</span>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="ta-footer-note">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <circle cx="12" cy="12" r="10" /><path d="M12 16v-4M12 8h.01" />
-        </svg>
-        WHO methodology placeholder â€" awaiting ML model
+        Placeholder analysis — awaiting ML model
       </div>
     </div>
   )
@@ -383,7 +224,7 @@ export default function StatePanel() {
 
   // ── API integration with fallback ──────────────────────────
   // Try to get real data from backend. If null (backend offline),
-  // falls through to store's mock data seamlessly.
+  // falls through to store defaults seamlessly.
   const { data: mapData, loading: mapLoading } = useMapData()
   const { data: countyRisk, loading: countyLoading } = useLocationRisk(
     selectedCounty?.fips || null
@@ -641,31 +482,9 @@ export default function StatePanel() {
             )}
           </div>
 
-          {/* Epi brief — only show when no real API factors */}
-          {!hasApiFactors && (
-            <CountyTransmissionAnalysis
-              countyData={displayData}
-              stateName={selectedState.name}
-            />
-          )}
-
           {/* Footer */}
           <div className="panel-footer">
-            {hasApiFactors ? (
-              <p className="hint">ML model contributing factors</p>
-            ) : (
-              <>
-                <p className="hint">County health metrics (placeholder data)</p>
-                <div className="data-notice">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="12" y1="8" x2="12" y2="12" />
-                    <line x1="12" y1="16" x2="12.01" y2="16" />
-                  </svg>
-                  <span>Data ready for backend integration</span>
-                </div>
-              </>
-            )}
+            <p className="hint">ML model contributing factors</p>
           </div>
         </>
       ) : (
@@ -738,7 +557,7 @@ export default function StatePanel() {
             </div>
           </div>
 
-          {/* Transmission Analysis â€" AI context card */}
+          {/* Transmission Analysis — AI context card */}
           <TransmissionAnalysis stateName={selectedState.name} />
 
           {/* Footer */}

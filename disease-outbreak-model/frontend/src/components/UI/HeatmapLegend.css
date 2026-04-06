@@ -1,5 +1,5 @@
 /* ============================================
-   HEATMAP LEGEND â€” floating bottom-left panel
+   HEATMAP LEGEND — floating bottom-left panel
    ============================================ */
 
 .heatmap-legend {
@@ -44,7 +44,7 @@
   border: 1px solid rgba(255, 255, 255, 0.07);
   border-radius: 8px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .hm-metric-btn:hover {
@@ -68,7 +68,7 @@
 
 .hm-chevron {
   color: rgba(255, 255, 255, 0.3);
-  transition: transform 0.2s ease;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   flex-shrink: 0;
 }
 
@@ -102,7 +102,7 @@
   color: rgba(255, 255, 255, 0.5);
   text-align: left;
   cursor: pointer;
-  transition: all 0.12s ease;
+  transition: all 0.12s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .hm-dropdown-item:hover {
@@ -149,8 +149,8 @@
 .hm-range-low,
 .hm-range-high {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.52rem;
-  color: rgba(255, 255, 255, 0.28);
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.4);
   letter-spacing: 0.02em;
 }
 
@@ -172,7 +172,7 @@
   border-radius: 5px;
   color: rgba(255, 255, 255, 0.3);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .hm-close:hover {

@@ -62,7 +62,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .close-btn svg {
@@ -237,7 +237,7 @@
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .view-counties-btn svg {
@@ -301,8 +301,8 @@
 
 .grade-ring-label {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.48rem;
-  color: rgba(255, 255, 255, 0.2);
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.4);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -320,8 +320,8 @@
 
 .county-risk-title {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.52rem;
-  color: rgba(255, 255, 255, 0.25);
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.4);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -365,8 +365,8 @@
 
 .gauge-label {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.5rem;
-  color: rgba(255, 255, 255, 0.25);
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.4);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -425,7 +425,7 @@
 }
 
 .county-detail-value.air-quality {
-  font-size: 0.6rem;
+  font-size: 0.65rem;
   max-width: 120px;
 }
 
@@ -458,157 +458,7 @@
 }
 
 /* ============================================
-   COUNTY TRANSMISSION ANALYSIS â€” WHO epi brief
-   ============================================ */
-
-.county-transmission-analysis {
-  padding: 14px 16px;
-  background: rgba(255, 255, 255, 0.015);
-  border: 1px solid rgba(255, 255, 255, 0.04);
-  border-radius: 10px;
-  animation: countyFadeUp 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.35s backwards;
-}
-
-.cta-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 10px;
-  color: rgba(0, 255, 204, 0.5);
-}
-
-.cta-title {
-  font-family: 'Orbitron', sans-serif;
-  font-size: 0.55rem;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.5);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-/* Key indicators row */
-.cta-indicators {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0;
-  padding: 8px 0 10px;
-  margin-bottom: 8px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-}
-
-.cta-indicator {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  flex: 1;
-}
-
-.cta-ind-value {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.9rem;
-  font-weight: 700;
-}
-
-.cta-ind-label {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.42rem;
-  color: rgba(255, 255, 255, 0.2);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-.cta-ind-label sub {
-  font-size: 0.35rem;
-}
-
-.cta-ind-divider {
-  width: 1px;
-  height: 28px;
-  background: rgba(255, 255, 255, 0.06);
-}
-
-/* Brief text */
-.cta-brief {
-  font-family: 'Rajdhani', sans-serif;
-  font-size: 0.68rem;
-  font-weight: 500;
-  line-height: 1.5;
-  color: rgba(255, 255, 255, 0.32);
-  margin-bottom: 10px;
-}
-
-.cta-brief sub {
-  font-size: 0.55rem;
-}
-
-/* Spread pathways */
-.cta-spread-header {
-  font-family: 'Orbitron', sans-serif;
-  font-size: 0.48rem;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.25);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  margin-bottom: 8px;
-}
-
-.cta-spread-paths {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-
-.cta-path {
-  animation: taCorridorIn 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94) backwards;
-}
-
-.cta-path-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 3px;
-}
-
-.cta-path-name {
-  font-family: 'Rajdhani', sans-serif;
-  font-size: 0.68rem;
-  font-weight: 700;
-  color: rgba(255, 255, 255, 0.55);
-}
-
-.cta-path-risk {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.52rem;
-  font-weight: 700;
-}
-
-.cta-path-bar {
-  height: 2.5px;
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: 1.5px;
-  overflow: hidden;
-  margin-bottom: 2px;
-}
-
-.cta-path-fill {
-  height: 100%;
-  border-radius: 1.5px;
-  transition: width 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-}
-
-.cta-path-meta {
-  display: flex;
-  justify-content: space-between;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.42rem;
-  color: rgba(255, 255, 255, 0.15);
-}
-
-/* ============================================
-   TRANSMISSION ANALYSIS â€” AI context card
+   TRANSMISSION ANALYSIS — AI context card
    ============================================ */
 
 .transmission-analysis {
@@ -629,9 +479,9 @@
 
 .ta-title {
   font-family: 'Orbitron', sans-serif;
-  font-size: 0.58rem;
+  font-size: 0.65rem;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.6);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -643,7 +493,7 @@
   border: 1px solid rgba(0, 255, 204, 0.15);
   border-radius: 4px;
   font-family: 'Orbitron', sans-serif;
-  font-size: 0.45rem;
+  font-size: 0.55rem;
   font-weight: 700;
   color: rgba(0, 255, 204, 0.6);
   letter-spacing: 0.1em;
@@ -654,7 +504,7 @@
   font-size: 0.72rem;
   font-weight: 500;
   line-height: 1.55;
-  color: rgba(255, 255, 255, 0.38);
+  color: rgba(255, 255, 255, 0.5);
   margin-bottom: 12px;
 }
 
@@ -690,7 +540,7 @@
 
 .ta-corridor-weight {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.55rem;
+  font-size: 0.65rem;
   font-weight: 700;
 }
 
@@ -710,8 +560,8 @@
 
 .ta-corridor-mechanism {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.45rem;
-  color: rgba(255, 255, 255, 0.18);
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.4);
   letter-spacing: 0.01em;
 }
 
@@ -720,13 +570,13 @@
   align-items: center;
   gap: 5px;
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.42rem;
-  color: rgba(255, 255, 255, 0.15);
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.35);
   letter-spacing: 0.02em;
 }
 
 .ta-footer-note svg {
-  color: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.3);
   flex-shrink: 0;
 }
 
@@ -791,8 +641,7 @@
     right: 0.75rem;
   }
 
-  .transmission-analysis,
-  .county-transmission-analysis {
+  .transmission-analysis {
     padding: 12px;
   }
 
@@ -845,16 +694,7 @@
     gap: 2px;
   }
 
-  .cta-indicators {
-    gap: 0;
-  }
-
-  .cta-ind-value {
-    font-size: 0.75rem;
-  }
-
-  .ta-summary,
-  .cta-brief {
-    font-size: 0.62rem;
+  .ta-summary {
+    font-size: 0.65rem;
   }
 }

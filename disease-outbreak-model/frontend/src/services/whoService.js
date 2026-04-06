@@ -137,3 +137,23 @@ function extractLatest(data) {
     year: record.year,
   }
 }
+
+// Map diseases to their WHO GHO indicator codes for live stats
+const DISEASE_INDICATORS = {
+  'Influenza': { indicator: 'WHS3_43', label: 'Influenza Positive Specimens' },
+  'Tuberculosis': { indicator: 'MDG_0000000020', label: 'TB Incidence (per 100K)' },
+  'Measles': { indicator: 'WHS4_100', label: 'Measles Immunization Coverage (%)' },
+  'Malaria': { indicator: 'MALARIA_EST_INCIDENCE', label: 'Malaria Incidence (per 1K at risk)' },
+}
+
+export async function getDiseaseIndicator(disease) {
+  const mapping = DISEASE_INDICATORS[disease]
+  if (!mapping) return null
+  try {
+    const record = await getLatestUSAValue(mapping.indicator)
+    if (!record) return null
+    return { value: record.value, year: record.year, label: mapping.label }
+  } catch {
+    return null
+  }
+}

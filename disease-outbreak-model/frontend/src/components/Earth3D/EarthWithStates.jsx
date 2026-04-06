@@ -6,6 +6,7 @@ import { feature } from 'topojson-client'
 import useStore from '../../store/useStore'
 import TransmissionArcs from '../Earth3D/TransmissionArcs'
 import { OCEAN_PRESETS } from '../../store/useStore'
+import STATE_CENTROIDS from '../../data/stateCentroids'
 
 import earthDayMap6 from '../../assets/textures/8k_earth_daymap6.png'
 import earthDayMap1 from '../../assets/textures/8k_earth_daymap1.jpg'
@@ -76,65 +77,11 @@ const milkyWayMap = SKYBOX_TEXTURE_MAP.default
 // CONSTANTS
 const EARTH_RADIUS = 2
 const STATE_ELEVATION = 0.018
+const STATES_FADE_DURATION = 800
 
 // US center coordinates - for the rotation
 const US_CENTER = { lat: 39.8283, lon: -98.5795 }
 
-// State centroids for camera targeting when zoomed in
-const STATE_CENTROIDS = {
-  'Alabama': { lat: 32.806671, lon: -86.791130 },
-  'Alaska': { lat: 61.370716, lon: -152.404419 },
-  'Arizona': { lat: 33.729759, lon: -111.431221 },
-  'Arkansas': { lat: 34.969704, lon: -92.373123 },
-  'California': { lat: 36.116203, lon: -119.681564 },
-  'Colorado': { lat: 39.059811, lon: -105.311104 },
-  'Connecticut': { lat: 41.597782, lon: -72.755371 },
-  'Delaware': { lat: 39.318523, lon: -75.507141 },
-  'District of Columbia': { lat: 38.897438, lon: -77.026817 },
-  'Florida': { lat: 27.766279, lon: -81.686783 },
-  'Georgia': { lat: 33.040619, lon: -83.643074 },
-  'Hawaii': { lat: 21.094318, lon: -157.498337 },
-  'Idaho': { lat: 44.240459, lon: -114.478828 },
-  'Illinois': { lat: 40.349457, lon: -88.986137 },
-  'Indiana': { lat: 39.849426, lon: -86.258278 },
-  'Iowa': { lat: 42.011539, lon: -93.210526 },
-  'Kansas': { lat: 38.526600, lon: -96.726486 },
-  'Kentucky': { lat: 37.668140, lon: -84.670067 },
-  'Louisiana': { lat: 31.169546, lon: -91.867805 },
-  'Maine': { lat: 44.693947, lon: -69.381927 },
-  'Maryland': { lat: 39.063946, lon: -76.802101 },
-  'Massachusetts': { lat: 42.230171, lon: -71.530106 },
-  'Michigan': { lat: 43.326618, lon: -84.536095 },
-  'Minnesota': { lat: 45.694454, lon: -93.900192 },
-  'Mississippi': { lat: 32.741646, lon: -89.678696 },
-  'Missouri': { lat: 38.456085, lon: -92.288368 },
-  'Montana': { lat: 46.921925, lon: -110.454353 },
-  'Nebraska': { lat: 41.125370, lon: -98.268082 },
-  'Nevada': { lat: 38.313515, lon: -117.055374 },
-  'New Hampshire': { lat: 43.452492, lon: -71.563896 },
-  'New Jersey': { lat: 40.298904, lon: -74.521011 },
-  'New Mexico': { lat: 34.840515, lon: -106.248482 },
-  'New York': { lat: 42.165726, lon: -74.948051 },
-  'North Carolina': { lat: 35.630066, lon: -79.806419 },
-  'North Dakota': { lat: 47.528912, lon: -99.784012 },
-  'Ohio': { lat: 40.388783, lon: -82.764915 },
-  'Oklahoma': { lat: 35.565342, lon: -96.928917 },
-  'Oregon': { lat: 44.572021, lon: -122.070938 },
-  'Pennsylvania': { lat: 40.590752, lon: -77.209755 },
-  'Puerto Rico': { lat: 18.220833, lon: -66.590149 },
-  'Rhode Island': { lat: 41.680893, lon: -71.511780 },
-  'South Carolina': { lat: 33.856892, lon: -80.945007 },
-  'South Dakota': { lat: 44.299782, lon: -99.438828 },
-  'Tennessee': { lat: 35.747845, lon: -86.692345 },
-  'Texas': { lat: 31.054487, lon: -97.563461 },
-  'Utah': { lat: 40.150032, lon: -111.862434 },
-  'Vermont': { lat: 44.045876, lon: -72.710686 },
-  'Virginia': { lat: 37.769337, lon: -78.169968 },
-  'Washington': { lat: 47.400902, lon: -121.490494 },
-  'West Virginia': { lat: 38.491226, lon: -80.954453 },
-  'Wisconsin': { lat: 44.268543, lon: -89.616508 },
-  'Wyoming': { lat: 42.755966, lon: -107.302490 }
-}
 
 // Animation settings
 const IDLE_ROTATION_SPEED = 0.015 // Radians per second when idle
@@ -284,12 +231,6 @@ const easeInOutCubic = (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2,
 // ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1)
 const easeOutQuint = (t) => 1 - Math.pow(1 - t, 5)
 
-// ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1) - great for dramatic zoom
-const easeOutExpo = (t) => t === 1 ? 1 : 1 - Math.pow(2, -10 * t)
-
-// ease-in-out-quart: cubic-bezier(0.76, 0, 0.24, 1)
-const easeInOutQuart = (t) => t < 0.5 ? 8 * t * t * t * t : 1 - Math.pow(-2 * t + 2, 4) / 2
-
 // Custom smooth deceleration for space zoom - starts fast, very smooth end
 // Approximates cubic-bezier(0.05, 0.95, 0.15, 1)
 const easeOutSpaceZoom = (t) => {
@@ -298,16 +239,6 @@ const easeOutSpaceZoom = (t) => {
   const quint = 1 - Math.pow(1 - t, 5)
   return expo * 0.7 + quint * 0.3
 }
-
-// Smooth fade in - cubic-bezier(0.4, 0, 0.2, 1)
-const easeOutSmooth = (t) => {
-  const c1 = 1.70158
-  const c3 = c1 + 1
-  return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2)
-}
-
-// Gentle fade for Earth appearance - cubic-bezier(0.25, 0.1, 0.25, 1)
-const easeInOutSine = (t) => -(Math.cos(Math.PI * t) - 1) / 2
 
 // MILKY WAY SKYBOX COMPONENT
 // Fade-in duration for smooth appearance
@@ -342,8 +273,6 @@ function MilkyWaySkybox({ rotationRef, introProgressRef, scrollProgressRef, scen
 
   useEffect(() => {
     sceneReadyRef.current = sceneReady
-    if (sceneReady) {
-    }
   }, [sceneReady])
 
   useEffect(() => {
@@ -402,10 +331,6 @@ function MilkyWaySkybox({ rotationRef, introProgressRef, scrollProgressRef, scen
 
       const finalBrightness = targetBrightness * easedProgress
       uniforms.uBrightness.value = finalBrightness
-
-      if (rawProgress < 0.1) {
-
-      }
     }
   })
 
@@ -413,7 +338,7 @@ function MilkyWaySkybox({ rotationRef, introProgressRef, scrollProgressRef, scen
 
   return (
     <mesh ref={meshRef} scale={[-1, 1, 1]}>
-      <sphereGeometry args={[100, 48, 48]} />
+      <sphereGeometry args={[100, 24, 24]} />
       <shaderMaterial
         ref={materialRef}
         side={THREE.BackSide}
@@ -472,8 +397,6 @@ function Starfield({ count = 2000, rotationRef, introProgressRef, zoomSpeedRef, 
 
   useEffect(() => {
     sceneReadyRef.current = sceneReady
-    if (sceneReady) {
-    }
   }, [sceneReady])
 
   // Generate star positions and sizes
@@ -491,16 +414,7 @@ function Starfield({ count = 2000, rotationRef, introProgressRef, zoomSpeedRef, 
       positions[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta)
       positions[i * 3 + 2] = radius * Math.cos(phi)
 
-      const sizeRandom = Math.random()
-      if (sizeRandom > 0.99) {
-        sizes[i] = 1 + Math.random() * 0.1 // Rare bright stars
-      } else if (sizeRandom > 0.95) {
-        sizes[i] = 1 + Math.random() * 0.1 // Medium-bright stars
-      } else if (sizeRandom > 0.80) {
-        sizes[i] = 1 + Math.random() * 0.1 // Medium stars
-      } else {
-        sizes[i] = 1 + Math.random() * 0.1 // Smaller stars
-      }
+      sizes[i] = 1 + Math.random() * 0.1
 
       const colorVariation = Math.random()
       if (colorVariation > 0.9) {
@@ -562,10 +476,6 @@ function Starfield({ count = 2000, rotationRef, introProgressRef, zoomSpeedRef, 
         fadeProgressRef.current = easedProgress
 
         uniforms.uFadeIn.value = easedProgress
-
-        if (rawProgress > 0 && rawProgress < 0.05) {
-
-        }
       }
     }
 
@@ -688,6 +598,16 @@ function SunFlare({ sunDirection, introProgressRef }) {
   const glowMatRef = useRef()
   const raysMatRef = useRef()
 
+  const glowUniforms = useMemo(() => ({
+    uColor: { value: new THREE.Color('#FFF4D6') },
+    uOpacity: { value: 0 }
+  }), [])
+
+  const raysUniforms = useMemo(() => ({
+    uColor: { value: new THREE.Color('#FFFAF0') },
+    uOpacity: { value: 0 }
+  }), [])
+
   // Position sun far away in the sun direction
   const sunPosition = useMemo(() => {
     return sunDirection.clone().multiplyScalar(50)
@@ -731,10 +651,7 @@ function SunFlare({ sunDirection, introProgressRef }) {
           ref={glowMatRef}
           transparent
           depthWrite={false}
-          uniforms={{
-            uColor: { value: new THREE.Color('#FFF4D6') },
-            uOpacity: { value: 0 }
-          }}
+          uniforms={glowUniforms}
           vertexShader={`
             varying vec2 vUv;
             void main() {
@@ -763,10 +680,7 @@ function SunFlare({ sunDirection, introProgressRef }) {
           ref={raysMatRef}
           transparent
           depthWrite={false}
-          uniforms={{
-            uColor: { value: new THREE.Color('#FFFAF0') },
-            uOpacity: { value: 0 }
-          }}
+          uniforms={raysUniforms}
           vertexShader={`
             varying vec2 vUv;
             void main() {
@@ -1597,7 +1511,7 @@ function createSphericalOutline(coordinates, radius = EARTH_RADIUS) {
 }
 
 // STATE COMPONENT WITH RISK COLORING
-const SphericalState = React.memo(function SphericalState({ feature, isHovered, isSelected, onSelect, onHover, onHoverChange, isAnimating, canvasRef, introComplete, statesOpacityRef, heatmapColor }) {
+const SphericalState = React.memo(function SphericalState({ feature, isHovered, isSelected, onSelect, onHover, onHoverChange, isAnimatingRef, canvasRef, introComplete, statesOpacityRef, heatmapColor, riskLevel }) {
   const meshRef = useRef()
   const materialRef = useRef()
   const outlineMaterialRefs = useRef([])
@@ -1608,9 +1522,6 @@ const SphericalState = React.memo(function SphericalState({ feature, isHovered, 
 
   const stateName = feature.properties?.name || `State ${feature.id}`
 
-  // Get risk level from live store data, fall back to hardcoded map
-  const storeRisk = useStore(s => s.stateData[stateName]?.outbreakRisk)
-  const riskLevel = storeRisk || STATE_RISK_LEVELS[stateName] || 'Unknown'
   const riskConfig = heatmapColor || RISK_COLORS[riskLevel]
 
   useEffect(() => {
@@ -1622,10 +1533,22 @@ const SphericalState = React.memo(function SphericalState({ feature, isHovered, 
 
     if (geo) setGeometry(geo)
     if (lines.length) setOutlines(lines)
+
+    return () => {
+      geo?.dispose()
+    }
   }, [feature])
 
-  const outlineGeometries = useMemo(() => {
-    return outlines.map(points => new THREE.BufferGeometry().setFromPoints(points))
+  const outlineGeometries = useRef([])
+
+  useEffect(() => {
+    outlineGeometries.current.forEach(g => g.dispose())
+    outlineGeometries.current = outlines.map(points =>
+      new THREE.BufferGeometry().setFromPoints(points)
+    )
+    return () => {
+      outlineGeometries.current.forEach(g => g.dispose())
+    }
   }, [outlines])
 
   useFrame((state, delta) => {
@@ -1684,11 +1607,11 @@ const SphericalState = React.memo(function SphericalState({ feature, isHovered, 
         geometry={geometry}
         onClick={(e) => {
           e.stopPropagation()
-          if (!isAnimating && introComplete) onSelect(stateName)
+          if (!isAnimatingRef.current && introComplete) onSelect(stateName)
         }}
         onPointerEnter={(e) => {
           e.stopPropagation()
-          if (!isAnimating && introComplete) {
+          if (!isAnimatingRef.current && introComplete) {
             onHover(stateName)
             onHoverChange(true)
             if (canvasRef?.current) {
@@ -1716,7 +1639,7 @@ const SphericalState = React.memo(function SphericalState({ feature, isHovered, 
       </mesh>
 
       {/* Memoized geometries instead of creating new ones each render */}
-      {outlineGeometries.map((geo, i) => (
+      {outlineGeometries.current.map((geo, i) => (
         <line key={i} geometry={geo}>
           <lineBasicMaterial
             ref={el => { outlineMaterialRefs.current[i] = el }}
@@ -1746,7 +1669,7 @@ const SCROLL_CAMERA_SPEED = 5.0  // Camera follow speed (lower = more floaty)
 const SCROLL_ROTATION_SMOOTH = 3.5 // How quickly scroll rotation catches up
 
 // Frame-rate independent exponential smoothing
-// Produces identical results at 30fps, 60fps, 144fps â€” no jitter
+// Produces identical results at 30fps, 60fps, 144fps — no jitter
 const expSmooth = (current, target, speed, dt) => {
   return current + (target - current) * (1 - Math.exp(-speed * dt))
 }
@@ -1818,7 +1741,6 @@ export default function EarthWithStates({ scrollTargetRef }) {
     const prevent = (e) => { e.preventDefault() }
     window.addEventListener('wheel', prevent, { passive: false })
     window.addEventListener('touchmove', prevent, { passive: false })
-    window.addEventListener('scroll', prevent, { passive: false })
     document.body.style.overflow = 'hidden'
     document.body.style.position = 'fixed'
     document.body.style.width = '100%'
@@ -1827,7 +1749,6 @@ export default function EarthWithStates({ scrollTargetRef }) {
     return () => {
       window.removeEventListener('wheel', prevent)
       window.removeEventListener('touchmove', prevent)
-      window.removeEventListener('scroll', prevent)
       document.body.style.overflow = ''
       document.body.style.position = ''
       document.body.style.width = ''
@@ -1844,7 +1765,6 @@ export default function EarthWithStates({ scrollTargetRef }) {
   }, [introComplete])
   const [statesVisible, setStatesVisible] = useState(false) // Triggers state mesh mounting
   const zoomSpeedRef = useRef(0)
-  const [earthOpacity, setEarthOpacity] = useState(0) // Kept as state for conditional checks
   const statesOpacityRef = useRef(0)
   const introStartTime = useRef(null)
 
@@ -1859,13 +1779,11 @@ export default function EarthWithStates({ scrollTargetRef }) {
   const setStoreSceneReady = useStore(state => state.setSceneReady)
   const isCountyView = viewMode === 'state-counties'
 
-  const settings = useStore(state => state.settings) || {
-    earthTexture: 'daymap6',
-    skyboxTexture: 'default',
-    oceanPreset: 'default',
-    cloudsEnabled: true,
-    autoRotate: true,
-  }
+  const earthTexture = useStore(state => state.settings?.earthTexture ?? 'daymap6')
+  const skyboxTexture = useStore(state => state.settings?.skyboxTexture ?? 'default')
+  const oceanPreset = useStore(state => state.settings?.oceanPreset ?? 'default')
+  const cloudsEnabled = useStore(state => state.settings?.cloudsEnabled ?? true)
+  const autoRotate = useStore(state => state.settings?.autoRotate ?? true)
   const activeEarthTextureRef = useRef(INITIAL_EARTH_TEXTURE_KEY)
 
   // Heatmap mode
@@ -1916,6 +1834,15 @@ export default function EarthWithStates({ scrollTargetRef }) {
     return colors
   }, [heatmapEnabled, heatmapMetric, storeStateData])
 
+  // Pre-compute risk levels for all states (1 memo instead of 51 subscriptions)
+  const stateRiskLevels = useMemo(() => {
+    const levels = {}
+    Object.entries(storeStateData).forEach(([name, data]) => {
+      levels[name] = data?.outbreakRisk || STATE_RISK_LEVELS[name] || 'Unknown'
+    })
+    return levels
+  }, [storeStateData])
+
   // Animation state refs (using refs to avoid re-renders during animation)
   const animationRef = useRef({
     // Is user currently dragging?
@@ -1962,8 +1889,7 @@ export default function EarthWithStates({ scrollTargetRef }) {
     statesFadeStartTime: 0,
   })
 
-  // For React state that needs re-render
-  const [isAnimating, setIsAnimating] = useState(false)
+  const isAnimatingRef = useRef(false)
 
   // TEXTURE PRELOADING SYSTEM
   // sceneReady gates the intro animation start
@@ -2014,7 +1940,7 @@ export default function EarthWithStates({ scrollTargetRef }) {
   // ============================================
   // PROGRESSIVE TEXTURE LOADING SYSTEM
   // ============================================
-  // Phase 1 (blocking): Day map only â€” the essential visual
+  // Phase 1 (blocking): Day map only — the essential visual
   // Phase 2 (async, during intro): Normal + Specular maps
   // Phase 3 (async, after intro): Cloud texture
   //
@@ -2038,7 +1964,7 @@ export default function EarthWithStates({ scrollTargetRef }) {
     return { flatNormal, blackSpec }
   }, [])
 
-  // Phase 1: Day map â€” only blocking texture (Suspense waits for this alone)
+  // Phase 1: Day map — only blocking texture (Suspense waits for this alone)
   // Uses stored setting if available, so there's no flash on startup.
   const dayTexture = useLoader(TextureLoader, INITIAL_EARTH_TEXTURE_URL)
 
@@ -2115,7 +2041,7 @@ export default function EarthWithStates({ scrollTargetRef }) {
   }, [introComplete])
 
 
-  useMemo(() => {
+  useEffect(() => {
     const maxAniso = gl.capabilities.getMaxAnisotropy?.() ?? 16
 
     dayTexture.colorSpace = THREE.SRGBColorSpace
@@ -2152,7 +2078,7 @@ export default function EarthWithStates({ scrollTargetRef }) {
 
   // Ocean color uniforms, driven by settings panel
   // Initialize from stored preset to avoid flash
-  const initOcean = OCEAN_PRESETS.find(p => p.id === settings.oceanPreset) || OCEAN_PRESETS[0]
+  const initOcean = OCEAN_PRESETS.find(p => p.id === oceanPreset) || OCEAN_PRESETS[0]
   const lightOceanColorRef = useRef({ value: new THREE.Vector3(initOcean.light[0], initOcean.light[1], initOcean.light[2]) })
   const deepOceanColorRef = useRef({ value: new THREE.Vector3(initOcean.deep[0], initOcean.deep[1], initOcean.deep[2]) })
 
@@ -2183,24 +2109,21 @@ export default function EarthWithStates({ scrollTargetRef }) {
 
   // SETTINGS REACTIVITY
   // Ref for autoRotate setting (read in useFrame without causing re-renders)
-  const autoRotateRef = useRef(settings.autoRotate)
-  useEffect(() => { autoRotateRef.current = settings.autoRotate }, [settings.autoRotate])
+  const autoRotateRef = useRef(autoRotate)
+  useEffect(() => { autoRotateRef.current = autoRotate }, [autoRotate])
 
-  // Ref for cloudsEnabled setting
-  const cloudsEnabledRef = useRef(settings.cloudsEnabled)
+  // Toggle cloud shadows when cloudsEnabled changes
   useEffect(() => {
-    cloudsEnabledRef.current = settings.cloudsEnabled
-    // When clouds are disabled, also disable cloud shadows in the earth shader
-    if (!settings.cloudsEnabled) {
+    if (!cloudsEnabled) {
       hasCloudShadowsRef.current.value = 0.0
     } else if (cloudTextureRef.current.value) {
       hasCloudShadowsRef.current.value = 1.0
     }
-  }, [settings.cloudsEnabled])
+  }, [cloudsEnabled])
 
   // Earth Texture Swap
   useEffect(() => {
-    const key = settings.earthTexture
+    const key = earthTexture
     if (key === activeEarthTextureRef.current) return // Already loaded
     const url = EARTH_TEXTURE_MAP[key]
     if (!url) return
@@ -2214,18 +2137,23 @@ export default function EarthWithStates({ scrollTargetRef }) {
       newTexture.magFilter = THREE.LinearFilter
       newTexture.generateMipmaps = true
 
+      // Dispose old texture if it was dynamically loaded (not the R3F-cached initial)
+      const oldTexture = earthUniforms.uDayTexture.value
+      if (oldTexture && oldTexture !== dayTexture) {
+        oldTexture.dispose()
+      }
       earthUniforms.uDayTexture.value = newTexture
       activeEarthTextureRef.current = key
     })
-  }, [settings.earthTexture, gl, earthUniforms])
+  }, [earthTexture, gl, earthUniforms, dayTexture])
 
   //Ocean Color Preset
   useEffect(() => {
-    const preset = OCEAN_PRESETS.find(p => p.id === settings.oceanPreset)
+    const preset = OCEAN_PRESETS.find(p => p.id === oceanPreset)
     if (!preset) return
     lightOceanColorRef.current.value.set(preset.light[0], preset.light[1], preset.light[2])
     deepOceanColorRef.current.value.set(preset.deep[0], preset.deep[1], preset.deep[2])
-  }, [settings.oceanPreset])
+  }, [oceanPreset])
 
   // Atmosphere uniforms - share opacity ref with earth
   const atmosphereUniforms = useMemo(() => ({
@@ -2266,7 +2194,7 @@ export default function EarthWithStates({ scrollTargetRef }) {
     anim.zoomStart = anim.cameraDistance
     anim.zoomEnd = targetZoom
 
-    setIsAnimating(true)
+    isAnimatingRef.current = true
   }, [])
 
   // HELPER: Start zoom-only animation (for zoom out)
@@ -2289,7 +2217,7 @@ export default function EarthWithStates({ scrollTargetRef }) {
     anim.zoomStart = anim.cameraDistance
     anim.zoomEnd = targetZoom
 
-    setIsAnimating(true)
+    isAnimatingRef.current = true
   }, [])
 
   // START INTRO ANIMATION
@@ -2297,7 +2225,6 @@ export default function EarthWithStates({ scrollTargetRef }) {
     const anim = animationRef.current
 
     // Guard against StrictMode double-mount - only start if not already started
-    // Check both ref and React state to be safe
     if (anim.animationType === 'intro') {
       return // Intro already in progress or was set up, don't restart
     }
@@ -2317,8 +2244,7 @@ export default function EarthWithStates({ scrollTargetRef }) {
     anim.cameraDistance = INTRO_START_DISTANCE
     anim.earthScale = INTRO_EARTH_SCALE_START
 
-    // Update React state last
-    setIsAnimating(true)
+    isAnimatingRef.current = true
   }, [])
 
   // HANDLE HOVER STATE CHANGE (for cursor management)
@@ -2343,19 +2269,7 @@ export default function EarthWithStates({ scrollTargetRef }) {
     const targetRotationY = getRotationForLongitude(targetLon)
 
     // Calculate shortest Y rotation path
-    const normalizeAngle = (angle) => {
-      while (angle < 0) angle += Math.PI * 2
-      while (angle >= Math.PI * 2) angle -= Math.PI * 2
-      return angle
-    }
-
-    let currentNorm = normalizeAngle(anim.currentRotationY)
-    let targetNorm = normalizeAngle(targetRotationY)
-
-    let diff = targetNorm - currentNorm
-    if (diff > Math.PI) diff -= Math.PI * 2
-    if (diff < -Math.PI) diff += Math.PI * 2
-
+    const diff = shortAngleDist(anim.currentRotationY, targetRotationY)
     const finalTargetRotationY = anim.currentRotationY + diff
 
     // Calculate X rotation (latitude - vertical tilt)
@@ -2657,7 +2571,6 @@ export default function EarthWithStates({ scrollTargetRef }) {
       if (rawProgress >= 1) {
         anim.earthScale = 1
         zoomSpeedRef.current = 0
-        setEarthOpacity(1)
         earthOpacityRef.current.value = 1
         setIntroComplete(true)
 
@@ -2680,19 +2593,7 @@ export default function EarthWithStates({ scrollTargetRef }) {
           const targetRotationY = getRotationForLongitude(targetLon)
 
           // Calculate shortest rotation path
-          const normalizeAngle = (angle) => {
-            while (angle < 0) angle += Math.PI * 2
-            while (angle >= Math.PI * 2) angle -= Math.PI * 2
-            return angle
-          }
-
-          let currentNorm = normalizeAngle(anim.currentRotationY)
-          let targetNorm = normalizeAngle(targetRotationY)
-
-          let diff = targetNorm - currentNorm
-          if (diff > Math.PI) diff -= Math.PI * 2
-          if (diff < -Math.PI) diff += Math.PI * 2
-
+          const diff = shortAngleDist(anim.currentRotationY, targetRotationY)
           const finalTargetRotationY = anim.currentRotationY + diff
           const latOffset = US_CENTER_LAT - targetLat
           const targetRotationX = -(latOffset / 45) * MAX_TILT_ANGLE
@@ -2716,7 +2617,7 @@ export default function EarthWithStates({ scrollTargetRef }) {
           // Normal intro completion - no state selected
           anim.isAnimating = false
           anim.animationType = null
-          setIsAnimating(false)
+          isAnimatingRef.current = false
 
           // Start states fade-in animation
           anim.statesFadeStartTime = now
@@ -2733,9 +2634,8 @@ export default function EarthWithStates({ scrollTargetRef }) {
 
     // STATES FADE-IN ANIMATION (after intro)
     if (anim.statesFading) {
-      const statesFadeDuration = 800 // 800ms for states to fade in
       const elapsed = now - anim.statesFadeStartTime
-      const rawProgress = Math.min(elapsed / statesFadeDuration, 1)
+      const rawProgress = Math.min(elapsed / STATES_FADE_DURATION, 1)
 
       // Use smooth cubic easing - cubic-bezier(0.4, 0, 0.2, 1)
       const statesEased = easeOutCubic(rawProgress)
@@ -2767,7 +2667,7 @@ export default function EarthWithStates({ scrollTargetRef }) {
       // Animation complete
       if (progress >= 1) {
         anim.isAnimating = false
-        setIsAnimating(false)
+        isAnimatingRef.current = false
         anim.animationType = null
       }
     }
@@ -2854,12 +2754,12 @@ export default function EarthWithStates({ scrollTargetRef }) {
       const absDiff = Math.abs(angleDiff)
       if (absDiff > 0.005) {
         // Ease-out: as we approach the US, scale the spring force down smoothly.
-        // At >0.3 rad (~17Â°) = full speed, tapering to near-zero at 0.005 rad (~0.3Â°)
+        // At >0.3 rad (~17°) = full speed, tapering to near-zero at 0.005 rad (~0.3°)
         const easeFactor = Math.min(1, absDiff / 0.3)
         const homeStep = expSmooth(0, angleDiff, 1.2 * easeFactor, delta)
         anim.currentRotationY += homeStep
       } else {
-        // Close enough â€” stop homing
+        // Close enough — stop homing
         anim.homingActive = false
         anim.lastInteractionTime = now
       }
@@ -2959,7 +2859,7 @@ export default function EarthWithStates({ scrollTargetRef }) {
       // Target Y offset also uses eased progress
       const targetScrollYOffset = easedScrollProgress * 1.5
 
-      // Exponential smooth â€” frame-rate independent, no jitter
+      // Exponential smooth — frame-rate independent, no jitter
       // Fast follow — scroll progress is already smoothed, so this just prevents micro-jitter
       smoothCameraDistanceRef.current = expSmooth(
         smoothCameraDistanceRef.current, targetCameraDistance, SCROLL_CAMERA_SPEED, delta
@@ -3031,7 +2931,7 @@ export default function EarthWithStates({ scrollTargetRef }) {
         scrollProgressRef={smoothScrollProgressRef}
         sceneReady={sceneReady}
         onTextureLoaded={handleTextureLoaded}
-        skyboxUrl={SKYBOX_TEXTURE_MAP[settings.skyboxTexture]}
+        skyboxUrl={SKYBOX_TEXTURE_MAP[skyboxTexture]}
       />
 
       {/* Starfield*/}
@@ -3067,7 +2967,7 @@ export default function EarthWithStates({ scrollTargetRef }) {
 
           {/* Atmosphere outer glow shell - creates smooth blue haze around Earth circumference */}
           <mesh>
-            <sphereGeometry args={[EARTH_RADIUS * 1.06, 64, 64]} />
+            <sphereGeometry args={[EARTH_RADIUS * 1.06, 48, 48]} />
             <shaderMaterial
               vertexShader={atmosphereVertexShader}
               fragmentShader={atmosphereFragmentShader}
@@ -3080,7 +2980,7 @@ export default function EarthWithStates({ scrollTargetRef }) {
 
           {/* Outer haze ring - FrontSide, visible blue glow extending beyond Earth edge */}
           <mesh>
-            <sphereGeometry args={[EARTH_RADIUS * 1.02, 64, 64]} />
+            <sphereGeometry args={[EARTH_RADIUS * 1.02, 48, 48]} />
             <shaderMaterial
               vertexShader={atmosphereVertexShader}
               fragmentShader={atmosphereHazeFragmentShader}
@@ -3092,7 +2992,7 @@ export default function EarthWithStates({ scrollTargetRef }) {
           </mesh>
 
           {/* Cloud layer*/}
-          {settings.cloudsEnabled && (
+          {cloudsEnabled && (
             <CloudLayer
               sunDirection={sunDirection}
               earthOpacityRef={earthOpacityRef}
@@ -3112,18 +3012,19 @@ export default function EarthWithStates({ scrollTargetRef }) {
               onSelect={handleStateClick}
               onHover={setHoveredState}
               onHoverChange={handleHoverChange}
-              isAnimating={isAnimating}
+              isAnimatingRef={isAnimatingRef}
               canvasRef={canvasRef}
               introComplete={introComplete}
               statesOpacityRef={statesOpacityRef}
               heatmapColor={heatmapColors?.[feature.properties?.name] || null}
+              riskLevel={stateRiskLevels[feature.properties?.name] || 'Unknown'}
             />
           ))}
 
           {/* Transmission corridor arcs appear after zoom to state completes */}
           <TransmissionArcs
             selectedStateName={selectedState?.name || null}
-            zoomComplete={!!selectedState && !isAnimating}
+            isAnimatingRef={isAnimatingRef}
           />
         </group>
       </group>

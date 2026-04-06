@@ -4,7 +4,7 @@
 
 /* Backdrop overlay */
 .sp-backdrop {
-  transition: background 0.35s ease;
+  transition: background 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 /* Panel scrollbar */
@@ -61,7 +61,7 @@
   color: #94a3b8;
   font-size: 0.75rem;
   cursor: pointer;
-  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  transition: background 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .sp-reset-btn:hover {
   background: rgba(255, 255, 255, 0.1);
@@ -80,7 +80,7 @@
   border-radius: 6px;
   color: #94a3b8;
   cursor: pointer;
-  transition: background 0.2s ease, color 0.2s ease;
+  transition: background 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .sp-close-btn:hover {
   background: rgba(255, 255, 255, 0.12);
@@ -130,7 +130,7 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 8px;
   cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease;
+  transition: background 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   text-align: left;
   width: 100%;
   color: inherit;
@@ -196,7 +196,7 @@
   border: 2px solid transparent;
   border-radius: 10px;
   cursor: pointer;
-  transition: border-color 0.2s ease;
+  transition: border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   color: inherit;
   font: inherit;
 }
@@ -275,7 +275,7 @@
   border-radius: 8px;
   border: 2px solid rgba(255, 255, 255, 0.1);
   position: relative;
-  transition: border-color 0.2s ease, transform 0.15s ease;
+  transition: border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .sp-ocean-swatch:hover .sp-swatch-color {
   border-color: rgba(255, 255, 255, 0.3);
@@ -342,7 +342,7 @@
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 11px;
   cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease;
+  transition: background 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   padding: 0;
   flex-shrink: 0;
 }
@@ -359,7 +359,7 @@
   height: 16px;
   background: #64748b;
   border-radius: 50%;
-  transition: transform 0.2s ease, background 0.2s ease;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), background 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .sp-toggle.on .sp-toggle-thumb {
   transform: translateX(18px);

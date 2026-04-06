@@ -211,7 +211,6 @@ function App() {
       {!isCountyView && !selectedState && (
         <header ref={headerRef} className={`header ${navVisible ? 'visible' : ''}`}>
           <h1>Disease Detectives</h1>
-          <p className="subtitle">Public Health Intelligence Dashboard</p>
         </header>
       )}
 

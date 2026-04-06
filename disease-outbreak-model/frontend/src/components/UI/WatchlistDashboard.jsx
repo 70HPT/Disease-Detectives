@@ -12,38 +12,23 @@ function generateAlerts(watchlist, stateData) {
     if (!d) return
     const stateAlerts = []
 
-    // Only generate metric-based alerts when data exists
     if (d.outbreakRisk === 'High') {
       stateAlerts.push({ type: 'outbreak', icon: '\u25C6', severity: 'critical',
         message: `${state} outbreak risk is elevated \u2014 risk score at ${d.riskScore}` })
-    }
-
-    if (d.vaccinationRate != null && d.vaccinationRate < 60) {
-      stateAlerts.push({ type: 'threshold', icon: '\u26A0', severity: 'warning',
-        message: `${state} vaccination rate at ${d.vaccinationRate}% \u2014 below 60% threshold` })
-    }
-
-    if (d.outbreakRisk === 'Medium' && d.healthIndex != null && d.healthIndex < 60) {
+    } else if (d.outbreakRisk === 'Medium') {
       stateAlerts.push({ type: 'increase', icon: '\u25B2', severity: 'warning',
-        message: `${state} showing compounding risk \u2014 moderate outbreak risk with health index at ${d.healthIndex}` })
-    }
-
-    if (d.healthIndex != null && d.healthIndex >= 75) {
+        message: `${state} shows moderate outbreak risk \u2014 risk score at ${d.riskScore}` })
+    } else if (d.outbreakRisk === 'Low' && d.riskScore != null) {
       stateAlerts.push({ type: 'resolved', icon: '\u2713', severity: 'good',
-        message: `${state} health index strong at ${d.healthIndex} \u2014 above national benchmark` })
-    }
-
-    if (d.vaccinationRate != null && d.vaccinationRate >= 70) {
-      stateAlerts.push({ type: 'decrease', icon: '\u25BC', severity: 'good',
-        message: `${state} vaccination coverage at ${d.vaccinationRate}% \u2014 exceeds target` })
+        message: `${state} outbreak risk is low \u2014 risk score at ${d.riskScore}` })
     }
 
     if (stateAlerts.length === 0) {
       stateAlerts.push({ type: 'update', icon: '\u25CF', severity: 'info',
-        message: `${state} \u2014 awaiting data from backend` })
+        message: `${state} \u2014 awaiting risk data` })
     }
 
-    stateAlerts.slice(0, 3).forEach((alert, i) => {
+    stateAlerts.slice(0, 2).forEach((alert, i) => {
       alerts.push({
         id: `${state}-${i}`,
         state,

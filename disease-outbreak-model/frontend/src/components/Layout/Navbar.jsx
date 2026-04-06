@@ -60,18 +60,6 @@ function SearchIcon() {
 }
 
 // ============================================
-// BELL ICON
-// ============================================
-function BellIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-    </svg>
-  )
-}
-
-// ============================================
 // SETTINGS ICON
 // ============================================
 function SettingsIcon() {
@@ -282,106 +270,21 @@ function StateSearch({ onStateSelect }) {
 }
 
 // ============================================
-// USER MENU — profile dropdown with animated chevron
-// ============================================
-function UserMenu({ user, onLogout, onOpenSettings }) {
-  const [isOpen, setIsOpen] = useState(false)
-  const menuRef = useRef(null)
-
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) {
-        setIsOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
-
-  const initials = user.name
-    .split(' ')
-    .map(n => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2)
-
-  return (
-    <div className="user-menu" ref={menuRef}>
-      <button
-        className={`user-trigger ${isOpen ? 'active' : ''}`}
-        onClick={() => setIsOpen(!isOpen)}
-      >
-        <div className="user-avatar">
-          {initials}
-        </div>
-        <div className="user-info">
-          <span className="user-name">{user.name}</span>
-          <span className="user-role">{user.role}</span>
-        </div>
-        <ChevronIcon isOpen={isOpen} />
-      </button>
-
-      {isOpen && (
-        <div className="user-dropdown">
-          <div className="user-dropdown-header">
-            <div className="user-avatar large">
-              {initials}
-            </div>
-            <div>
-              <div className="user-dropdown-name">{user.name}</div>
-              <div className="user-dropdown-email">{user.email}</div>
-            </div>
-          </div>
-          <div className="user-dropdown-divider" />
-          <button className="user-dropdown-item" onClick={() => { setIsOpen(false); onOpenSettings?.() }}>
-            <SettingsIcon />
-            Settings
-          </button>
-          <button className="user-dropdown-item" onClick={() => setIsOpen(false)}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10" />
-              <path d="M12 16v-4M12 8h.01" />
-            </svg>
-            Help
-          </button>
-          <div className="user-dropdown-divider" />
-          <button className="user-dropdown-item danger" onClick={onLogout}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-              <polyline points="16 17 21 12 16 7" />
-              <line x1="21" y1="12" x2="9" y2="12" />
-            </svg>
-            Sign out
-          </button>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ============================================
 // MAIN NAVBAR COMPONENT
 // ============================================
-export default function Navbar({ visible = false, onLogin }) {
+export default function Navbar({ visible = false }) {
   const requestStateZoom = useStore((state) => state.requestStateZoom)
-  const selectedState = useStore((state) => state.selectedState)
+  const clearSelection = useStore((state) => state.clearSelection)
+  const exitCountyView = useStore((state) => state.exitCountyView)
   const viewMode = useStore((state) => state.viewMode)
   const selectedYear = useStore((state) => state.selectedYear)
   const setSelectedYear = useStore((state) => state.setSelectedYear)
   const toggleSettings = useStore((state) => state.toggleSettings)
   const toggleWatchlist = useStore((state) => state.toggleWatchlist)
   const watchlistCount = useStore((state) => state.watchlist.length)
-const openComparison = useStore((state) => state.openComparison)
+  const openComparison = useStore((state) => state.openComparison)
   const heatmapEnabled = useStore((state) => state.heatmapEnabled)
   const toggleHeatmap = useStore((state) => state.toggleHeatmap)
-
-  // Mock user — replace with actual auth state
-  const [isLoggedIn, setIsLoggedIn] = useState(true)
-  const [user] = useState({
-    name: 'Joshua Wusu',
-    email: 'jswusu@uncg.edu',
-    role: 'Developer'
-  })
 
   const isCountyView = viewMode === 'state-counties'
 
@@ -389,9 +292,16 @@ const openComparison = useStore((state) => state.openComparison)
     requestStateZoom(stateName)
   }, [requestStateZoom])
 
-  const handleLogout = useCallback(() => {
-    setIsLoggedIn(false)
-  }, [])
+  const handleLogoClick = useCallback(() => {
+    if (isCountyView) exitCountyView()
+    clearSelection()
+    const lenis = window.__lenis
+    if (lenis) {
+      lenis.scrollTo(0)
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }, [isCountyView, exitCountyView, clearSelection])
 
   return (
     <nav className={`navbar ${visible ? 'visible' : ''} ${isCountyView ? 'county-view' : ''}`}>
@@ -399,7 +309,7 @@ const openComparison = useStore((state) => state.openComparison)
 
         {/* ====== LEFT: Branding ====== */}
         <div className="navbar-section navbar-brand">
-          <div className="brand-mark">
+          <button className="brand-mark" onClick={handleLogoClick} title="Back to globe">
             <span className="brand-icon">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="10" stroke="url(#brandGrad)" />
@@ -414,7 +324,7 @@ const openComparison = useStore((state) => state.openComparison)
               </svg>
             </span>
             <span className="brand-text">DD</span>
-          </div>
+          </button>
           <div className="brand-divider" />
         </div>
 
@@ -430,45 +340,31 @@ const openComparison = useStore((state) => state.openComparison)
           <StateSearch onStateSelect={handleStateSearch} />
         </div>
 
-        {/* ====== RIGHT: Notifications + User ====== */}
+        {/* ====== RIGHT: Tools ====== */}
         <div className="navbar-section navbar-right">
-          {isLoggedIn ? (
-            <>
-              <button className="nav-icon-btn" title="Notifications">
-                <BellIcon />
-                <span className="notification-dot" />
-              </button>
-              <button className="nav-icon-btn" title="Watchlist" onClick={toggleWatchlist}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                  <circle cx="12" cy="12" r="3" />
-                </svg>
-                {watchlistCount > 0 && <span className="watchlist-count">{watchlistCount}</span>}
-              </button>
-              <button className="nav-icon-btn" title="Compare States" onClick={openComparison}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M18 20V10M12 20V4M6 20v-6" />
-                </svg>
-              </button>
-              <button className={`nav-icon-btn ${heatmapEnabled ? 'active' : ''}`} title="Heatmap Mode" onClick={toggleHeatmap}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="3" width="7" height="7" rx="1" />
-                  <rect x="14" y="3" width="7" height="7" rx="1" />
-                  <rect x="3" y="14" width="7" height="7" rx="1" />
-                  <rect x="14" y="14" width="7" height="7" rx="1" />
-                </svg>
-              </button>
-              <button className="nav-icon-btn" title="Settings" onClick={toggleSettings}>
-                <SettingsIcon />
-              </button>
-              <div className="right-divider" />
-              <UserMenu user={user} onLogout={handleLogout} onOpenSettings={toggleSettings} />
-            </>
-          ) : (
-            <button className="login-btn" onClick={onLogin}>
-              Sign in
-            </button>
-          )}
+          <button className="nav-icon-btn" title="Watchlist" onClick={toggleWatchlist}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+            {watchlistCount > 0 && <span className="watchlist-count">{watchlistCount}</span>}
+          </button>
+          <button className="nav-icon-btn" title="Compare States" onClick={openComparison}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 20V10M12 20V4M6 20v-6" />
+            </svg>
+          </button>
+          <button className={`nav-icon-btn ${heatmapEnabled ? 'active' : ''}`} title="Heatmap Mode" onClick={toggleHeatmap}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="7" height="7" rx="1" />
+              <rect x="14" y="3" width="7" height="7" rx="1" />
+              <rect x="3" y="14" width="7" height="7" rx="1" />
+              <rect x="14" y="14" width="7" height="7" rx="1" />
+            </svg>
+          </button>
+          <button className="nav-icon-btn" title="Settings" onClick={toggleSettings}>
+            <SettingsIcon />
+          </button>
         </div>
       </div>
     </nav>

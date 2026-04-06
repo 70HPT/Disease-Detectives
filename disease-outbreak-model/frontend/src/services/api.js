@@ -6,7 +6,7 @@
 // - Configurable base URL
 // - Fast timeout (no hanging when backend is offline)
 // - Offline detection (stops retrying after first failure)
-// - Fallback support (returns null on failure so components use mock data)
+// - Fallback support (returns null on failure so components use fallback states)
 // ============================================
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'
