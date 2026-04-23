@@ -32,6 +32,36 @@ EXCLUDE_COLS = {
     "Week Ending Date",
     "WeekOfYear",
     "WeekIndex",
+    "Date",
+    "Month",
+    "MonthIndex",
+}
+
+DISEASE_CONFIGS = {
+    "influenza": {
+        "model_file": "models/best_influenza_lstm_classifier.pth",
+        "train_file": "data/flu_national_weekly_train.csv",
+        "all_file": "data/flu_national_weekly_all.csv",
+        "sort_col": "Week Ending Date",
+        "seq_length": 8,
+        "version": "influenza_lstm_v1",
+    },
+    "covid": {
+        "model_file": "models/best_covid_lstm_classifier.pth",
+        "train_file": "data/covid_weekly_train.csv",
+        "all_file": "data/covid_weekly_all.csv",
+        "sort_col": "Week Ending Date",
+        "seq_length": 8,
+        "version": "covid_lstm_v1",
+    },
+    "salmonella": {
+        "model_file": "models/best_salmonella_lstm_classifier.pth",
+        "train_file": "data/salmonella_monthly_train.csv",
+        "all_file": "data/salmonella_monthly_all.csv",
+        "sort_col": "Date",
+        "seq_length": 6,
+        "version": "salmonella_lstm_v1",
+    },
 }
 
 
@@ -47,6 +77,9 @@ class PredictionService:
         self.feature_cols: list[str] = []
         self.state_probs: dict[str, float] = {}
         self.state_last_cases: dict[str, float] = {}
+
+        # Per-disease state probabilities populated by load_all_models()
+        self.disease_state_probs: dict[str, dict[str, float]] = {}
 
     @property
     def is_loaded(self) -> bool:
@@ -72,115 +105,143 @@ class PredictionService:
 
         return None
 
-    def _create_sequences(self, data: pd.DataFrame):
+    def _create_sequences(self, data: pd.DataFrame, sort_col: str, seq_length: int):
         sequences = []
         states = []
 
         for state, group in data.groupby("State"):
-            group = group.sort_values("Week Ending Date")
-            if len(group) < self.seq_length:
+            group = group.sort_values(sort_col)
+            if len(group) < seq_length:
                 continue
 
             features = group[self.feature_cols].values
-            for i in range(len(group) - self.seq_length + 1):
-                sequences.append(features[i : i + self.seq_length])
+            for i in range(len(group) - seq_length + 1):
+                sequences.append(features[i : i + seq_length])
                 states.append(state)
 
         return np.array(sequences), states
 
-    def load_model(self, model_path: str, device: str = "cpu") -> None:
-        self._loaded = False
+    def _load_disease_model(
+        self,
+        disease: str,
+        model_file: str,
+        train_file: str,
+        all_file: str,
+        sort_col: str,
+        seq_length: int,
+    ) -> Optional[dict[str, float]]:
+        """Load one disease model and return {state: prob}. Returns None on failure."""
+        model_path = self._resolve_file(model_file, [])
+        if not model_path:
+            logger.warning("%s model not found: %s", disease, model_file)
+            return None
 
+        train_path = self._resolve_file(train_file, [])
+        all_path = self._resolve_file(all_file, [])
+        if not train_path or not all_path:
+            logger.warning("%s data files not found", disease)
+            return None
+
+        try:
+            train_df = pd.read_csv(train_path)
+            all_df = pd.read_csv(all_path)
+
+            train_df[sort_col] = pd.to_datetime(train_df[sort_col])
+            all_df[sort_col] = pd.to_datetime(all_df[sort_col])
+
+            feature_cols = [
+                col
+                for col in train_df.columns
+                if col not in EXCLUDE_COLS and pd.api.types.is_numeric_dtype(train_df[col])
+            ]
+
+            scaler = StandardScaler()
+            scaler.fit(train_df[feature_cols])
+            all_df[feature_cols] = scaler.transform(all_df[feature_cols])
+
+            # Temporarily swap feature_cols for sequence creation
+            saved_cols = self.feature_cols
+            self.feature_cols = feature_cols
+
+            sequences, sequence_states = self._create_sequences(all_df, sort_col, seq_length)
+            self.feature_cols = saved_cols
+
+            if len(sequences) == 0:
+                logger.warning("No sequences from %s data", disease)
+                return None
+
+            input_dim = sequences.shape[2]
+            model = OutbreakLSTMClassifier(
+                input_dim=input_dim,
+                hidden_dim=64,
+                num_layers=2,
+                dropout=0.3,
+            ).to(self.device)
+            model.load_state_dict(torch.load(model_path, map_location=self.device))
+            model.eval()
+
+            with torch.no_grad():
+                probs = torch.sigmoid(
+                    model(torch.tensor(sequences, dtype=torch.float32, device=self.device)).squeeze()
+                ).cpu().numpy()
+
+            seq_df = pd.DataFrame({"State": sequence_states, "Prob": probs})
+            tail = seq_df.groupby("State").tail(1)
+            state_probs = {row["State"]: float(row["Prob"]) for _, row in tail.iterrows()}
+
+            logger.info(
+                "%s LSTM ready | file=%s | states=%d | features=%d",
+                disease,
+                model_path,
+                len(state_probs),
+                len(feature_cols),
+            )
+            return state_probs
+
+        except Exception as e:
+            logger.warning("Failed to load %s model: %s", disease, e)
+            return None
+
+    def load_model(self, model_path: str, device: str = "cpu") -> None:
+        """Load the influenza model (backward-compatible entry point)."""
+        self._loaded = False
         self.device = torch.device(device)
 
-        model_file = self._resolve_file(
-            model_path,
-            [
-                "models/best_influenza_lstm_classifier.pth",
-                "../models/best_influenza_lstm_classifier.pth",
-            ],
+        cfg = DISEASE_CONFIGS["influenza"]
+        state_probs = self._load_disease_model(
+            disease="influenza",
+            model_file=model_path or cfg["model_file"],
+            train_file=cfg["train_file"],
+            all_file=cfg["all_file"],
+            sort_col=cfg["sort_col"],
+            seq_length=cfg["seq_length"],
         )
-        if not model_file:
-            logger.warning("Influenza model file not found. Checked configured path and fallbacks.")
-            return
+        if state_probs:
+            self.state_probs = state_probs
+            self.disease_state_probs["influenza"] = state_probs
+            self.model_version = cfg["version"]
+            self._loaded = True
 
-        train_file = self._resolve_file(
-            "data/flu_national_weekly_train.csv",
-            ["../data/flu_national_weekly_train.csv"],
-        )
-        all_file = self._resolve_file(
-            "data/flu_national_weekly_all.csv",
-            ["../data/flu_national_weekly_all.csv"],
-        )
+    def load_all_models(self, device: str = "cpu") -> None:
+        """Load influenza, COVID, and salmonella models."""
+        self.device = torch.device(device)
 
-        if not train_file or not all_file:
-            logger.warning("Flu weekly data files not found for backend inference cache.")
-            return
+        for disease, cfg in DISEASE_CONFIGS.items():
+            probs = self._load_disease_model(
+                disease=disease,
+                model_file=cfg["model_file"],
+                train_file=cfg["train_file"],
+                all_file=cfg["all_file"],
+                sort_col=cfg["sort_col"],
+                seq_length=cfg["seq_length"],
+            )
+            if probs:
+                self.disease_state_probs[disease] = probs
 
-        train_df = pd.read_csv(train_file)
-        all_df = pd.read_csv(all_file)
-
-        train_df["Week Ending Date"] = pd.to_datetime(train_df["Week Ending Date"])
-        all_df["Week Ending Date"] = pd.to_datetime(all_df["Week Ending Date"])
-
-        self.feature_cols = [
-            col
-            for col in train_df.columns
-            if col not in EXCLUDE_COLS and pd.api.types.is_numeric_dtype(train_df[col])
-        ]
-
-        scaler = StandardScaler()
-        scaler.fit(train_df[self.feature_cols])
-        all_df[self.feature_cols] = scaler.transform(all_df[self.feature_cols])
-
-        sequences, sequence_states = self._create_sequences(all_df)
-        if len(sequences) == 0:
-            logger.warning("No sequences created from flu weekly data; backend model not activated.")
-            return
-
-        input_dim = sequences.shape[2]
-        model = OutbreakLSTMClassifier(
-            input_dim=input_dim,
-            hidden_dim=64,
-            num_layers=2,
-            dropout=0.3,
-        ).to(self.device)
-        model.load_state_dict(torch.load(model_file, map_location=self.device))
-        model.eval()
-
-        with torch.no_grad():
-            probs = torch.sigmoid(
-                model(torch.tensor(sequences, dtype=torch.float32, device=self.device)).squeeze()
-            ).cpu().numpy()
-
-        all_seq_df = pd.DataFrame(
-            {
-                "State": sequence_states,
-                "Prob": probs,
-            }
-        )
-
-        state_list = all_seq_df.groupby("State").tail(1)["State"].tolist()
-        prob_list = all_seq_df.groupby("State").tail(1)["Prob"].tolist()
-        self.state_probs = {s: float(p) for s, p in zip(state_list, prob_list)}
-
-        latest_rows = all_df.sort_values(["State", "Week Ending Date"]).groupby("State").tail(1)
-        if "Cases" in latest_rows.columns:
-            self.state_last_cases = {
-                row["State"]: float(row["Cases"])
-                for _, row in latest_rows.iterrows()
-            }
-
-        self.model = model
-        self.model_version = f"influenza_lstm_{model_file.stem}"
-        self._loaded = True
-
-        logger.info(
-            "Influenza LSTM backend model ready | file=%s | states=%d | features=%d",
-            model_file,
-            len(self.state_probs),
-            len(self.feature_cols),
-        )
+        if "influenza" in self.disease_state_probs:
+            self.state_probs = self.disease_state_probs["influenza"]
+            self.model_version = DISEASE_CONFIGS["influenza"]["version"]
+            self._loaded = True
 
     def _risk_level(self, score: float) -> str:
         if score < 33:

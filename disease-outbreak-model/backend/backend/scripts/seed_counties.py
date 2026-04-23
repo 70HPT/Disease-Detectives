@@ -18,7 +18,7 @@ import logging
 import os
 import random
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import httpx
@@ -159,54 +159,72 @@ async def fetch_county_coordinates() -> dict[str, tuple[float, float]]:
     return coords
 
 
-# ── 3. Load flu weekly data for outbreak_history seeding ─────────────
+# ── 3. Load disease history for outbreak_history seeding ─────────────
 
-def load_flu_weekly_data() -> dict[str, list[dict]]:
+_DISEASE_CSV_CONFIGS = {
+    "influenza": {
+        "candidates": ["data/flu_national_weekly_train.csv", "data/flu_national_weekly_all.csv"],
+        "date_col": "Week Ending Date",
+    },
+    "covid": {
+        "candidates": ["data/covid_weekly_train.csv", "data/covid_weekly_all.csv"],
+        "date_col": "Week Ending Date",
+    },
+    "salmonella": {
+        "candidates": ["data/salmonella_monthly_train.csv", "data/salmonella_monthly_all.csv"],
+        "date_col": "Date",
+    },
+}
+
+
+def load_disease_history() -> dict[str, dict[str, list[dict]]]:
     """
-    Load flu national weekly training data to seed outbreak_history.
-    Groups by state abbreviation.
-    Returns: {state_abbr: [{date, cases}, ...]}
+    Load case history for all three diseases from local CSVs.
+    Returns: {disease: {state_abbr: [{date, cases}, ...]}}
     """
+    import pandas as pd
+
     root = Path(__file__).resolve().parents[3]
-    candidates = [
-        root / "data" / "flu_national_weekly_train.csv",
-        root / "data" / "flu_national_weekly_all.csv",
-    ]
+    all_data: dict[str, dict[str, list[dict]]] = {}
 
-    csv_path = None
-    for p in candidates:
-        if p.exists():
-            csv_path = p
-            break
+    for disease, cfg in _DISEASE_CSV_CONFIGS.items():
+        csv_path = None
+        for candidate in cfg["candidates"]:
+            p = root / candidate
+            if p.exists():
+                csv_path = p
+                break
 
-    if not csv_path:
-        logger.warning("Flu weekly CSV not found — skipping outbreak history seed")
-        return {}
+        if not csv_path:
+            logger.warning(f"{disease} CSV not found — skipping")
+            continue
 
-    logger.info(f"Loading flu weekly data from {csv_path}")
-    data: dict[str, list[dict]] = {}
+        logger.info(f"Loading {disease} data from {csv_path}")
+        data: dict[str, list[dict]] = {}
 
-    try:
-        import pandas as pd
-        df = pd.read_csv(csv_path)
-        if "State" in df.columns and "Cases" in df.columns:
+        try:
+            df = pd.read_csv(csv_path)
+            date_col = cfg["date_col"]
+            if "State" not in df.columns or "Cases" not in df.columns:
+                logger.warning(f"{disease} CSV missing State or Cases column")
+                continue
+
             for _, row in df.iterrows():
                 state = str(row.get("State", "")).strip()
                 if not state:
                     continue
                 cases = int(float(row.get("Cases", 0) or 0))
-                date_str = str(row.get("Week Ending Date", ""))
+                date_str = str(row.get(date_col, ""))
+                data.setdefault(state, []).append({"date": date_str, "cases": cases})
 
-                data.setdefault(state, []).append({
-                    "date": date_str,
-                    "cases": cases,
-                })
-    except Exception as e:
-        logger.warning(f"Failed to load flu data: {e}")
-        return {}
+        except Exception as e:
+            logger.warning(f"Failed to load {disease} data: {e}")
+            continue
 
-    logger.info(f"Loaded flu data for {len(data)} states")
-    return data
+        logger.info(f"Loaded {disease} data for {len(data)} states")
+        all_data[disease] = data
+
+    return all_data
 
 
 # ── 4. Main seed function ────────────────────────────────────────────
@@ -249,14 +267,15 @@ async def seed_database(database_url: str | None = None):
         fetch_county_data(),
         fetch_county_coordinates(),
     )
-    flu_data = load_flu_weekly_data()
+    disease_history = load_disease_history()
 
     # ── Insert locations ─────────────────────────────────────────────
     async with async_session() as session:
-        # Clear existing data for a clean seed
+        # Preserve vaccination_coverage rows (and their statewide XX000 locations)
+        # from seed_cdc_vax_coverage; only clear county-level data
         await session.execute(text("DELETE FROM predictions"))
-        await session.execute(text("DELETE FROM outbreak_history"))
-        await session.execute(text("DELETE FROM locations"))
+        await session.execute(text("DELETE FROM outbreak_history WHERE disease_type NOT LIKE 'vaccination_coverage::%'"))
+        await session.execute(text("DELETE FROM locations WHERE fips NOT SIMILAR TO '[0-9]{2}000'"))
         await session.commit()
 
         logger.info(f"Inserting {len(county_data)} counties...")
@@ -290,44 +309,43 @@ async def seed_database(database_url: str | None = None):
         await session.commit()
         logger.info(f"Inserted {len(batch)} locations")
 
-    # ── Insert outbreak history from flu weekly data ─────────────────
+    # ── Insert outbreak history (influenza, covid, salmonella) ──────────
     history_count = 0
     async with async_session() as session:
         history_batch = []
 
-        for state_abbr, records in flu_data.items():
-            # Find the first location in this state to attach history
-            state_fips_list = state_location_map.get(state_abbr, [])
-            if not state_fips_list:
-                continue
-            # Use the first county as the state representative
-            loc_id = location_map.get(state_fips_list[0])
-            if not loc_id:
-                continue
+        for disease, state_records in disease_history.items():
+            source = _DISEASE_CSV_CONFIGS[disease]["candidates"][0].split("/")[-1].replace(".csv", "")
 
-            for rec in records:
-                try:
-                    date = datetime.strptime(rec["date"], "%Y-%m-%d") if rec["date"] else datetime(2023, 1, 1)
-                except (ValueError, TypeError):
-                    date = datetime(2023, 1, 1)
+            for state_abbr, records in state_records.items():
+                state_fips_list = state_location_map.get(state_abbr, [])
+                if not state_fips_list:
+                    continue
+                loc_id = location_map.get(state_fips_list[0])
+                if not loc_id:
+                    continue
 
-                oh = OutbreakHistory(
-                    location_id=loc_id,
-                    disease_type="influenza",
-                    date=date,
-                    case_count=rec["cases"],
-                    population=None,
-                    climate_data={
-                        "source": "flu_national_weekly",
-                    },
-                )
-                history_batch.append(oh)
-                history_count += 1
+                for rec in records:
+                    try:
+                        date = datetime.strptime(rec["date"], "%Y-%m-%d") if rec["date"] else datetime(2023, 1, 1)
+                    except (ValueError, TypeError):
+                        date = datetime(2023, 1, 1)
 
-                if len(history_batch) >= 5000:
-                    session.add_all(history_batch)
-                    await session.flush()
-                    history_batch = []
+                    oh = OutbreakHistory(
+                        location_id=loc_id,
+                        disease_type=disease,
+                        date=date,
+                        case_count=rec["cases"],
+                        population=None,
+                        climate_data={"source": source},
+                    )
+                    history_batch.append(oh)
+                    history_count += 1
+
+                    if len(history_batch) >= 5000:
+                        session.add_all(history_batch)
+                        await session.flush()
+                        history_batch = []
 
         if history_batch:
             session.add_all(history_batch)
@@ -335,93 +353,115 @@ async def seed_database(database_url: str | None = None):
         await session.commit()
         logger.info(f"Inserted {history_count} outbreak_history records")
 
-    # ── Generate initial predictions ─────────────────────────────────
+    # ── Generate initial predictions (all three diseases) ────────────
     pred_count = 0
     async with async_session() as session:
-        pred_batch = []
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
         random.seed(42)
 
-        # Try to use the ML model for state-level probabilities
-        state_probs = {}
+        # Load all disease models
+        disease_state_probs: dict[str, dict[str, float]] = {}
         try:
-            from backend.services.ml_service import prediction_service
-            if not prediction_service.is_loaded:
-                from backend.core.config import get_settings
-                settings = get_settings()
-                prediction_service.load_model(settings.model_path, settings.model_device)
-            if prediction_service.is_loaded:
-                state_probs = prediction_service.state_probs
-                logger.info(f"Using ML model probabilities for {len(state_probs)} states")
+            from backend.services.ml_service import prediction_service, DISEASE_CONFIGS
+            prediction_service.load_all_models()
+            disease_state_probs = prediction_service.disease_state_probs
+            logger.info(f"Loaded models for diseases: {list(disease_state_probs.keys())}")
         except Exception as e:
-            logger.warning(f"Could not load ML model for seeding: {e}")
+            logger.warning(f"Could not load ML models for seeding: {e}")
 
-        for fips, loc_id in location_map.items():
-            state_abbr = None
-            for cd in county_data:
-                if cd["fips"] == fips:
-                    state_abbr = cd["state"]
-                    break
+        # Build fips→state lookup once
+        fips_to_state = {cd["fips"]: cd["state"] for cd in county_data}
 
-            # Use model probability if available
-            if state_abbr and state_abbr in state_probs:
-                prob = state_probs[state_abbr]
-                base_score = prob * 100
-                base_score += random.uniform(-5, 5)  # slight county variation
-            else:
-                base_score = random.uniform(15, 70)
+        diseases = list(DISEASE_CONFIGS.keys()) if disease_state_probs else ["influenza"]
+        pred_batch = []
 
-            score = round(min(max(base_score, 0), 100), 2)
+        for disease in diseases:
+            state_probs = disease_state_probs.get(disease, {})
+            model_version = DISEASE_CONFIGS[disease]["version"] if disease_state_probs else f"{disease}_lstm_v1"
 
-            pred = Prediction(
-                location_id=loc_id,
-                risk_score=score,
-                confidence=round(random.uniform(0.4, 0.9), 4),
-                factors={
-                    "population_density": round(random.uniform(0.1, 0.8), 3),
-                    "climate_risk": round(random.uniform(0.1, 0.6), 3),
-                    "vaccination_coverage": round(random.uniform(0.1, 0.7), 3),
-                    "historical_trend": round(random.uniform(0.1, 0.9), 3),
-                    "search_trend": round(random.uniform(0.05, 0.5), 3),
-                },
-                timestamp=now - timedelta(hours=random.randint(0, 48)),
-                model_version="influenza_lstm_v1",
-            )
-            pred_batch.append(pred)
-            pred_count += 1
+            for fips, loc_id in location_map.items():
+                state_abbr = fips_to_state.get(fips)
 
-            if len(pred_batch) >= 5000:
-                session.add_all(pred_batch)
-                await session.flush()
-                pred_batch = []
+                if state_abbr and state_abbr in state_probs:
+                    prob = state_probs[state_abbr]
+                    base_score = prob * 100 + random.uniform(-5, 5)
+                else:
+                    base_score = random.uniform(15, 70)
+
+                score = round(min(max(base_score, 0), 100), 2)
+
+                pred = Prediction(
+                    location_id=loc_id,
+                    risk_score=score,
+                    confidence=round(random.uniform(0.4, 0.9), 4),
+                    factors={
+                        "population_density": round(random.uniform(0.1, 0.8), 3),
+                        "climate_risk": round(random.uniform(0.1, 0.6), 3),
+                        "vaccination_coverage": round(random.uniform(0.1, 0.7), 3),
+                        "historical_trend": round(random.uniform(0.1, 0.9), 3),
+                        "search_trend": round(random.uniform(0.05, 0.5), 3),
+                    },
+                    timestamp=now - timedelta(hours=random.randint(0, 48)),
+                    model_version=model_version,
+                )
+                pred_batch.append(pred)
+                pred_count += 1
+
+                if len(pred_batch) >= 5000:
+                    session.add_all(pred_batch)
+                    await session.flush()
+                    pred_batch = []
+
+            logger.info(f"Queued {len(location_map)} predictions for {disease}")
 
         if pred_batch:
             session.add_all(pred_batch)
 
         await session.commit()
-        logger.info(f"Inserted {pred_count} predictions")
+        logger.info(f"Inserted {pred_count} predictions total ({len(diseases)} diseases)")
 
     # ── Insert model metadata ────────────────────────────────────────
-    async with async_session() as session:
-        existing = (await session.execute(
-            select(ModelMetadata).where(ModelMetadata.version == "influenza_lstm_v1")
-        )).scalar_one_or_none()
+    MODEL_META = [
+        {
+            "version": "influenza_lstm_v1",
+            "disease": "influenza",
+            "description": "LSTM binary classifier trained on national flu weekly data",
+            "file_path": "models/best_influenza_lstm_classifier.pth",
+        },
+        {
+            "version": "covid_lstm_v1",
+            "disease": "covid",
+            "description": "LSTM binary classifier trained on national COVID weekly data",
+            "file_path": "models/best_covid_lstm_classifier.pth",
+        },
+        {
+            "version": "salmonella_lstm_v1",
+            "disease": "salmonella",
+            "description": "LSTM binary classifier trained on national salmonella monthly data",
+            "file_path": "models/best_salmonella_lstm_classifier.pth",
+        },
+    ]
 
-        if not existing:
-            meta = ModelMetadata(
-                version="influenza_lstm_v1",
-                disease="influenza",
-                trained_at=datetime(2026, 3, 1),
-                metrics={
-                    "description": "LSTM binary classifier trained on national flu weekly data",
-                },
-                feature_columns=["Cases", "Cases_lag_1", "Cases_lag_2", "Cases_lag_3"],
-                file_path="models/best_influenza_lstm_classifier.pth",
-                is_active="true",
-            )
-            session.add(meta)
-            await session.commit()
-            logger.info("Inserted model metadata")
+    async with async_session() as session:
+        for meta_def in MODEL_META:
+            existing = (await session.execute(
+                select(ModelMetadata).where(ModelMetadata.version == meta_def["version"])
+            )).scalar_one_or_none()
+
+            if not existing:
+                meta = ModelMetadata(
+                    version=meta_def["version"],
+                    disease=meta_def["disease"],
+                    trained_at=datetime(2026, 3, 1),
+                    metrics={"description": meta_def["description"]},
+                    feature_columns=[],
+                    file_path=meta_def["file_path"],
+                    is_active="true",
+                )
+                session.add(meta)
+
+        await session.commit()
+        logger.info("Inserted model metadata for all diseases")
 
     await engine.dispose()
 
