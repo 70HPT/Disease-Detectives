@@ -41,11 +41,12 @@ async def predict_risk(req: RiskRequest, db: AsyncSession = Depends(get_db)):
     features["state"] = location.state
 
     # Run ML prediction
-    prediction = prediction_service.predict(features)
+    prediction = prediction_service.predict(features, disease_type=req.disease_type)
 
     # Persist prediction
     db_pred = Prediction(
         location_id=location.id,
+        disease_type=req.disease_type,
         risk_score=prediction["risk_score"],
         confidence=prediction["confidence"],
         factors=prediction["factors"],
@@ -70,7 +71,11 @@ async def predict_risk(req: RiskRequest, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/location/{fips}", response_model=RiskResponse)
-async def get_latest_risk(fips: str, db: AsyncSession = Depends(get_db)):
+async def get_latest_risk(
+    fips: str,
+    disease_type: str = Query(default="influenza"),
+    db: AsyncSession = Depends(get_db),
+):
     """
     Get the most recent cached prediction for a FIPS code.
     Faster than /predict — serves pre-computed results.
@@ -85,6 +90,7 @@ async def get_latest_risk(fips: str, db: AsyncSession = Depends(get_db)):
     pred_result = await db.execute(
         select(Prediction)
         .where(Prediction.location_id == location.id)
+        .where(Prediction.disease_type == disease_type)
         .order_by(Prediction.timestamp.desc())
         .limit(1)
     )
@@ -115,18 +121,22 @@ async def get_latest_risk(fips: str, db: AsyncSession = Depends(get_db)):
 # ── Map data (all states) ───────────────────────────────────────────
 
 @router.get("/map", response_model=MapDataResponse)
-async def get_map_data(db: AsyncSession = Depends(get_db)):
+async def get_map_data(
+    disease_type: str = Query(default="influenza"),
+    db: AsyncSession = Depends(get_db),
+):
     """
     Get aggregated risk data for the U.S. map.
     Returns one entry per state with avg/max risk scores.
     This is what powers the color-coded map on page load.
     """
-    # Subquery: latest prediction per location
+    # Subquery: latest prediction per location for this disease
     latest_pred = (
         select(
             Prediction.location_id,
             func.max(Prediction.timestamp).label("latest_ts"),
         )
+        .where(Prediction.disease_type == disease_type)
         .group_by(Prediction.location_id)
         .subquery()
     )
@@ -144,6 +154,7 @@ async def get_map_data(db: AsyncSession = Depends(get_db)):
             (Prediction.location_id == latest_pred.c.location_id)
             & (Prediction.timestamp == latest_pred.c.latest_ts),
         )
+        .where(Prediction.disease_type == disease_type)
         .group_by(Location.state)
     )
 
@@ -152,7 +163,7 @@ async def get_map_data(db: AsyncSession = Depends(get_db)):
 
     # Fall back to in-memory model predictions if DB has no predictions
     if not rows:
-        model_rows = prediction_service.get_state_map_data()
+        model_rows = prediction_service.get_state_map_data(disease_type=disease_type)
         states = [
             StateRiskSummary(
                 state=row["state"],
@@ -210,10 +221,11 @@ async def batch_predict(req: BatchRiskRequest, db: AsyncSession = Depends(get_db
         if not location:
             continue
 
-        # Try cached prediction first
+        # Try cached prediction first (match disease_type)
         pred_result = await db.execute(
             select(Prediction)
             .where(Prediction.location_id == location.id)
+            .where(Prediction.disease_type == req.disease_type)
             .order_by(Prediction.timestamp.desc())
             .limit(1)
         )
@@ -238,10 +250,11 @@ async def batch_predict(req: BatchRiskRequest, db: AsyncSession = Depends(get_db
             # Run a fresh prediction
             features = await build_features_for_location(fips, db=db)
             features["state"] = location.state
-            pred_data = prediction_service.predict(features)
+            pred_data = prediction_service.predict(features, disease_type=req.disease_type)
 
             db_pred = Prediction(
                 location_id=location.id,
+                disease_type=req.disease_type,
                 risk_score=pred_data["risk_score"],
                 confidence=pred_data["confidence"],
                 factors=pred_data["factors"],

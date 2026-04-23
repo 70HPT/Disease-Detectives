@@ -56,6 +56,7 @@ class Prediction(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     location_id = Column(Integer, ForeignKey("locations.id"), nullable=False)
+    disease_type = Column(String(100), nullable=False, server_default="influenza", index=True)
     risk_score = Column(Float, nullable=False)            # 0-100
     confidence = Column(Float)                            # 0-1
     factors = Column(JSON)                                # contributing factor breakdown
@@ -65,7 +66,7 @@ class Prediction(Base):
     location = relationship("Location", back_populates="predictions")
 
     __table_args__ = (
-        Index("ix_prediction_location_ts", "location_id", "timestamp"),
+        Index("ix_prediction_location_disease_ts", "location_id", "disease_type", "timestamp"),
     )
 
 

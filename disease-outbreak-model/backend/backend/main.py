@@ -14,7 +14,7 @@ from backend.core.config import get_settings
 from backend.db.session import init_db
 from backend.services.ml_service import prediction_service
 from backend.middleware.rate_limit import RateLimitMiddleware
-from backend.api.routes import risk, locations, data, health
+from backend.api.routes import risk, locations, data, health, diseases
 
 settings = get_settings()
 
@@ -84,6 +84,7 @@ app.include_router(health.router, prefix=API_V1)
 app.include_router(risk.router, prefix=API_V1)
 app.include_router(locations.router, prefix=API_V1)
 app.include_router(data.router, prefix=API_V1)
+app.include_router(diseases.router, prefix=API_V1)
 
 
 @app.get("/")

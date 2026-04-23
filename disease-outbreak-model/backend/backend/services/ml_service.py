@@ -263,18 +263,27 @@ class PredictionService:
             "search_trend": round(float(features.get("otc_search_index", 30)) / 100, 3),
         }
 
-    def predict(self, features: dict) -> dict:
+    def _resolve_disease(self, disease_type: str) -> str:
+        """Normalise disease_type to a known key; fall back to influenza."""
+        if disease_type in self.disease_state_probs:
+            return disease_type
+        return "influenza"
+
+    def predict(self, features: dict, disease_type: str = "influenza") -> dict:
         if not self._loaded:
             return self._mock_predict(features)
 
+        disease = self._resolve_disease(disease_type)
+        state_probs = self.disease_state_probs.get(disease, self.state_probs)
         state = str(features.get("state", "")).upper()
-        if state not in self.state_probs:
+        if state not in state_probs:
             return self._mock_predict(features)
 
-        prob = float(self.state_probs[state])
+        prob = float(state_probs[state])
         risk_score = prob * 100.0
         confidence = max(prob, 1.0 - prob)
         raw_pred = self.state_last_cases.get(state, prob * 1000.0)
+        version = DISEASE_CONFIGS.get(disease, DISEASE_CONFIGS["influenza"])["version"]
 
         return {
             "raw_prediction": round(raw_pred, 2),
@@ -282,19 +291,21 @@ class PredictionService:
             "confidence": round(confidence, 4),
             "risk_level": self._risk_level(risk_score),
             "factors": self._compute_factors(features, prob),
-            "model_version": self.model_version,
+            "model_version": version,
             "generated_at": datetime.utcnow().isoformat(),
         }
 
-    def predict_batch(self, feature_list: list[dict]) -> list[dict]:
-        return [self.predict(f) for f in feature_list]
+    def predict_batch(self, feature_list: list[dict], disease_type: str = "influenza") -> list[dict]:
+        return [self.predict(f, disease_type=disease_type) for f in feature_list]
 
-    def get_state_map_data(self) -> list[dict]:
+    def get_state_map_data(self, disease_type: str = "influenza") -> list[dict]:
         if not self._loaded:
             return []
 
+        disease = self._resolve_disease(disease_type)
+        state_probs = self.disease_state_probs.get(disease, self.state_probs)
         rows = []
-        for state, prob in sorted(self.state_probs.items()):
+        for state, prob in sorted(state_probs.items()):
             score = float(prob) * 100.0
             rows.append(
                 {
