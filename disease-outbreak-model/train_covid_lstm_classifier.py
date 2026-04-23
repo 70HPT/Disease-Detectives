@@ -35,7 +35,7 @@ EXCLUDE_COLS = {
 }
 
 
-def create_sequences(data: pd.DataFrame, seq_length: int, group_col: str = "Region", sort_col: str = "Year"):
+def create_sequences(data: pd.DataFrame, seq_length: int, group_col: str = "State", sort_col: str = "Week Ending Date"):
     sequences = []
     labels = []
     region_ids = []
@@ -135,7 +135,7 @@ def train_model(model, train_loader, val_loader, num_epochs, learning_rate, devi
 
         if val_loss < best_val_loss:
             best_val_loss = val_loss
-            torch.save(model.state_dict(), "models/best_influenza_lstm_classifier.pth")
+            torch.save(model.state_dict(), "models/best_covid_lstm_classifier.pth")
 
     return train_losses, val_losses
 
@@ -164,18 +164,16 @@ def evaluate_model(model, data_loader, device):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Train LSTM classifier for influenza outbreak detection")
-    parser.add_argument("--train-file", default="data/flu_national_weekly_train.csv")
+    parser = argparse.ArgumentParser(description="Train LSTM classifier for COVID-19 outbreak detection")
+    parser.add_argument("--train-file", default="data/covid_weekly_train.csv")
     parser.add_argument("--seq-length", type=int, default=8,
-                        help="Sequence length in steps (weeks for weekly data, years for annual)")
-    parser.add_argument("--val-start-year", type=int, default=None,
-                        help="(Annual data) Split train/val at this year")
-    parser.add_argument("--val-cutoff-date", default="2022-07-01",
-                        help="(Weekly data) ISO date string to split train/val (default: 2022-07-01)")
+                        help="Sequence length in weeks")
+    parser.add_argument("--val-cutoff-date", default="2021-07-01",
+                        help="ISO date string to split train/val (default: 2021-07-01)")
     parser.add_argument("--group-col", default="State",
-                        help="Column to group sequences by (State for weekly, Region for annual)")
+                        help="Column to group sequences by")
     parser.add_argument("--sort-col", default="Week Ending Date",
-                        help="Column to sort within each group (Week Ending Date or Year)")
+                        help="Column to sort within each group")
     parser.add_argument("--num-epochs", type=int, default=50)
     parser.add_argument("--learning-rate", type=float, default=0.001)
     parser.add_argument("--batch-size", type=int, default=64)
@@ -184,23 +182,17 @@ def main():
     parser.add_argument("--dropout", type=float, default=0.3)
     args = parser.parse_args()
 
-    print("Training LSTM on Influenza Dataset")
- 
-    train_df = pd.read_csv(args.train_file)
+    print("Training LSTM on COVID-19 Dataset")
 
-    if "Week Ending Date" in train_df.columns:
-        train_df["Week Ending Date"] = pd.to_datetime(train_df["Week Ending Date"])
+    train_df = pd.read_csv(args.train_file)
+    train_df["Week Ending Date"] = pd.to_datetime(train_df["Week Ending Date"])
 
     group_col = args.group_col
     sort_col = args.sort_col
 
     print(f"Training records: {len(train_df):,}")
-    if group_col in train_df.columns:
-        print(f"{group_col} groups: {train_df[group_col].nunique():,}")
-    if sort_col in train_df.columns and pd.api.types.is_numeric_dtype(train_df[sort_col]):
-        print(f"{sort_col} range: {train_df[sort_col].min()}-{train_df[sort_col].max()}")
-    elif "Week Ending Date" in train_df.columns:
-        print(f"Date range: {train_df['Week Ending Date'].min().date()} – {train_df['Week Ending Date'].max().date()}")
+    print(f"{group_col} groups: {train_df[group_col].nunique():,}")
+    print(f"Date range: {train_df['Week Ending Date'].min().date()} – {train_df['Week Ending Date'].max().date()}")
     print(f"Outbreak rate: {train_df['Outbreak'].mean() * 100:.1f}%")
 
     feature_cols = [
@@ -212,18 +204,9 @@ def main():
     scaler = StandardScaler()
     train_df[feature_cols] = scaler.fit_transform(train_df[feature_cols])
 
-    if args.val_start_year is not None:
-        train_part = train_df[train_df["Year"] < args.val_start_year].copy()
-        val_part   = train_df[train_df["Year"] >= args.val_start_year].copy()
-    elif "Week Ending Date" in train_df.columns:
-        cutoff = pd.to_datetime(args.val_cutoff_date)
-        train_part = train_df[train_df["Week Ending Date"] < cutoff].copy()
-        val_part   = train_df[train_df["Week Ending Date"] >= cutoff].copy()
-    else:
-        raise ValueError(
-            "Cannot determine train/val split. Provide --val-start-year or ensure "
-            "'Week Ending Date' column is present for date-based split."
-        )
+    cutoff = pd.to_datetime(args.val_cutoff_date)
+    train_part = train_df[train_df["Week Ending Date"] < cutoff].copy()
+    val_part = train_df[train_df["Week Ending Date"] >= cutoff].copy()
 
     train_seq, train_labels, train_regions = create_sequences(
         train_part, args.seq_length, group_col=group_col, sort_col=sort_col
@@ -254,6 +237,14 @@ def main():
     neg_count = (train_labels == 0).sum()
     pos_weight = neg_count / max(1, pos_count)
 
+    print(f"\nModel Configuration:")
+    print(f"  Input dim: {input_dim}")
+    print(f"  Hidden dim: {args.hidden_dim}")
+    print(f"  Num layers: {args.num_layers}")
+    print(f"  Dropout: {args.dropout}")
+    print(f"  Device: {device}")
+    print(f"  Class weight (pos): {pos_weight:.2f}")
+
     train_losses, val_losses = train_model(
         model,
         train_loader,
@@ -270,12 +261,12 @@ def main():
     plt.plot(val_losses, label="Validation Loss")
     plt.xlabel("Epoch")
     plt.ylabel("Loss")
-    plt.title("Influenza LSTM Training and Validation Loss")
+    plt.title("COVID-19 LSTM Training and Validation Loss")
     plt.legend()
-    plt.savefig("figures/influenza_lstm_training_curves.png", dpi=300, bbox_inches="tight")
+    plt.savefig("figures/covid_lstm_training_curves.png", dpi=300, bbox_inches="tight")
     plt.close()
 
-    model.load_state_dict(torch.load("models/best_influenza_lstm_classifier.pth", map_location=device))
+    model.load_state_dict(torch.load("models/best_covid_lstm_classifier.pth", map_location=device))
     val_auc, val_cm, val_report = evaluate_model(model, val_loader, device)
 
     print("\nValidation AUC:", f"{val_auc:.4f}")

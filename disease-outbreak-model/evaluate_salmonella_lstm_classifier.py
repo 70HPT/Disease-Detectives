@@ -34,9 +34,9 @@ EXCLUDE_COLS = {
     "Region",
     "Source",
     "Season",
-    "Week Ending Date",
-    "WeekOfYear",
-    "WeekIndex",
+    "Date",
+    "Month",
+    "MonthIndex",
 }
 
 
@@ -44,7 +44,7 @@ def create_sequences(
     data: pd.DataFrame,
     seq_length: int,
     group_col: str = "State",
-    sort_col: str = "Week Ending Date",
+    sort_col: str = "Date",
 ):
     sequences = []
     labels = []
@@ -106,11 +106,11 @@ def evaluate_model(model, test_loader, device, threshold: float = 0.5):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Evaluate influenza LSTM classifier")
-    parser.add_argument("--train-file", default="data/flu_national_weekly_train.csv")
-    parser.add_argument("--test-file", default="data/flu_national_weekly_test.csv")
-    parser.add_argument("--model-path", default="models/best_influenza_lstm_classifier.pth")
-    parser.add_argument("--seq-length", type=int, default=8)
+    parser = argparse.ArgumentParser(description="Evaluate salmonella LSTM classifier")
+    parser.add_argument("--train-file", default="data/salmonella_monthly_train.csv")
+    parser.add_argument("--test-file", default="data/salmonella_monthly_test.csv")
+    parser.add_argument("--model-path", default="models/best_salmonella_lstm_classifier.pth")
+    parser.add_argument("--seq-length", type=int, default=6)
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--hidden-dim", type=int, default=64)
     parser.add_argument("--num-layers", type=int, default=2)
@@ -128,19 +128,18 @@ def main():
     )
     parser.add_argument(
         "--sort-col",
-        default="Week Ending Date",
-        help="Column to sort within each group (default: Week Ending Date)",
+        default="Date",
+        help="Column to sort within each group (default: Date)",
     )
     args = parser.parse_args()
 
-    print("\nEvaluating Influenza LSTM ")
+    print("\nEvaluating Salmonella LSTM ")
 
     train_df = pd.read_csv(args.train_file)
     test_df = pd.read_csv(args.test_file)
 
-    if "Week Ending Date" in train_df.columns:
-        train_df["Week Ending Date"] = pd.to_datetime(train_df["Week Ending Date"])
-        test_df["Week Ending Date"] = pd.to_datetime(test_df["Week Ending Date"])
+    train_df["Date"] = pd.to_datetime(train_df["Date"])
+    test_df["Date"] = pd.to_datetime(test_df["Date"])
 
     group_col = args.group_col
     sort_col = args.sort_col
@@ -211,10 +210,10 @@ def main():
         xticklabels=["No Outbreak", "Outbreak"],
         yticklabels=["No Outbreak", "Outbreak"],
     )
-    plt.title(f"Influenza Confusion Matrix (AUC={auc:.4f}, Thr={args.threshold:.2f})")
+    plt.title(f"Salmonella Confusion Matrix (AUC={auc:.4f}, Thr={args.threshold:.2f})")
     plt.ylabel("True Label")
     plt.xlabel("Predicted Label")
-    plt.savefig("figures/influenza_lstm_confusion_matrix.png", dpi=300, bbox_inches="tight")
+    plt.savefig("figures/salmonella_lstm_confusion_matrix.png", dpi=300, bbox_inches="tight")
     plt.close()
 
     fpr, tpr, _ = roc_curve(test_labels_np, test_probs)
@@ -223,10 +222,10 @@ def main():
     plt.plot([0, 1], [0, 1], "k--", linewidth=1)
     plt.xlabel("False Positive Rate")
     plt.ylabel("True Positive Rate")
-    plt.title("Influenza LSTM ROC Curve — National Weekly Data")
+    plt.title("Salmonella LSTM ROC Curve — Monthly State Data")
     plt.legend()
     plt.grid(True, alpha=0.3)
-    plt.savefig("figures/influenza_lstm_roc_curve.png", dpi=300, bbox_inches="tight")
+    plt.savefig("figures/salmonella_lstm_roc_curve.png", dpi=300, bbox_inches="tight")
     plt.close()
 
     result_df = pd.DataFrame(
@@ -256,6 +255,9 @@ def main():
         year_auc = roc_auc_score(year_data["True_Label"], year_data["Predicted_Prob"])
         year_acc = (year_data["True_Label"] == year_data["Predicted_Label"]).mean()
         print(f"  {year}: AUC={year_auc:.4f}, Accuracy={year_acc:.4f}, n={len(year_data)}")
+
+    print(f"\nFigures saved to figures/")
+    print("=" * 80)
 
 
 if __name__ == "__main__":

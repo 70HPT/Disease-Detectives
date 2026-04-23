@@ -1,0 +1,50 @@
+# Large data files exceeding GitHub's 100MB limit
+disease-outbreak-model/data/raw/covid/COVID-19_Vaccinations_in_the_United_States,County_20260423.csv
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Model files (optional - uncomment if models are too large)
+# *.pth
+
+# Large CSV files (optional - uncomment to ignore all large CSVs)
+# *.csv

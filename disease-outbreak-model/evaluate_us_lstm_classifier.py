@@ -21,7 +21,6 @@ def create_lag_features(df, lag_steps=[1, 2, 3]):
     for lag in lag_steps:
         df[f'Cases_lag_{lag}'] = df.groupby('FIPS')['Cases'].shift(lag)
     
-    # Drop rows with NaN lag features
     df = df.dropna(subset=[f'Cases_lag_{lag}' for lag in lag_steps])
     
     return df
@@ -33,7 +32,6 @@ def create_sequences(data, seq_length):
     county_ids = []
     years = []
     
-    # Group by county (FIPS)
     for fips, group in data.groupby('FIPS'):
         group = group.sort_values('Year')
         
@@ -93,9 +91,7 @@ def evaluate_model(model, test_loader, device):
     return np.array(all_preds), np.array(all_probs), np.array(all_labels)
 
 def main():
-    print("=" * 80)
-    print("Evaluating LSTM Classifier on US Chlamydia Test Dataset (2020-2023)")
-    print("=" * 80)
+    print("\nEvaluating LSTM on US Chlamydia Test Dataset (2020-2023)")
     
     print("\nLoading training data for normalization...")
     train_df = pd.read_csv('data/atlasplus_all_us_train.csv')
@@ -103,7 +99,6 @@ def main():
     feature_cols = [col for col in train_df.columns if col not in 
                    ['Year', 'State', 'FIPS', 'County', 'Disease', 'Sex', 'Outbreak']]
     
-    # Fit scaler on training data
     scaler = StandardScaler()
     scaler.fit(train_df[feature_cols])
     
@@ -114,10 +109,8 @@ def main():
     print(f"Year range: {test_df['Year'].min()}-{test_df['Year'].max()}")
     print(f"Outbreak rate: {test_df['Outbreak'].mean()*100:.1f}%")
     
-    # Lag features already included
     print("\nLag features already included in dataset")
     
-    # Normalize features using training scaler
     print("\nNormalizing features...")
     test_df[feature_cols] = scaler.transform(test_df[feature_cols])
     
@@ -155,9 +148,8 @@ def main():
     cm = confusion_matrix(test_labels_np, test_preds)
     report = classification_report(test_labels_np, test_preds, target_names=['No Outbreak', 'Outbreak'])
     
-    print("\n" + "=" * 80)
+    print("\n")
     print("TEST SET RESULTS")
-    print("=" * 80)
     print(f"\nTest AUC-ROC: {auc:.4f}")
     print("\nClassification Report:")
     print(report)
@@ -218,9 +210,7 @@ def main():
         'County': test_counties
     })
     
-    print("\n" + "=" * 80)
     print("Performance by Year:")
-    print("=" * 80)
     for year in sorted(results_df['Year'].unique()):
         year_data = results_df[results_df['Year'] == year]
         year_auc = roc_auc_score(year_data['True_Label'], year_data['Predicted_Prob'])
@@ -229,12 +219,9 @@ def main():
         
         print(f"Year {year}: AUC={year_auc:.4f}, Accuracy={year_acc:.4f}, Outbreak Rate={outbreak_rate*100:.1f}%")
     
-    print("\n" + "=" * 80)
-    print("Evaluation complete!")
     print(f"Confusion matrix saved to: figures/us_lstm_confusion_matrix.png")
     print(f"ROC curve saved to: figures/us_lstm_roc_curve.png")
     print(f"Probability distribution saved to: figures/us_lstm_probability_dist.png")
-    print("=" * 80)
-
+ 
 if __name__ == '__main__':
     main()

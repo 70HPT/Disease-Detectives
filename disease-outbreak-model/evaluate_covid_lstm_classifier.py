@@ -106,10 +106,10 @@ def evaluate_model(model, test_loader, device, threshold: float = 0.5):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Evaluate influenza LSTM classifier")
-    parser.add_argument("--train-file", default="data/flu_national_weekly_train.csv")
-    parser.add_argument("--test-file", default="data/flu_national_weekly_test.csv")
-    parser.add_argument("--model-path", default="models/best_influenza_lstm_classifier.pth")
+    parser = argparse.ArgumentParser(description="Evaluate COVID-19 LSTM classifier")
+    parser.add_argument("--train-file", default="data/covid_weekly_train.csv")
+    parser.add_argument("--test-file", default="data/covid_weekly_test.csv")
+    parser.add_argument("--model-path", default="models/best_covid_lstm_classifier.pth")
     parser.add_argument("--seq-length", type=int, default=8)
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--hidden-dim", type=int, default=64)
@@ -133,14 +133,13 @@ def main():
     )
     args = parser.parse_args()
 
-    print("\nEvaluating Influenza LSTM ")
+    print("\nEvaluating COVID-19 LSTM ")
 
     train_df = pd.read_csv(args.train_file)
     test_df = pd.read_csv(args.test_file)
 
-    if "Week Ending Date" in train_df.columns:
-        train_df["Week Ending Date"] = pd.to_datetime(train_df["Week Ending Date"])
-        test_df["Week Ending Date"] = pd.to_datetime(test_df["Week Ending Date"])
+    train_df["Week Ending Date"] = pd.to_datetime(train_df["Week Ending Date"])
+    test_df["Week Ending Date"] = pd.to_datetime(test_df["Week Ending Date"])
 
     group_col = args.group_col
     sort_col = args.sort_col
@@ -211,10 +210,10 @@ def main():
         xticklabels=["No Outbreak", "Outbreak"],
         yticklabels=["No Outbreak", "Outbreak"],
     )
-    plt.title(f"Influenza Confusion Matrix (AUC={auc:.4f}, Thr={args.threshold:.2f})")
+    plt.title(f"COVID-19 Confusion Matrix (AUC={auc:.4f}, Thr={args.threshold:.2f})")
     plt.ylabel("True Label")
     plt.xlabel("Predicted Label")
-    plt.savefig("figures/influenza_lstm_confusion_matrix.png", dpi=300, bbox_inches="tight")
+    plt.savefig("figures/covid_lstm_confusion_matrix.png", dpi=300, bbox_inches="tight")
     plt.close()
 
     fpr, tpr, _ = roc_curve(test_labels_np, test_probs)
@@ -223,10 +222,10 @@ def main():
     plt.plot([0, 1], [0, 1], "k--", linewidth=1)
     plt.xlabel("False Positive Rate")
     plt.ylabel("True Positive Rate")
-    plt.title("Influenza LSTM ROC Curve — National Weekly Data")
+    plt.title("COVID-19 LSTM ROC Curve — Weekly State Data")
     plt.legend()
     plt.grid(True, alpha=0.3)
-    plt.savefig("figures/influenza_lstm_roc_curve.png", dpi=300, bbox_inches="tight")
+    plt.savefig("figures/covid_lstm_roc_curve.png", dpi=300, bbox_inches="tight")
     plt.close()
 
     result_df = pd.DataFrame(

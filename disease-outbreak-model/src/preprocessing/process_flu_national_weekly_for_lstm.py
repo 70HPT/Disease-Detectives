@@ -205,10 +205,6 @@ def main():
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    print("=" * 80)
-    print("Processing National Weekly Influenza Data for LSTM")
-    print("=" * 80)
-
     df = load_hospital_data(Path(args.hospital_file))
 
     if args.vax_file and Path(args.vax_file).exists():
@@ -253,7 +249,6 @@ def main():
     print(f"  All:   {all_path}")
     print(f"  Train: {train_path}")
     print(f"  Test:  {test_path}")
-    print("=" * 80)
 
 
 if __name__ == "__main__":

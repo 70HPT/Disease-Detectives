@@ -139,9 +139,7 @@ def evaluate_model(model, test_loader, device):
     return auc, cm, report, all_probs, all_labels
 
 def main():
-    print("=" * 80)
-    print("Training LSTM Classifier on Full US Chlamydia Dataset")
-    print("=" * 80)
+    print("Training LSTM on Full US Chlamydia Dataset")
     
     print("\nLoading training data...")
     train_df = pd.read_csv('data/atlasplus_all_us_train.csv')
@@ -229,10 +227,8 @@ def main():
     plt.savefig('figures/us_lstm_training_curves.png', dpi=300, bbox_inches='tight')
     plt.close()
     
-    print("\n" + "=" * 80)
-    print("Training complete!")
-    print("=" * 80)
-    
+    print("Training complete")
+     
     print("\nFinal validation set evaluation:")
     model.load_state_dict(torch.load('models/best_us_lstm_classifier.pth'))
     val_auc, val_cm, val_report, _, _ = evaluate_model(model, val_loader, device)
