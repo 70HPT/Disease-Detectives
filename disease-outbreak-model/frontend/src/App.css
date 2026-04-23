@@ -297,16 +297,12 @@ body {
   font-family: 'JetBrains Mono', monospace;
   background: rgba(2, 4, 8, 0.8);
   padding: 0.5rem 1rem;
-  border-radius: 4px;
-  border: 1px solid rgba(0, 212, 170, 0.2);
+  border-radius: 16px;
+  border: 1px solid rgba(0, 255, 204, 0.15);
   transition: opacity 0.6s cubic-bezier(0.22, 1, 0.36, 1),
               transform 0.6s cubic-bezier(0.22, 1, 0.36, 1),
               bottom 0.6s cubic-bezier(0.22, 1, 0.36, 1);
   will-change: opacity, transform;
-}
-
-.breadcrumb.raised {
-  bottom: calc(50% + 275px);
 }
 
 .breadcrumb.hidden {
@@ -348,12 +344,6 @@ body {
   .header h1 {
     font-size: 1.5rem;
   }
-
-  /* Panel is at bottom on tablet, hide breadcrumb to avoid overlap */
-  .breadcrumb.raised {
-    opacity: 0;
-    pointer-events: none;
-  }
 }
 
 @media (max-width: 600px) {
@@ -367,10 +357,5 @@ body {
     bottom: 1rem;
     font-size: 0.65rem;
     padding: 0.4rem 0.75rem;
-  }
-
-  .breadcrumb.raised {
-    opacity: 0;
-    pointer-events: none;
   }
 }

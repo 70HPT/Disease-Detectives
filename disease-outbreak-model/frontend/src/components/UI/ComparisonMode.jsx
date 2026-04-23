@@ -1,7 +1,58 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import useStore from '../../store/useStore'
 import { feature } from 'topojson-client'
+import { getOutbreakHistory } from '../../services/dataService'
+import { getDiseaseById, TRACKED_DISEASES } from '../../data/trackedDiseases'
 import './ComparisonMode.css'
+
+// Inline disease picker — lets the user switch diseases without leaving the modal
+function DiseasePicker({ selected, onChange }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onDocClick = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', onDocClick)
+    return () => document.removeEventListener('mousedown', onDocClick)
+  }, [open])
+
+  const current = TRACKED_DISEASES.find(d => d.id === selected) || TRACKED_DISEASES[0]
+
+  return (
+    <div className="cmp-disease-picker" ref={ref}>
+      <button
+        type="button"
+        className={`cmp-disease-badge ${open ? 'open' : ''}`}
+        onClick={() => setOpen(o => !o)}
+        title="Switch the disease used for trend comparison"
+      >
+        {current.name}
+        <svg className={`cmp-disease-chevron ${open ? 'open' : ''}`} width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M4 6l4 4 4-4" />
+        </svg>
+      </button>
+      {open && (
+        <div className="cmp-disease-dropdown">
+          {TRACKED_DISEASES.map(d => (
+            <button
+              key={d.id}
+              className={`cmp-disease-option ${d.id === selected ? 'selected' : ''}`}
+              onClick={() => { onChange(d.id); setOpen(false) }}
+            >
+              {d.name}
+              {d.id === selected && (
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 // ============================================
 // CONSTANTS
@@ -248,7 +299,7 @@ function StateSearchBar({ onAdd, existingStates, stateData, disabled }) {
         )}
       </div>
       {showDropdown && (
-        <div className="cmp-search-dropdown">
+        <div className="cmp-search-dropdown" data-lenis-prevent>
           {available.map(name => (
             <button key={name} className="cmp-search-dropdown-item" onMouseDown={() => handleSelect(name)}>
               <span className="cmp-search-item-name">{name}</span>
@@ -379,6 +430,129 @@ function MetricBar({ label, values, stateNames, maxVal = 100, animate }) {
 }
 
 // ============================================
+// TREND COMPARISON — overlaid 12-week sparklines per state, disease-scoped
+// ============================================
+function TrendComparison({ stateNames, disease, animate }) {
+  const stateFips = useStore(s => s.stateFips)
+  const [series, setSeries] = useState({})
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    setSeries({})
+
+    Promise.all(stateNames.map(name => {
+      const fips = stateFips[name]
+      if (!fips) return Promise.resolve([name, null])
+      // Statewide rollup FIPS — auto-populates once Jacob's SUM seed runs.
+      return getOutbreakHistory(fips + '000', { diseaseType: disease.apiKey, limit: 12 })
+        .then(data => [name, data])
+        .catch(() => [name, null])
+    })).then(results => {
+      if (cancelled) return
+      const out = {}
+      for (const [name, data] of results) {
+        if (data && data.length >= 2) {
+          out[name] = data.map(d => d.caseCount ?? 0).reverse()
+        }
+      }
+      setSeries(out)
+      setLoading(false)
+    })
+
+    return () => { cancelled = true }
+  }, [stateNames.join(','), stateFips, disease.apiKey])
+
+  const w = 720, h = 180
+  const padL = 40, padR = 16, padT = 12, padB = 24
+
+  // Compute shared y-axis domain across all series
+  const allValues = Object.values(series).flat()
+  const maxVal = Math.max(...allValues, 1)
+  const maxLen = Math.max(...Object.values(series).map(s => s.length), 1)
+  const hasAnyData = Object.keys(series).length > 0
+
+  const xOf = (i, len) => padL + (len > 1 ? (i / (len - 1)) * (w - padL - padR) : (w - padL - padR) / 2)
+  const yOf = (v) => padT + (h - padT - padB) - (v / maxVal) * (h - padT - padB)
+
+  return (
+    <div className="cmp-trend-section">
+      <div className="cmp-panel-label">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+        </svg>
+        {disease.name} Trend — last 12 weeks
+      </div>
+
+      <div className="cmp-trend-chart-wrap">
+        <svg viewBox={`0 0 ${w} ${h}`} className="cmp-trend-svg" preserveAspectRatio="none">
+          {/* Gridlines */}
+          {[0, 0.5, 1].map((pct, i) => {
+            const yVal = maxVal * pct
+            return (
+              <g key={i}>
+                <line x1={padL} x2={w - padR} y1={yOf(yVal)} y2={yOf(yVal)}
+                  stroke="rgba(255,255,255,0.05)" strokeDasharray="2 4" />
+                <text x={padL - 6} y={yOf(yVal) + 3} textAnchor="end"
+                  fontSize="9" fill="rgba(255,255,255,0.35)" fontFamily="'JetBrains Mono', monospace">
+                  {Math.round(yVal).toLocaleString()}
+                </text>
+              </g>
+            )
+          })}
+
+          {/* One line per state */}
+          {stateNames.map((name, idx) => {
+            const data = series[name]
+            if (!data || data.length < 2) return null
+            const color = STATE_COLORS[idx] || STATE_COLORS[0]
+            const path = data.map((v, i) => `${i === 0 ? 'M' : 'L'}${xOf(i, data.length).toFixed(1)},${yOf(v).toFixed(1)}`).join(' ')
+            const endX = xOf(data.length - 1, data.length)
+            const endY = yOf(data[data.length - 1])
+            return (
+              <g key={name} style={{ opacity: animate ? 1 : 0, transition: `opacity 0.6s ease ${400 + idx * 120}ms` }}>
+                <path d={path} fill="none" stroke={color.stroke} strokeWidth="1.8"
+                  strokeLinecap="round" strokeLinejoin="round"
+                  style={{ filter: `drop-shadow(0 0 6px ${color.glow})` }} />
+                <circle cx={endX} cy={endY} r="3.5" fill={color.stroke} stroke="#0a1020" strokeWidth="1.5" />
+              </g>
+            )
+          })}
+        </svg>
+
+        {loading && (
+          <div className="cmp-trend-loading">Loading…</div>
+        )}
+        {!loading && !hasAnyData && (
+          <div className="cmp-trend-empty">
+            No {disease.name.toLowerCase()} surveillance data for the selected states yet.
+          </div>
+        )}
+      </div>
+
+      {/* Legend */}
+      <div className="cmp-trend-legend">
+        {stateNames.map((name, i) => {
+          const color = STATE_COLORS[i] || STATE_COLORS[0]
+          const data = series[name]
+          const latest = data && data.length > 0 ? data[data.length - 1] : null
+          return (
+            <div key={name} className="cmp-trend-legend-item">
+              <span className="cmp-trend-legend-dot" style={{ background: color.stroke, boxShadow: `0 0 6px ${color.glow}` }} />
+              <span className="cmp-trend-legend-name" style={{ color: color.text }}>{name}</span>
+              <span className="cmp-trend-legend-val">
+                {latest != null ? `${latest.toLocaleString()} cases` : '—'}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ============================================
 // MAIN COMPONENT
 // ============================================
 export default function ComparisonMode() {
@@ -388,6 +562,9 @@ export default function ComparisonMode() {
   const addComparisonState = useStore(s => s.addComparisonState)
   const removeComparisonState = useStore(s => s.removeComparisonState)
   const stateData = useStore(s => s.stateData)
+  const selectedDisease = useStore(s => s.selectedDisease)
+  const setSelectedDisease = useStore(s => s.setSelectedDisease)
+  const disease = getDiseaseById(selectedDisease)
 
   const [animate, setAnimate] = useState(false)
   const geoFeatures = useDetailedGeo()
@@ -439,13 +616,16 @@ export default function ComparisonMode() {
 
   return (
     <div className="cmp-overlay" onClick={closeComparison}>
-      <div className={`cmp-page ${animate ? 'visible' : ''}`} onClick={e => e.stopPropagation()}>
+      <div className={`cmp-page ${animate ? 'visible' : ''}`} data-lenis-prevent onClick={e => e.stopPropagation()}>
 
         {/* Header */}
         <div className="cmp-header">
           <div className="cmp-header-left">
             <h2 className="cmp-title">Compare States</h2>
-            <span className="cmp-subtitle">Select up to 3 states for side-by-side analysis</span>
+            <span className="cmp-subtitle">
+              Select up to 3 states for side-by-side analysis
+              <DiseasePicker selected={selectedDisease} onChange={setSelectedDisease} />
+            </span>
           </div>
           <button className="cmp-close" onClick={closeComparison}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -492,6 +672,13 @@ export default function ComparisonMode() {
             </div>
           ) : (
             <>
+              {/* Live disease trend */}
+              <TrendComparison
+                stateNames={comparisonStates}
+                disease={disease}
+                animate={animate}
+              />
+
               {/* Radar Chart */}
               <div className="cmp-radar-section">
                 <div className="cmp-panel-label">

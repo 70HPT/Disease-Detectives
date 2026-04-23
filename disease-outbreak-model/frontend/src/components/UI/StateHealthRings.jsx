@@ -58,11 +58,23 @@ function HealthGradeRing({
 export default function StateHealthRings() {
   const selectedState = useStore((state) => state.selectedState)
   const viewMode = useStore((state) => state.viewMode)
+  const trendView = useStore((state) => state.trendView)
+  const clearSelection = useStore((state) => state.clearSelection)
   const [animate, setAnimate] = useState(false)
   const [visible, setVisible] = useState(false)
   const prevStateRef = useRef(null)
 
   const isCountyView = viewMode === 'state-counties'
+
+  const handleBreadcrumbHome = () => {
+    clearSelection()
+    const lenis = typeof window !== 'undefined' ? window.__lenis : null
+    if (lenis) {
+      lenis.scrollTo(0)
+    } else if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }
 
   useEffect(() => {
     if (selectedState && !isCountyView) {
@@ -87,7 +99,15 @@ export default function StateHealthRings() {
   const facts = STATE_FACTS[selectedState.name] || DEFAULT_FACT
 
   return (
-    <div className={`health-rings ${visible ? 'visible' : ''}`}>
+    <div className={`health-rings ${visible ? 'visible' : ''} ${trendView === 'surveillance' ? 'surveillance-mode' : 'history-mode'}`}>
+      <div className="hr-breadcrumb">
+        <span className="hr-crumb clickable" onClick={handleBreadcrumbHome}>
+          United States
+        </span>
+        <span className="hr-separator">/</span>
+        <span className="hr-crumb active">{selectedState.name}</span>
+      </div>
+
       <div className="hero-ring-section">
         <HealthGradeRing grade={gradeInfo.grade} percentage={gradeInfo.pct} color={gradeInfo.color} glowColor={gradeInfo.glow} animate={animate} delay={100} />
       </div>

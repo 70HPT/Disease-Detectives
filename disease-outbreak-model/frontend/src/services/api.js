@@ -16,7 +16,7 @@ const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'
 // so clicking states doesn't hang waiting for a timeout every time
 let backendOffline = false
 let offlineTimestamp = 0
-const OFFLINE_COOLDOWN = 30000 // Retry backend after 30 seconds
+const OFFLINE_COOLDOWN = 2000 // Short cooldown so cold-start retries recover quickly
 
 function isBackendOffline() {
   if (!backendOffline) return false

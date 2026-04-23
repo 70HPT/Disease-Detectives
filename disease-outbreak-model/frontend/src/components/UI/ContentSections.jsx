@@ -2,41 +2,8 @@ import { useState, useEffect, useRef } from 'react'
 import useStore from '../../store/useStore'
 import { useWHOPulse } from '../../services/useWHOPulse'
 import { getDiseaseIndicator } from '../../services/whoService'
+import { TRACKED_DISEASES, getDiseaseById } from '../../data/trackedDiseases'
 import './ContentSections.css'
-
-// Curated reference data per disease — overview text and key findings
-function fetchDiseaseSpotlight(disease, year) {
-  const spotlights = {
-    'Influenza': {
-      overview: `Seasonal influenza in ${year} was classified as moderate severity by the CDC, with H3N2 as the dominant circulating strain. Approximately 29 million symptomatic illnesses were estimated nationally, resulting in 380,000 hospitalizations.`,
-      keyFinding: 'H3N2 dominance correlated with reduced vaccine effectiveness in adults 18-49'
-    },
-    'COVID-19': {
-      overview: `COVID-19 surveillance in ${year} transitioned to endemic monitoring. Hospitalizations remained well below pandemic peaks, though winter waves continued to strain capacity in under-resourced facilities. Updated boosters targeting JN.1-lineage variants were deployed.`,
-      keyFinding: 'Hybrid immunity (infection + vaccination) provided the strongest protection across all age groups'
-    },
-    'Tuberculosis': {
-      overview: `Tuberculosis remained the world\u2019s deadliest infectious disease in ${year}. The US reported approximately 9,600 new cases, a 4% increase attributed to improved diagnostic screening and migration patterns. Drug-resistant TB accounted for 1.2% of US cases.`,
-      keyFinding: 'New mRNA-based TB vaccine candidates entered Phase III trials'
-    },
-    'Measles': {
-      overview: `Global measles cases surged in ${year}, with the WHO reporting outbreaks in 37 countries. The US recorded 280+ cases, primarily in communities with low vaccination coverage. Two-dose MMR coverage among kindergartners dropped below 93% nationally.`,
-      keyFinding: 'Outbreaks concentrated in counties where MMR exemption rates exceeded 5%'
-    },
-    'Malaria': {
-      overview: `Malaria caused an estimated 597,000 deaths globally in ${year}, predominantly among children under 5 in sub-Saharan Africa. The US recorded 2,100+ imported cases. The RTS,S vaccine rollout expanded to 9 additional countries.`,
-      keyFinding: 'New R21/Matrix-M vaccine showed 75% efficacy in Phase III trials'
-    },
-    'Dengue': {
-      overview: `${year} set records for dengue cases in the Americas, driven by El Ni\u00f1o-amplified mosquito range expansion. The US saw locally-acquired cases in Florida, Texas, and Hawaii. The Dengvaxia vaccine remained controversial due to serostatus requirements.`,
-      keyFinding: 'Climate models project a 25% expansion of Aedes aegypti habitat by 2030'
-    }
-  }
-
-  return spotlights[disease] || spotlights['Influenza']
-}
-
-const TRACKED_DISEASES = ['Influenza', 'COVID-19', 'Tuberculosis', 'Measles', 'Malaria', 'Dengue']
 
 // ============================================
 // CHEVRON ICON
@@ -92,8 +59,17 @@ function GlobalHealthPulse({ year, isVisible }) {
   return (
     <section className="cs-section cs-pulse">
       <AnimatedSection className="cs-section-header" isVisible={isVisible}>
-        <span className="cs-section-tag">WHO Data · {year}</span>
-        <h2 className="cs-section-title">Global Health Pulse</h2>
+        <span className="cs-section-tag">WHO Data</span>
+        <h2 className="cs-section-title">
+          Global Health Pulse
+          <span className="cs-year-pill" title="Year selected from the navbar — change it to pull WHO data for a different year">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="3" y="4" width="18" height="18" rx="2" />
+              <path d="M16 2v4M8 2v4M3 10h18" />
+            </svg>
+            As of {year}
+          </span>
+        </h2>
       </AnimatedSection>
 
       {/* Stats Grid — WHO data when available, fallback when not */}
@@ -137,12 +113,17 @@ function GlobalHealthPulse({ year, isVisible }) {
 // DISEASE SPOTLIGHT — Deep-dive on a single disease
 // ============================================
 function DiseaseSpotlight({ year, isVisible }) {
-  const [selectedDisease, setSelectedDisease] = useState('Influenza')
+  const selectedDisease = useStore(s => s.selectedDisease)
+  const setSelectedDisease = useStore(s => s.setSelectedDisease)
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const dropdownRef = useRef(null)
   const [whoIndicator, setWhoIndicator] = useState(null)
 
-  const data = fetchDiseaseSpotlight(selectedDisease, year)
+  const current = getDiseaseById(selectedDisease)
+  const data = {
+    overview: current.spotlight.overview(year),
+    keyFinding: current.spotlight.keyFinding,
+  }
 
   useEffect(() => {
     setWhoIndicator(null)
@@ -164,8 +145,17 @@ function DiseaseSpotlight({ year, isVisible }) {
   return (
     <section className="cs-section cs-spotlight">
       <AnimatedSection className="cs-section-header" isVisible={isVisible} delay={100}>
-        <span className="cs-section-tag">Deep Dive · {year}</span>
-        <h2 className="cs-section-title">Disease Spotlight</h2>
+        <span className="cs-section-tag">Deep Dive</span>
+        <h2 className="cs-section-title">
+          Disease Spotlight
+          <span className="cs-year-pill" title="Year selected from the navbar — reflected in the narrative below">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="3" y="4" width="18" height="18" rx="2" />
+              <path d="M16 2v4M8 2v4M3 10h18" />
+            </svg>
+            As of {year}
+          </span>
+        </h2>
       </AnimatedSection>
 
       {/* Disease Selector */}
@@ -175,7 +165,7 @@ function DiseaseSpotlight({ year, isVisible }) {
             className={`cs-disease-trigger ${dropdownOpen ? 'active' : ''}`}
             onClick={() => setDropdownOpen(!dropdownOpen)}
           >
-            <span>{selectedDisease}</span>
+            <span>{current.name}</span>
             <ChevronIcon isOpen={dropdownOpen} />
           </button>
 
@@ -183,14 +173,14 @@ function DiseaseSpotlight({ year, isVisible }) {
             <div className="cs-disease-options">
               {TRACKED_DISEASES.map(disease => (
                 <button
-                  key={disease}
-                  className={`cs-disease-option ${disease === selectedDisease ? 'selected' : ''}`}
+                  key={disease.id}
+                  className={`cs-disease-option ${disease.id === selectedDisease ? 'selected' : ''}`}
                   onClick={() => {
-                    setSelectedDisease(disease)
+                    setSelectedDisease(disease.id)
                     setDropdownOpen(false)
                   }}
                 >
-                  {disease}
+                  {disease.name}
                 </button>
               ))}
             </div>
@@ -200,26 +190,110 @@ function DiseaseSpotlight({ year, isVisible }) {
 
       {/* Spotlight Content */}
       <AnimatedSection className="cs-spotlight-content" isVisible={isVisible} delay={250}>
-        <div className="cs-spotlight-overview">
-          <div className="cs-spotlight-ai-tag">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7z" />
-            </svg>
-            Summary · Reference
+        {/* Stats grid — headline burden numbers */}
+        {current.spotlight.stats && (
+          <div className="cs-dx-stats" style={{ '--dx-accent': current.accent || '#00ffcc' }}>
+            {current.spotlight.stats.map((s, i) => (
+              <div key={s.label} className="cs-dx-stat-card" style={{ animationDelay: `${300 + i * 80}ms` }}>
+                <span className="cs-dx-stat-value">{s.value}</span>
+                <span className="cs-dx-stat-label">{s.label}</span>
+                <span className="cs-dx-stat-sub">{s.sub}</span>
+              </div>
+            ))}
           </div>
-          <p>{data.overview}</p>
-        </div>
+        )}
 
-        {whoIndicator && (
-          <div className="cs-spotlight-metrics">
-            <div className="cs-spotlight-metric live-data">
-              <span className="cs-metric-label">{whoIndicator.label}</span>
-              <span className="cs-metric-value">{whoIndicator.value}</span>
-              <span className="cs-stat-source">WHO GHO</span>
+        {/* Two-column: Profile + Risk groups */}
+        {current.spotlight.profile && (
+          <div className="cs-dx-grid">
+            <div className="cs-dx-card cs-dx-profile">
+              <div className="cs-dx-card-header">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" />
+                </svg>
+                Pathogen profile
+              </div>
+              <dl className="cs-dx-proflist">
+                <div className="cs-dx-prof-row">
+                  <dt>Pathogen</dt><dd>{current.spotlight.profile.pathogen}</dd>
+                </div>
+                <div className="cs-dx-prof-row">
+                  <dt>Transmission</dt><dd>{current.spotlight.profile.transmission}</dd>
+                </div>
+                <div className="cs-dx-prof-row">
+                  <dt>Incubation</dt><dd>{current.spotlight.profile.incubation}</dd>
+                </div>
+                <div className="cs-dx-prof-row">
+                  <dt>Duration</dt><dd>{current.spotlight.profile.duration}</dd>
+                </div>
+                <div className="cs-dx-prof-row">
+                  <dt>Peak season</dt><dd>{current.spotlight.profile.peakSeason}</dd>
+                </div>
+              </dl>
+            </div>
+
+            <div className="cs-dx-card cs-dx-risk">
+              <div className="cs-dx-card-header">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 2L2 7v6c0 5.5 4.5 10 10 10s10-4.5 10-10V7l-10-5z" />
+                </svg>
+                Populations at highest risk
+              </div>
+              <div className="cs-dx-risk-pills">
+                {current.spotlight.riskGroups.map((g) => (
+                  <span key={g} className="cs-dx-risk-pill">{g}</span>
+                ))}
+              </div>
             </div>
           </div>
         )}
 
+        {/* Narrative overview + live WHO indicator side-by-side */}
+        <div className="cs-dx-narrative-grid">
+          <div className="cs-spotlight-overview">
+            <div className="cs-spotlight-ai-tag">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7z" />
+              </svg>
+              Summary · Reference
+            </div>
+            <p>{data.overview}</p>
+          </div>
+
+          {whoIndicator && (
+            <div className="cs-dx-who-card">
+              <div className="cs-dx-who-header">
+                <span className="cs-live-dot" />
+                WHO · Live
+              </div>
+              <span className="cs-dx-who-value">{whoIndicator.value}</span>
+              <span className="cs-dx-who-label">{whoIndicator.label}</span>
+              <span className="cs-stat-source">WHO GHO · {year}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Prevention card */}
+        {current.spotlight.prevention && (
+          <div className="cs-dx-prevention">
+            <div className="cs-dx-card-header">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+              </svg>
+              Prevention
+            </div>
+            <div className="cs-dx-prevention-grid">
+              {current.spotlight.prevention.map((p) => (
+                <div key={p.label} className="cs-dx-prevention-item">
+                  <span className="cs-dx-prevention-label">{p.label}</span>
+                  <span className="cs-dx-prevention-detail">{p.detail}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Key finding callout */}
         <div className="cs-spotlight-finding">
           <span className="cs-finding-label">Key Finding</span>
           <p>{data.keyFinding}</p>
@@ -234,12 +308,12 @@ function DiseaseSpotlight({ year, isVisible }) {
 // ============================================
 function DataSources({ isVisible }) {
   const sources = [
-    { name: 'WHO GHO', full: 'Global Health Observatory', type: 'National health indicators via direct API', status: 'ready' },
-    { name: 'CDC Socrata', full: 'Disease Surveillance API', type: 'State-level disease reporting (via backend)', status: 'pending' },
-    { name: 'Census Bureau', full: 'American Community Survey', type: 'County population & demographics (via backend)', status: 'ready' },
-    { name: 'NOAA CDO', full: 'Climate Data Online', type: 'Climate observations by county (via backend)', status: 'pending' },
-    { name: 'ML Model', full: 'DiseasePredictor LSTM', type: 'County-level outbreak risk predictions', status: 'ready' },
-    { name: 'NNDSS', full: 'National Notifiable Diseases', type: 'Flu surveillance weekly case counts', status: 'ready' }
+    { name: 'NNDSS', full: 'National Notifiable Diseases Surveillance System', type: 'Weekly case counts powering the state surveillance chart', status: 'ready' },
+    { name: 'WHO GHO', full: 'Global Health Observatory', type: 'National indicators feeding the Global Health Pulse, direct API', status: 'ready' },
+    { name: 'Internal DB', full: 'Neon Postgres · Locations + Predictions', type: 'County demographics and model outputs, served via FastAPI', status: 'ready' },
+    { name: 'Outbreak LSTM', full: 'DiseasePredictor (Influenza · COVID-19 · Salmonella)', type: 'Per-disease risk scores and classification from the trained model', status: 'ready' },
+    { name: 'CDC Socrata', full: 'CDC Surveillance API', type: 'State-level disease reporting — integration reserved', status: 'pending' },
+    { name: 'NOAA CDO', full: 'Climate Data Online', type: 'Climate factors for outbreak risk — integration reserved', status: 'pending' },
   ]
 
   return (

@@ -22,15 +22,16 @@
     rgba(10, 15, 26, 0.75) 0%,
     rgba(2, 4, 8, 0.85) 100%
   );
-  border: 1px solid rgba(0, 255, 204, 0.1);
-  border-radius: 20px;
+  border: 1px solid rgba(0, 255, 204, 0.15);
+  border-radius: 16px;
   box-shadow:
     0 8px 40px rgba(0, 0, 0, 0.4),
     0 0 60px rgba(0, 255, 204, 0.03),
     inset 0 1px 0 rgba(255, 255, 255, 0.04);
 
   transition: opacity 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94),
-              transform 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+              transform 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+              top 0.6s cubic-bezier(0.22, 1, 0.36, 1);
   pointer-events: none;
 }
 
@@ -38,6 +39,48 @@
   opacity: 1;
   transform: translateY(-50%) translateX(0);
   pointer-events: auto;
+}
+
+/* Surveillance view: chart is ~180px tall, shift rings up so they don't clash */
+.health-rings.surveillance-mode {
+  top: 38%;
+}
+
+/* Inline breadcrumb at the top of the card */
+.hr-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 0 2px 12px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+}
+
+.hr-crumb {
+  color: rgba(255, 255, 255, 0.4);
+  transition: color 0.2s ease;
+}
+
+.hr-crumb.clickable {
+  cursor: pointer;
+}
+
+.hr-crumb.clickable:hover {
+  color: rgba(0, 255, 204, 0.9);
+}
+
+.hr-crumb.active {
+  color: rgba(0, 255, 204, 0.9);
+  font-weight: 600;
+}
+
+.hr-separator {
+  color: rgba(255, 255, 255, 0.2);
 }
 
 /* ============================================

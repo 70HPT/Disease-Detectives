@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import useStore from '../../store/useStore'
+import { TRACKED_DISEASES } from '../../data/trackedDiseases'
+import { checkBackendHealth } from '../../services/api'
 import './Navbar.css'
 
 // ============================================
@@ -112,7 +114,7 @@ function YearSelector({ selectedYear, onYearChange }) {
       </button>
 
       {isOpen && (
-        <div className="year-dropdown" ref={listRef}>
+        <div className="year-dropdown" data-lenis-prevent ref={listRef}>
           {DATA_YEARS.map((year) => (
             <button
               key={year}
@@ -124,6 +126,63 @@ function YearSelector({ selectedYear, onYearChange }) {
             >
               {year}
               {year === selectedYear && (
+                <span className="year-check">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ============================================
+// DISEASE SELECTOR — mirrors YearSelector, driven by Zustand
+// ============================================
+function DiseaseSelector({ selected, onChange }) {
+  const [isOpen, setIsOpen] = useState(false)
+  const dropdownRef = useRef(null)
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const current = TRACKED_DISEASES.find(d => d.id === selected) || TRACKED_DISEASES[0]
+
+  return (
+    <div className="year-selector disease-selector" ref={dropdownRef}>
+      <span className="year-selector-label">DISEASE</span>
+      <button
+        className={`year-selector-trigger ${isOpen ? 'active' : ''}`}
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        <span className="year-value">{current.name}</span>
+        <ChevronIcon isOpen={isOpen} />
+      </button>
+
+      {isOpen && (
+        <div className="year-dropdown" data-lenis-prevent>
+          {TRACKED_DISEASES.map((d) => (
+            <button
+              key={d.id}
+              className={`year-option ${d.id === selected ? 'selected' : ''}`}
+              onClick={() => {
+                onChange(d.id)
+                setIsOpen(false)
+              }}
+            >
+              {d.name}
+              {d.id === selected && (
                 <span className="year-check">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="20 6 9 17 4 12" />
@@ -240,7 +299,7 @@ function StateSearch({ onStateSelect }) {
       </div>
 
       {showDropdown && (
-        <div className="search-dropdown">
+        <div className="search-dropdown" data-lenis-prevent>
           {filtered.slice(0, 8).map((state, i) => (
             <button
               key={state}
@@ -270,6 +329,54 @@ function StateSearch({ onStateSelect }) {
 }
 
 // ============================================
+// BACKEND STATUS INDICATOR — polls /health so live-demo viewers know the API is up
+// ============================================
+function BackendStatus() {
+  // status: 'checking' | 'online' | 'degraded' | 'offline'
+  const [status, setStatus] = useState('checking')
+  const [detail, setDetail] = useState('Pinging API…')
+
+  useEffect(() => {
+    let cancelled = false
+
+    const ping = async () => {
+      const h = await checkBackendHealth()
+      if (cancelled) return
+      if (!h.connected) {
+        setStatus('offline')
+        setDetail('Backend offline — UI running on last known data')
+        return
+      }
+      if (h.dbConnected === false || h.modelLoaded === false) {
+        setStatus('degraded')
+        setDetail(`API up · ${h.dbConnected ? 'DB ok' : 'DB issue'} · ${h.modelLoaded ? 'model ok' : 'model issue'}`)
+        return
+      }
+      setStatus('online')
+      setDetail(`API ${h.version || 'online'} · DB ok · model ok`)
+    }
+
+    ping()
+    const id = setInterval(ping, 20000)
+    return () => { cancelled = true; clearInterval(id) }
+  }, [])
+
+  const labels = {
+    checking: 'Checking',
+    online: 'Online',
+    degraded: 'Degraded',
+    offline: 'Offline',
+  }
+
+  return (
+    <div className={`backend-status status-${status}`} title={detail}>
+      <span className="backend-status-dot" />
+      <span className="backend-status-label">{labels[status]}</span>
+    </div>
+  )
+}
+
+// ============================================
 // MAIN NAVBAR COMPONENT
 // ============================================
 export default function Navbar({ visible = false }) {
@@ -277,8 +384,11 @@ export default function Navbar({ visible = false }) {
   const clearSelection = useStore((state) => state.clearSelection)
   const exitCountyView = useStore((state) => state.exitCountyView)
   const viewMode = useStore((state) => state.viewMode)
+  const selectedState = useStore((state) => state.selectedState)
   const selectedYear = useStore((state) => state.selectedYear)
   const setSelectedYear = useStore((state) => state.setSelectedYear)
+  const selectedDisease = useStore((state) => state.selectedDisease)
+  const setSelectedDisease = useStore((state) => state.setSelectedDisease)
   const toggleSettings = useStore((state) => state.toggleSettings)
   const toggleWatchlist = useStore((state) => state.toggleWatchlist)
   const watchlistCount = useStore((state) => state.watchlist.length)
@@ -287,6 +397,9 @@ export default function Navbar({ visible = false }) {
   const toggleHeatmap = useStore((state) => state.toggleHeatmap)
 
   const isCountyView = viewMode === 'state-counties'
+  // Year only affects the intro sections (Global Health Pulse + Disease Spotlight).
+  // Hide the selector once a state or county is open so it doesn't look inert.
+  const showYearSelector = !selectedState && !isCountyView
 
   const handleStateSearch = useCallback((stateName) => {
     requestStateZoom(stateName)
@@ -328,11 +441,21 @@ export default function Navbar({ visible = false }) {
           <div className="brand-divider" />
         </div>
 
-        {/* ====== CENTER: Year Toggle + Search ====== */}
+        {/* ====== CENTER: Year + Disease Toggles + Search ====== */}
         <div className="navbar-section navbar-center">
-          <YearSelector
-            selectedYear={selectedYear}
-            onYearChange={setSelectedYear}
+          {showYearSelector && (
+            <>
+              <YearSelector
+                selectedYear={selectedYear}
+                onYearChange={setSelectedYear}
+              />
+              <div className="center-divider" />
+            </>
+          )}
+
+          <DiseaseSelector
+            selected={selectedDisease}
+            onChange={setSelectedDisease}
           />
 
           <div className="center-divider" />
@@ -342,6 +465,7 @@ export default function Navbar({ visible = false }) {
 
         {/* ====== RIGHT: Tools ====== */}
         <div className="navbar-section navbar-right">
+          <BackendStatus />
           <button className="nav-icon-btn" title="Watchlist" onClick={toggleWatchlist}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />

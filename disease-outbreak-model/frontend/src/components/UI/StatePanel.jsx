@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import useStore from '../../store/useStore'
-import TRANSMISSION_CORRIDORS from '../../data/transmissionCorridors'
+import TRANSMISSION_CORRIDORS, { getCorridorRiskColor } from '../../data/transmissionCorridors'
+import { getDiseaseById } from '../../data/trackedDiseases'
 import { useMapData, useLocationRisk } from '../../services'
 import { StatePanelSkeleton, EmptyPrediction } from './LoadingStates'
 import './LoadingStates.css'
@@ -12,7 +13,8 @@ import './StatePanel.css'
 function CircularGauge({ value, max = 100, size = 56, strokeWidth = 4, color, label, suffix = '' }) {
   const radius = (size - strokeWidth * 2) / 2
   const circumference = 2 * Math.PI * radius
-  const progress = (value / max) * circumference
+  const hasValue = value != null
+  const progress = hasValue ? (value / max) * circumference : 0
 
   return (
     <div className="circular-gauge">
@@ -31,14 +33,17 @@ function CircularGauge({ value, max = 100, size = 56, strokeWidth = 4, color, la
           className="gauge-progress"
         />
         <text x={size/2} y={size/2 - 2} textAnchor="middle" dominantBaseline="central"
-          fill="rgba(255,255,255,0.85)" fontSize="13" fontFamily="'JetBrains Mono', monospace" fontWeight="700">
-          {value}{suffix}
+          fill={hasValue ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.35)'}
+          fontSize="13" fontFamily="'JetBrains Mono', monospace" fontWeight="700">
+          {hasValue ? `${value}${suffix}` : '—'}
         </text>
-        <text x={size/2} y={size/2 + 11} textAnchor="middle"
-          fill="rgba(255,255,255,0.25)" fontSize="6" fontFamily="'JetBrains Mono', monospace"
-          style={{ textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-          /{max}
-        </text>
+        {hasValue && (
+          <text x={size/2} y={size/2 + 11} textAnchor="middle"
+            fill="rgba(255,255,255,0.25)" fontSize="6" fontFamily="'JetBrains Mono', monospace"
+            style={{ textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            /{max}
+          </text>
+        )}
       </svg>
       <span className="gauge-label">{label}</span>
     </div>
@@ -50,24 +55,29 @@ function CircularGauge({ value, max = 100, size = 56, strokeWidth = 4, color, la
 // ============================================
 function MiniSparkline({ fips, color, width = 80, height = 24 }) {
   const [points, setPoints] = useState(null)
+  const selectedDisease = useStore(s => s.selectedDisease)
+  const apiKey = getDiseaseById(selectedDisease).apiKey
 
   useEffect(() => {
     if (!fips) return
     let cancelled = false
+    setPoints(null)
     import('../../services/dataService').then(({ getOutbreakHistory }) => {
-      getOutbreakHistory(fips, { diseaseType: 'influenza', limit: 12 }).then(data => {
-        if (cancelled || !data || data.length < 2) return
-        const cases = data.map(d => d.caseCount ?? 0).reverse()
-        const max = Math.max(...cases, 1)
-        const pts = cases.map((c, i) => ({
-          x: (i / (cases.length - 1)) * width,
-          y: height - 2 - (c / max) * (height - 4)
-        }))
-        setPoints(pts)
-      })
+      getOutbreakHistory(fips, { diseaseType: apiKey, limit: 12 })
+        .then(data => {
+          if (cancelled || !data || data.length < 2) return
+          const cases = data.map(d => d.caseCount ?? 0).reverse()
+          const max = Math.max(...cases, 1)
+          const pts = cases.map((c, i) => ({
+            x: (i / (cases.length - 1)) * width,
+            y: height - 2 - (c / max) * (height - 4)
+          }))
+          setPoints(pts)
+        })
+        .catch(() => { /* 404 or offline — stay empty */ })
     })
     return () => { cancelled = true }
-  }, [fips, width, height])
+  }, [fips, width, height, apiKey])
 
   if (!points) {
     return <svg width={width} height={height} className="mini-sparkline">
@@ -143,10 +153,19 @@ function HealthGradeRing({ healthIndex }) {
 function TransmissionAnalysis({ stateName }) {
   const corridors = useMemo(() => {
     if (!stateName) return []
+    // Show all corridors (data file caps at 3-5 per state already)
     return (TRANSMISSION_CORRIDORS[stateName] || [])
+      .slice()
       .sort((a, b) => b.riskWeight - a.riskWeight)
-      .slice(0, 3)
   }, [stateName])
+
+  // Compact number formatting for the summary narrative
+  const fmt = (n) => {
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
+    if (n >= 10_000) return `${(n / 1_000).toFixed(0)}K`
+    if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
+    return n.toLocaleString()
+  }
 
   // Generate a summary paragraph from top corridors
   const summary = useMemo(() => {
@@ -157,16 +176,14 @@ function TransmissionAnalysis({ stateName }) {
     const totalTravel = corridors.reduce((sum, c) => sum + c.travelVolume, 0)
 
     const riskWord = highRisk >= 2 ? 'elevated' : highRisk === 1 ? 'moderate' : 'lower'
-    return `${stateName} has ${total} active transmission corridors with ${riskWord} cross-state risk. The highest-volume pathway is the ${top.mechanism} to ${top.target}, carrying an estimated ${top.travelVolume}K daily interstate travelers. Combined daily exposure across top corridors: ~${totalTravel}K travelers.`
+    return `${stateName} has ${total} active transmission corridors with ${riskWord} cross-state risk. The highest-volume pathway is the ${top.mechanism} to ${top.target}, carrying an estimated ${fmt(top.travelVolume)} daily interstate travelers. Combined daily exposure across top corridors: ~${fmt(totalTravel)} travelers.`
   }, [corridors, stateName])
 
   if (!corridors.length) return null
 
-  const getRiskBarColor = (weight) => {
-    if (weight > 0.75) return '#ff6b4a'
-    if (weight > 0.55) return '#f0a030'
-    return '#00e0a0'
-  }
+  // Shared helper — same function the globe arcs + pulse dots use, so the
+  // panel bars and the 3D visuals always read the same color per corridor.
+  const getRiskBarColor = getCorridorRiskColor
 
   return (
     <div className="transmission-analysis">
@@ -175,7 +192,7 @@ function TransmissionAnalysis({ stateName }) {
           <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
         </svg>
         <span className="ta-title">Transmission Analysis</span>
-        <span className="ta-badge">Demo</span>
+        <span className="ta-badge" title="Travel volumes sourced from Census ACS and BTS; risk model integration next">Sourced</span>
       </div>
 
       <p className="ta-summary">{summary}</p>
@@ -207,7 +224,7 @@ function TransmissionAnalysis({ stateName }) {
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <circle cx="12" cy="12" r="10" /><path d="M12 16v-4M12 8h.01" />
         </svg>
-        Placeholder analysis — awaiting ML model
+        Travel data: Census ACS 2016-20 · BTS T-100 2023
       </div>
     </div>
   )
@@ -292,7 +309,7 @@ export default function StatePanel() {
   const isShowingCounty = !!selectedCounty
 
   return (
-    <div className={`state-panel ${isShowingCounty ? 'county-mode' : ''}`}>
+    <div className={`state-panel ${isShowingCounty ? 'county-mode' : ''}`} data-lenis-prevent>
       {/* Close/Back button */}
       <button
         className="close-btn"
@@ -362,18 +379,18 @@ export default function StatePanel() {
           {/* Circular Gauges Grid */}
           <div className="county-gauges-grid">
             <CircularGauge
-              value={displayData.riskScore ?? 0}
+              value={displayData.riskScore}
               color={displayData.riskScore != null ? getMetricColor(100 - displayData.riskScore) : '#8892a4'}
               label="Risk Score"
             />
             <CircularGauge
-              value={displayData.vaccinationRate ?? 0}
+              value={displayData.vaccinationRate}
               color={displayData.vaccinationRate != null ? getMetricColor(displayData.vaccinationRate) : '#8892a4'}
               label="Vaccination"
               suffix="%"
             />
             <CircularGauge
-              value={displayData.healthIndex ?? 0}
+              value={displayData.healthIndex}
               color={displayData.healthIndex != null ? getMetricColor(displayData.healthIndex) : '#8892a4'}
               label="Health Idx"
             />

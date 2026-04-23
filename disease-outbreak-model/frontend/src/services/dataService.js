@@ -23,23 +23,32 @@ import api from './api'
 //   climate_data: object,    // { avg_temp, avg_humidity, precipitation }
 // }
 
-// ── GET /data/history/{fips} — Outbreak history for a county ───────
-// Used by: StateTimeline.jsx
+// ── GET /data/history/{fips} — Outbreak history by location ───────
+// Used by: StateTimeline.jsx, StatePanel.jsx, WatchlistDashboard.jsx
+//
+// State-level callers pass {state_fips}000 (the STATEWIDE rollup). County
+// views pass a specific 5-digit FIPS. Returns null on any error (404, offline,
+// timeout) so callers can fall back to an empty state rather than surface
+// stale or misleading data.
 export async function getOutbreakHistory(fips, { diseaseType = 'total', limit = 100 } = {}) {
   if (!fips) return null
   const params = `?disease_type=${diseaseType}&limit=${limit}`
-  const data = await api.get(`/data/history/${fips}${params}`)
-  if (!data) return null
 
-  return data.map(record => ({
-    id: record.id,
-    locationId: record.location_id,
-    diseaseType: record.disease_type,
-    date: record.date,
-    caseCount: record.case_count,
-    population: record.population,
-    climateData: record.climate_data,
-  }))
+  try {
+    const data = await api.get(`/data/history/${fips}${params}`)
+    if (!data) return null
+    return data.map(record => ({
+      id: record.id,
+      locationId: record.location_id,
+      diseaseType: record.disease_type,
+      date: record.date,
+      caseCount: record.case_count,
+      population: record.population,
+      climateData: record.climate_data,
+    }))
+  } catch {
+    return null
+  }
 }
 
 // ── GET /data/cdc/diseases — CDC surveillance data ─────────────────

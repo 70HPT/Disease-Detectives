@@ -14,6 +14,7 @@ import StateCountyMap from './components/Map/StateCountyMap'
 import ContentSections from './components/UI/ContentSections'
 import Navbar from './components/Layout/Navbar'
 import SettingsPanel from './components/UI/SettingsPanel'
+import ErrorBoundary from './components/UI/ErrorBoundary'
 import { getMapData } from './services/riskService'
 import { listLocations } from './services/locationService'
 
@@ -161,6 +162,7 @@ function App() {
   const viewMode = useStore((state) => state.viewMode)
   const clearSelection = useStore((state) => state.clearSelection)
   const exitCountyView = useStore((state) => state.exitCountyView)
+  const trendView = useStore((state) => state.trendView)
 
   const isCountyView = viewMode === 'state-counties'
 
@@ -249,60 +251,90 @@ function App() {
         <>
           <div className="scroll-spacer" />
           <div ref={contentWrapperRef} className="content-wrapper">
-            <ContentSections />
+            <ErrorBoundary label="Content sections">
+              <ContentSections />
+            </ErrorBoundary>
           </div>
         </>
       )}
 
       {/* UI Overlays */}
-      {isCountyView && <StateCountyMap key={countyViewKey} />}
-      {selectedState && <StatePanel />}
-      {selectedState && <StateHealthRings />}
-      {selectedState && <StateTimeline />}
+      {isCountyView && (
+        <ErrorBoundary label="County map">
+          <StateCountyMap key={countyViewKey} />
+        </ErrorBoundary>
+      )}
+      {selectedState && (
+        <ErrorBoundary label="State panel">
+          <StatePanel />
+        </ErrorBoundary>
+      )}
+      {selectedState && (
+        <ErrorBoundary label="Health rings" compact>
+          <StateHealthRings />
+        </ErrorBoundary>
+      )}
+      {selectedState && (
+        <ErrorBoundary label="Disease timeline">
+          <StateTimeline />
+        </ErrorBoundary>
+      )}
 
-      {/* Breadcrumb */}
-      <div ref={breadcrumbRef} className={`breadcrumb ${selectedState && !isCountyView ? 'raised' : ''}`}>
-        <span
-          className="crumb clickable"
-          onClick={() => {
-            if (isCountyView) {
-              exitCountyView()
-            } else {
-              clearSelection()
-              if (lenisInstance) {
-                lenisInstance.scrollTo(0)
+      {/* External breadcrumb — only for default globe view and county view.
+          In state-view, the breadcrumb lives inside the StateHealthRings panel
+          so it stays perfectly aligned with the card edges. */}
+      {(!selectedState || isCountyView) && (
+        <div ref={breadcrumbRef} className="breadcrumb">
+          <span
+            className="crumb clickable"
+            onClick={() => {
+              if (isCountyView) {
+                exitCountyView()
               } else {
-                window.scrollTo({ top: 0, behavior: 'smooth' })
+                clearSelection()
+                if (lenisInstance) {
+                  lenisInstance.scrollTo(0)
+                } else {
+                  window.scrollTo({ top: 0, behavior: 'smooth' })
+                }
               }
-            }
-          }}
-        >
-          United States
-        </span>
-        {selectedState && (
-          <>
-            <span className="separator">/</span>
-            <span
-              className={`crumb ${isCountyView ? 'clickable' : 'active'}`}
-              onClick={() => { if (isCountyView) exitCountyView() }}
-            >
-              {selectedState.name}
-            </span>
-          </>
-        )}
-        {isCountyView && (
-          <>
-            <span className="separator">/</span>
-            <span className="crumb active">Counties</span>
-          </>
-        )}
-      </div>
+            }}
+          >
+            United States
+          </span>
+          {selectedState && (
+            <>
+              <span className="separator">/</span>
+              <span
+                className={`crumb ${isCountyView ? 'clickable' : 'active'}`}
+                onClick={() => { if (isCountyView) exitCountyView() }}
+              >
+                {selectedState.name}
+              </span>
+            </>
+          )}
+          {isCountyView && (
+            <>
+              <span className="separator">/</span>
+              <span className="crumb active">Counties</span>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Watchlist Dashboard Overlay */}
-      <WatchlistDashboard />
-      <ComparisonMode />
-      <HeatmapLegend />
-      <CorridorPanel />
+      <ErrorBoundary label="Watchlist">
+        <WatchlistDashboard />
+      </ErrorBoundary>
+      <ErrorBoundary label="Comparison mode">
+        <ComparisonMode />
+      </ErrorBoundary>
+      <ErrorBoundary label="Heatmap legend" compact>
+        <HeatmapLegend />
+      </ErrorBoundary>
+      <ErrorBoundary label="Corridor panel">
+        <CorridorPanel />
+      </ErrorBoundary>
     </div>
   )
 }

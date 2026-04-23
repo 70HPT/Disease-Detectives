@@ -1,0 +1,80 @@
+.error-boundary {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 6px;
+  padding: 24px 28px;
+  min-height: 160px;
+
+  background: linear-gradient(
+    165deg,
+    rgba(10, 15, 26, 0.75) 0%,
+    rgba(2, 4, 8, 0.85) 100%
+  );
+  border: 1px solid rgba(248, 113, 113, 0.2);
+  border-radius: 16px;
+  box-shadow:
+    0 8px 40px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.error-boundary.compact {
+  padding: 14px 16px;
+  min-height: 90px;
+  gap: 4px;
+}
+
+.error-boundary-icon {
+  color: rgba(248, 113, 113, 0.75);
+  margin-bottom: 2px;
+}
+
+.error-boundary-title {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.error-boundary.compact .error-boundary-title {
+  font-size: 12px;
+}
+
+.error-boundary-subtitle {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.5);
+  max-width: 320px;
+}
+
+.error-boundary.compact .error-boundary-subtitle {
+  font-size: 11px;
+  max-width: 240px;
+}
+
+.error-boundary-retry {
+  margin-top: 8px;
+  padding: 6px 18px;
+  background: rgba(0, 255, 204, 0.08);
+  border: 1px solid rgba(0, 255, 204, 0.3);
+  border-radius: 999px;
+  color: rgba(0, 255, 204, 0.9);
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.error-boundary-retry:hover {
+  background: rgba(0, 255, 204, 0.16);
+  border-color: rgba(0, 255, 204, 0.5);
+}

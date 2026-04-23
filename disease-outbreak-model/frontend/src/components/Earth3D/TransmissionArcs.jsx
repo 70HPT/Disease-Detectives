@@ -1,7 +1,7 @@
 import { useRef, useMemo, useState, useEffect } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
-import TRANSMISSION_CORRIDORS from '../../data/transmissionCorridors'
+import TRANSMISSION_CORRIDORS, { getCorridorRiskColor } from '../../data/transmissionCorridors'
 import STATE_CENTROIDS from '../../data/stateCentroids'
 
 const EARTH_RADIUS = 2
@@ -42,11 +42,9 @@ function TransmissionArc({ source, target, riskWeight, delay, visible }) {
     const crv = new THREE.QuadraticBezierCurve3(srcPos, mid, tgtPos)
     const pts = crv.getPoints(64)
 
-    // Color based on risk: high=red-orange, medium=amber, low=cyan-green
-    let clr
-    if (riskWeight > 0.75) clr = new THREE.Color('#ff6b4a')
-    else if (riskWeight > 0.55) clr = new THREE.Color('#f0a030')
-    else clr = new THREE.Color('#00e0a0')
+    // Shared color helper — keeps the arc + pulse dot visually identical to
+    // the ta-corridor-bar in StatePanel's Transmission Analysis.
+    const clr = new THREE.Color(getCorridorRiskColor(riskWeight))
 
     return { curve: crv, points: pts, color: clr }
   }, [source, target, riskWeight])

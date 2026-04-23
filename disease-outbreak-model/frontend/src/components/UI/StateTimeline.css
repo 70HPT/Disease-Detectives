@@ -82,6 +82,15 @@
   padding: 0 4px;
 }
 
+/* More breathing room between header and the historical track */
+.state-timeline.mode-history .tl-header {
+  margin-bottom: 20px;
+}
+
+.state-timeline.mode-history {
+  padding-top: 20px;
+}
+
 .tl-header-left {
   display: flex;
   align-items: center;
@@ -122,6 +131,45 @@
   height: 5px;
   border-radius: 50%;
   flex-shrink: 0;
+}
+
+/* View toggle pill (Surveillance ↔ History) */
+.tl-view-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.tl-view-btn {
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  padding: 5px 14px;
+  border-radius: 999px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.62rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.45);
+  transition: color 0.2s ease, background 0.2s ease;
+}
+
+.tl-view-btn:hover {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.tl-view-btn.active {
+  background: rgba(0, 255, 204, 0.1);
+  color: rgba(0, 255, 204, 0.9);
+}
+
+.tl-legend-spacer {
+  min-width: 0;
 }
 
 /* ============================================
@@ -486,8 +534,112 @@
 
 .tl-trend-svg {
   width: 100%;
-  height: 50px;
+  height: 180px;
   display: block;
+  cursor: crosshair;
+}
+
+.tl-trend-badges {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tl-trend-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid currentColor;
+  cursor: help;
+}
+
+.tl-trend-badge-hint {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.35);
+  letter-spacing: 0.04em;
+}
+
+.tl-trend-tooltip {
+  position: relative;
+  margin: 4px 20px -4px auto;
+  display: inline-flex;
+  gap: 10px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: rgba(10, 16, 32, 0.9);
+  border: 1px solid rgba(0, 255, 204, 0.3);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  float: right;
+  pointer-events: none;
+}
+
+.tl-trend-tooltip-date {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.tl-trend-tooltip-value {
+  color: #00ffcc;
+  font-weight: 600;
+}
+
+.tl-trend-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 6px 20px 0;
+  flex-wrap: wrap;
+}
+
+.tl-trend-range-group {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.tl-trend-range-btn {
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.4);
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.tl-trend-range-btn:hover {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.tl-trend-range-btn.active {
+  background: rgba(0, 255, 204, 0.1);
+  color: rgba(0, 255, 204, 0.9);
+}
+
+.tl-trend-stats {
+  display: flex;
+  gap: 14px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.tl-trend-stats em {
+  font-style: normal;
+  color: rgba(255, 255, 255, 0.35);
+  margin-right: 4px;
+  font-weight: 500;
 }
 
 .tl-trend-footer {
@@ -500,7 +652,9 @@
 }
 
 .tl-trend-source {
-  color: rgba(14, 165, 233, 0.4);
+  color: rgba(14, 165, 233, 0.5);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
 }
 
 .tl-trend-loading {
@@ -509,6 +663,115 @@
   color: rgba(255, 255, 255, 0.4);
   text-transform: uppercase;
   letter-spacing: 1px;
+}
+
+/* Range label + wrapper */
+.tl-trend-range-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tl-trend-range-label {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.tl-trend-range-muted {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+/* Loading skeleton */
+.tl-trend-skeleton {
+  padding: 12px 20px 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.tl-trend-skeleton-chart {
+  position: relative;
+  width: 100%;
+  height: 150px;
+  border-radius: 6px;
+  background:
+    linear-gradient(to top, rgba(14, 165, 233, 0.04), rgba(14, 165, 233, 0) 60%),
+    repeating-linear-gradient(
+      to top,
+      rgba(255, 255, 255, 0.04) 0,
+      rgba(255, 255, 255, 0.04) 1px,
+      transparent 1px,
+      transparent 30px
+    );
+  overflow: hidden;
+}
+
+.tl-trend-skeleton-bar {
+  position: absolute;
+  bottom: 0;
+  width: 6%;
+  border-radius: 2px 2px 0 0;
+  background: linear-gradient(
+    180deg,
+    rgba(14, 165, 233, 0.35),
+    rgba(14, 165, 233, 0.08)
+  );
+  animation: tl-skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+.tl-trend-skeleton-bar:nth-child(2) { animation-delay: 0.1s; }
+.tl-trend-skeleton-bar:nth-child(3) { animation-delay: 0.2s; }
+.tl-trend-skeleton-bar:nth-child(4) { animation-delay: 0.3s; }
+.tl-trend-skeleton-bar:nth-child(5) { animation-delay: 0.4s; }
+.tl-trend-skeleton-bar:nth-child(6) { animation-delay: 0.5s; }
+.tl-trend-skeleton-bar:nth-child(7) { animation-delay: 0.6s; }
+
+@keyframes tl-skeleton-pulse {
+  0%, 100% { opacity: 0.35; transform: scaleY(0.85); transform-origin: bottom; }
+  50%      { opacity: 1;    transform: scaleY(1);    transform-origin: bottom; }
+}
+
+.tl-trend-skeleton-text {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* Empty state */
+.tl-trend-empty {
+  padding: 20px 28px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 6px;
+  color: rgba(0, 255, 204, 0.45);
+}
+
+.tl-trend-empty-title {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: rgba(255, 255, 255, 0.75);
+  margin-top: 4px;
+}
+
+.tl-trend-empty-subtitle {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.5);
+  max-width: 420px;
 }
 
 @media (max-width: 1200px) {

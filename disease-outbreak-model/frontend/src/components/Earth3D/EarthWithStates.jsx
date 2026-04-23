@@ -117,7 +117,7 @@ const INTRO_STAR_STREAK_INTENSITY = 0.8 // How much stars streak during zoom
 // Higher means more left
 const SIDEBAR_CAMERA_OFFSET = -0.1 // Negative moves the Earth left, positive moves it right
 
-const ZOOMED_CAMERA_Y_OFFSET = -0.95  // Negative = Earth appears higher
+const ZOOMED_CAMERA_Y_OFFSET = -1.5  // Negative = Earth appears higher
 
 // Vertical offset for Earth centering - positive = Earth appears lower in viewport
 // This accounts for the header taking up screen space
@@ -1784,7 +1784,10 @@ export default function EarthWithStates({ scrollTargetRef }) {
   const oceanPreset = useStore(state => state.settings?.oceanPreset ?? 'default')
   const cloudsEnabled = useStore(state => state.settings?.cloudsEnabled ?? true)
   const autoRotate = useStore(state => state.settings?.autoRotate ?? true)
-  const activeEarthTextureRef = useRef(INITIAL_EARTH_TEXTURE_KEY)
+  // Start as null so the swap effect always runs once on mount, reconciling the
+  // shader uniform against the current Zustand value even if module-level
+  // INITIAL_EARTH_TEXTURE_KEY fell out of sync (HMR, stale localStorage, etc.)
+  const activeEarthTextureRef = useRef(null)
 
   // Heatmap mode
   const heatmapEnabled = useStore(state => state.heatmapEnabled)
@@ -2125,6 +2128,14 @@ export default function EarthWithStates({ scrollTargetRef }) {
   useEffect(() => {
     const key = earthTexture
     if (key === activeEarthTextureRef.current) return // Already loaded
+
+    // First run reconciliation: if the store already matches the Suspense-loaded
+    // dayTexture, just mark the ref as confirmed (no duplicate download).
+    if (activeEarthTextureRef.current === null && key === INITIAL_EARTH_TEXTURE_KEY) {
+      activeEarthTextureRef.current = key
+      return
+    }
+
     const url = EARTH_TEXTURE_MAP[key]
     if (!url) return
 

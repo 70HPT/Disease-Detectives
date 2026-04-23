@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import useStore from '../../store/useStore'
 import { getOutbreakHistory } from '../../services/dataService'
+import { getDiseaseById } from '../../data/trackedDiseases'
 import './WatchlistDashboard.css'
 
 function generateAlerts(watchlist, stateData) {
@@ -56,7 +57,8 @@ function timeAgo(date) {
 function MiniRing({ value, max = 100, color, size = 44, strokeWidth = 3 }) {
   const radius = (size - strokeWidth) / 2
   const circumference = 2 * Math.PI * radius
-  const percentage = Math.min(value / max, 1)
+  const hasValue = value != null
+  const percentage = hasValue ? Math.min(value / max, 1) : 0
   const dashOffset = circumference * (1 - percentage)
 
   return (
@@ -77,10 +79,10 @@ function MiniRing({ value, max = 100, color, size = 44, strokeWidth = 3 }) {
       <text
         x={size / 2} y={size / 2}
         textAnchor="middle" dominantBaseline="central"
-        fill="rgba(255,255,255,0.85)"
+        fill={hasValue ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.35)'}
         fontSize="11" fontFamily="'JetBrains Mono', monospace" fontWeight="500"
       >
-        {value}
+        {hasValue ? value : '—'}
       </text>
     </svg>
   )
@@ -93,27 +95,34 @@ function Sparkline({ stateName, color, width = 80, height = 28 }) {
   const [pathData, setPathData] = useState(null)
   const [endPt, setEndPt] = useState(null)
   const stateFips = useStore(s => s.stateFips)
+  const selectedDisease = useStore(s => s.selectedDisease)
+  const apiKey = getDiseaseById(selectedDisease).apiKey
 
   useEffect(() => {
     if (!stateName || !stateFips[stateName]) return
     let cancelled = false
-    const fips = stateFips[stateName] + '001'
-    getOutbreakHistory(fips, { diseaseType: 'influenza', limit: 12 }).then(data => {
-      if (cancelled || !data || data.length < 2) return
-      const cases = data.map(d => d.caseCount ?? 0).reverse()
-      const min = Math.min(...cases)
-      const max = Math.max(...cases, 1)
-      const range = max - min || 1
-      const pts = cases.map((c, i) => {
-        const x = (i / (cases.length - 1)) * width
-        const y = height - ((c - min) / range) * (height - 4) - 2
-        return { x, y }
+    setPathData(null)
+    setEndPt(null)
+    // Statewide rollup FIPS — auto-populates once Jacob's SUM seed runs.
+    const fips = stateFips[stateName] + '000'
+    getOutbreakHistory(fips, { diseaseType: apiKey, limit: 12 })
+      .then(data => {
+        if (cancelled || !data || data.length < 2) return
+        const cases = data.map(d => d.caseCount ?? 0).reverse()
+        const min = Math.min(...cases)
+        const max = Math.max(...cases, 1)
+        const range = max - min || 1
+        const pts = cases.map((c, i) => {
+          const x = (i / (cases.length - 1)) * width
+          const y = height - ((c - min) / range) * (height - 4) - 2
+          return { x, y }
+        })
+        setPathData(pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' '))
+        setEndPt(pts[pts.length - 1])
       })
-      setPathData(pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' '))
-      setEndPt(pts[pts.length - 1])
-    })
+      .catch(() => { /* 404 or offline — stay empty */ })
     return () => { cancelled = true }
-  }, [stateName, stateFips, width, height])
+  }, [stateName, stateFips, width, height, apiKey])
 
   if (!pathData) {
     return <svg width={width} height={height} className="sparkline-svg">
@@ -177,16 +186,16 @@ function StateCard({ stateName, data, index, onRemove, onView, animate }) {
       {/* Metrics row */}
       <div className="wl-card-metrics">
         <div className="wl-card-metric">
-          <MiniRing value={data.healthIndex ?? 0} color={data.healthIndex != null ? getHealthColor(data.healthIndex) : '#8892a4'} />
-          <span className="wl-card-metric-label">{data.healthIndex != null ? 'Health' : '\u2014'}</span>
+          <MiniRing value={data.healthIndex} color={data.healthIndex != null ? getHealthColor(data.healthIndex) : '#8892a4'} />
+          <span className="wl-card-metric-label">Health</span>
         </div>
         <div className="wl-card-metric">
-          <MiniRing value={data.vaccinationRate ?? 0} color={data.vaccinationRate != null ? getHealthColor(data.vaccinationRate) : '#8892a4'} />
-          <span className="wl-card-metric-label">{data.vaccinationRate != null ? 'Vax Rate' : '\u2014'}</span>
+          <MiniRing value={data.vaccinationRate} color={data.vaccinationRate != null ? getHealthColor(data.vaccinationRate) : '#8892a4'} />
+          <span className="wl-card-metric-label">Vax Rate</span>
         </div>
         <div className="wl-card-metric">
-          <MiniRing value={data.riskScore ?? 0} color={data.riskScore != null ? (data.riskScore > 45 ? '#ff4060' : data.riskScore > 30 ? '#f0c040' : '#00ffcc') : '#8892a4'} />
-          <span className="wl-card-metric-label">{data.riskScore != null ? 'Risk' : '\u2014'}</span>
+          <MiniRing value={data.riskScore} color={data.riskScore != null ? (data.riskScore > 45 ? '#ff4060' : data.riskScore > 30 ? '#f0c040' : '#00ffcc') : '#8892a4'} />
+          <span className="wl-card-metric-label">Risk</span>
         </div>
       </div>
 
@@ -251,7 +260,7 @@ function AddStateSearch({ watchlist, onAdd }) {
         />
       </div>
       {focused && filtered.length > 0 && (
-        <div className="wl-add-dropdown">
+        <div className="wl-add-dropdown" data-lenis-prevent>
           {filtered.map(state => (
             <button key={state} className="wl-add-option" onClick={() => { onAdd(state); setQuery('') }}>
               {state}
@@ -305,7 +314,7 @@ export default function WatchlistDashboard() {
 
   return (
     <div className="wl-overlay" onClick={closeWatchlist}>
-      <div className={`wl-dashboard ${animate ? 'visible' : ''}`} onClick={(e) => e.stopPropagation()}>
+      <div className={`wl-dashboard ${animate ? 'visible' : ''}`} data-lenis-prevent onClick={(e) => e.stopPropagation()}>
 
         {/* Header */}
         <div className="wl-header">

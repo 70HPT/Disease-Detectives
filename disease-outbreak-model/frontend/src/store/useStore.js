@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { TRACKED_DISEASES } from '../data/trackedDiseases'
 
 // ============================================
 // SETTINGS — localStorage persistence
@@ -152,6 +153,18 @@ const useStore = create((set, get) => ({
   // ============================================
   selectedYear: new Date().getFullYear(),
   setSelectedYear: (year) => set({ selectedYear: year }),
+
+  // ============================================
+  // DISEASE SELECTION (global — drives outbreak history + spotlight)
+  // ============================================
+  selectedDisease: TRACKED_DISEASES[0].id,
+  setSelectedDisease: (id) => set({ selectedDisease: id }),
+
+  // ============================================
+  // TIMELINE TREND VIEW (drives breadcrumb + health-ring offset)
+  // ============================================
+  trendView: 'surveillance', // 'surveillance' | 'history'
+  setTrendView: (v) => set({ trendView: v }),
 
   // ============================================
   // HEATMAP MODE

@@ -3,6 +3,15 @@ import useStore from '../../store/useStore'
 import TRANSMISSION_CORRIDORS from '../../data/transmissionCorridors'
 import './CorridorPanel.css'
 
+// Format numbers with K / M suffixes for compact display
+function formatCount(n) {
+  if (n == null) return '—'
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 10_000) return `${(n / 1_000).toFixed(0)}K`
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
+  return n.toLocaleString()
+}
+
 function RiskBar({ value }) {
   return (
     <div className="corr-risk-bar">
@@ -97,19 +106,39 @@ export default function CorridorPanel() {
 
             <div className="corr-meta">
               <span className="corr-mechanism">{c.mechanism}</span>
-              <span className="corr-volume">{c.travelVolume}K/day</span>
+              <span className="corr-volume">{formatCount(c.travelVolume)}/day</span>
             </div>
 
             {expanded === i && (
               <div className="corr-detail">
+                <div className="corr-breakdown">
+                  <div className="corr-ingredient">
+                    <span className="corr-ingredient-label">Commuters</span>
+                    <span className="corr-ingredient-value">{formatCount(c.commuters)}/day</span>
+                    <span className="corr-ingredient-src">Census ACS</span>
+                  </div>
+                  <div className="corr-ingredient">
+                    <span className="corr-ingredient-label">Air travel</span>
+                    <span className="corr-ingredient-value">{formatCount(c.airPassengers)}/day</span>
+                    <span className="corr-ingredient-src">BTS T-100</span>
+                  </div>
+                  <div className="corr-ingredient">
+                    <span className="corr-ingredient-label">Border</span>
+                    <span className="corr-ingredient-value">{c.adjacent ? 'Shared' : 'None'}</span>
+                    <span className="corr-ingredient-src">{c.adjacent ? '+0.08 bonus' : 'air only'}</span>
+                  </div>
+                  <div className="corr-ingredient">
+                    <span className="corr-ingredient-label">Risk score</span>
+                    <span className="corr-ingredient-value" style={{ color: '#00ffcc' }}>{Math.round(c.riskWeight * 100)}</span>
+                    <span className="corr-ingredient-src">normalized 0-100</span>
+                  </div>
+                </div>
                 <p className="corr-factors">{c.factors}</p>
                 <div className="corr-detail-badge">
                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <circle cx="12" cy="12" r="10" /><path d="M12 16v-4M12 8h.01" />
                   </svg>
-                  {stateData[stateName]?.riskScore != null
-                    ? 'Risk weights derived from ML model scores'
-                    : 'Placeholder — awaiting ML model integration'}
+                  Sources: Census ACS 2016-2020 · BTS T-100 2023 · ML model integration next
                 </div>
               </div>
             )}
