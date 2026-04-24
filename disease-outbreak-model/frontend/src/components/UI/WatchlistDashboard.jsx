@@ -378,8 +378,22 @@ export default function WatchlistDashboard() {
     }
   }, [watchlistOpen])
 
+  // Close on Escape — parity with SettingsPanel
+  useEffect(() => {
+    if (!watchlistOpen) return
+    const onKey = (e) => { if (e.key === 'Escape') closeWatchlist() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [watchlistOpen, closeWatchlist])
+
   const handleViewState = useCallback((stateName) => {
     closeWatchlist()
+    // If the user is currently in county view, exit first so the globe is
+    // reachable for the zoom-to-state animation. Without this, the canvas
+    // stays hidden and the user sees the old county map until they scroll.
+    if (useStore.getState().viewMode === 'state-counties') {
+      useStore.getState().exitCountyView()
+    }
     clearSelection()
     // Small delay so overlay closes first
     setTimeout(() => requestStateZoom(stateName), 300)
@@ -466,22 +480,40 @@ export default function WatchlistDashboard() {
               </div>
             </div>
             <div className="wl-alerts-list">
-              {filteredAlerts.map((alert, i) => (
-                <div
-                  key={alert.id}
-                  className={`wl-alert ${alert.severity} ${animate ? 'animate' : ''}`}
-                  style={{ animationDelay: `${400 + i * 60}ms` }}
-                >
-                  <span className={`wl-alert-icon ${alert.severity}`}>{alert.icon}</span>
-                  <div className="wl-alert-content">
-                    <span className="wl-alert-message">{alert.message}</span>
-                    <span className="wl-alert-time">Live</span>
-                  </div>
-                </div>
-              ))}
-              {filteredAlerts.length === 0 && (
-                <div className="wl-alerts-empty">No {alertFilter} alerts</div>
-              )}
+              {(() => {
+                // When the risk model is offline, every alert degrades to
+                // "info / awaiting risk data" — a wall of identical gray
+                // rows. Replace that with a single status line.
+                const allInfo = alerts.length > 0
+                  && alerts.every(a => a.severity === 'info')
+                if (allInfo) {
+                  return (
+                    <div className="wl-alerts-empty wl-alerts-offline">
+                      Risk scores offline — surveillance charts on the state cards are still live.
+                    </div>
+                  )
+                }
+                return (
+                  <>
+                    {filteredAlerts.map((alert, i) => (
+                      <div
+                        key={alert.id}
+                        className={`wl-alert ${alert.severity} ${animate ? 'animate' : ''}`}
+                        style={{ animationDelay: `${400 + i * 60}ms` }}
+                      >
+                        <span className={`wl-alert-icon ${alert.severity}`}>{alert.icon}</span>
+                        <div className="wl-alert-content">
+                          <span className="wl-alert-message">{alert.message}</span>
+                          <span className="wl-alert-time">Live</span>
+                        </div>
+                      </div>
+                    ))}
+                    {filteredAlerts.length === 0 && (
+                      <div className="wl-alerts-empty">No {alertFilter} alerts</div>
+                    )}
+                  </>
+                )
+              })()}
             </div>
           </div>
         </div>

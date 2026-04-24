@@ -239,6 +239,28 @@
   gap: 1.25rem;
 }
 
+.metrics-offline-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  margin-bottom: 0.25rem;
+  border: 1px dashed rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.45);
+  letter-spacing: 0.02em;
+}
+
+.metrics-offline-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 180, 80, 0.55);
+  box-shadow: 0 0 6px rgba(255, 180, 80, 0.35);
+}
+
 .metric {
   display: flex;
   flex-direction: column;

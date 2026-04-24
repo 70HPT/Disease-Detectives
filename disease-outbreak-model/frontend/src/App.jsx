@@ -18,6 +18,7 @@ import USAtAGlance from './components/UI/USAtAGlance'
 import StateHoverTooltip from './components/UI/StateHoverTooltip'
 import { getMapData } from './services/riskService'
 import { listLocations } from './services/locationService'
+import { getDiseaseById } from './data/trackedDiseases'
 
 import 'lenis/dist/lenis.css'
 import './App.css'
@@ -145,13 +146,22 @@ function App() {
 
   // Hydrate store with live API data on mount
   const hydrateStateData = useStore((state) => state.hydrateStateData)
+  const selectedDisease = useStore((state) => state.selectedDisease)
+
+  // Re-fetch /risk/map whenever the selected disease changes so the globe
+  // colors + state panel metrics reflect the correct per-disease aggregation.
   useEffect(() => {
-    getMapData().then((data) => {
-      if (data) hydrateStateData(data)
+    const apiKey = getDiseaseById(selectedDisease).apiKey
+    let cancelled = false
+    getMapData(apiKey).then((data) => {
+      if (cancelled) return
+      hydrateStateData(data)
     })
-    // Fetch populations from locations endpoint.
-    // Aggregate to state-level AND keep per-county populations keyed by FIPS
-    // so the county map rankings/hover can show real numbers.
+    return () => { cancelled = true }
+  }, [selectedDisease, hydrateStateData])
+
+  // One-time hydration: populations from /locations (independent of disease).
+  useEffect(() => {
     listLocations({ limit: 4000 }).then((locations) => {
       if (!locations) return
       const statePops = {}

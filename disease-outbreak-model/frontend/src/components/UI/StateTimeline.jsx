@@ -184,7 +184,7 @@ export function CaseTrendChart({ stateName, animate, fipsOverride, locationLabel
     // endpoint fails first. Distinguish null (offline/transient) from a 404
     // (the county genuinely isn't in the DB — retrying won't help).
     const attempt = (tries = 0) => {
-      getOutbreakHistory(fips, { diseaseType: disease.apiKey, limit: 52 })
+      getOutbreakHistory(fips, { diseaseType: disease.apiKey, limit: 260 })
         .then(result => {
           if (cancelled) return
           if (result && result.length > 0) {
@@ -297,8 +297,8 @@ export function CaseTrendChart({ stateName, animate, fipsOverride, locationLabel
   const trendColor = trendDir === 'up' ? '#f87171' : trendDir === 'down' ? '#4ade80' : 'rgba(255,255,255,0.5)'
 
   // \u2500\u2500 SVG coordinate system \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
-  const w = 800, h = 180
-  const padL = 40, padR = 20, padT = 14, padB = 26
+  const w = 800, h = 240
+  const padL = 40, padR = 20, padT = 16, padB = 28
   const plotW = w - padL - padR
   const plotH = h - padT - padB
   const xOf = (i) => padL + (cases.length > 1 ? (i / (cases.length - 1)) * plotW : plotW / 2)
@@ -500,10 +500,24 @@ export function CaseTrendChart({ stateName, animate, fipsOverride, locationLabel
         const humidity = climate?.avg_humidity ?? climate?.avgHumidity
         const precip = climate?.precipitation
         const hasClimate = temp != null || humidity != null || precip != null
-        // Clamp the tooltip inside the chart's scroll width so it never
-        // overflows past the right edge or rides up into the header.
-        const maxLeft = (chartRef.current?.scrollWidth || 720) - (hasClimate ? 260 : 140) - 12
-        const left = Math.max(8, Math.min(hoverPos.x + 14, maxLeft))
+
+        // Clamp the tooltip to the *visible* viewport of the chart (not the
+        // scroll-content width), and flip it to the left of the cursor when
+        // the right side would spill off-screen. Works the same in both the
+        // wide state-view chart and the narrow county-panel chart.
+        const chart = chartRef.current
+        const tooltipW = hasClimate ? 320 : 160
+        const scrollLeft = chart?.scrollLeft ?? 0
+        const clientWidth = chart?.clientWidth ?? chart?.scrollWidth ?? 720
+        const visibleLeft = scrollLeft + 8
+        const visibleRight = scrollLeft + clientWidth - 8
+        const naturalLeft = hoverPos.x + 14
+        // If showing to the right of the cursor would spill, flip to the left
+        const wouldSpill = naturalLeft + tooltipW > visibleRight
+        const flipLeft = hoverPos.x - 14 - tooltipW
+        const left = wouldSpill
+          ? Math.max(visibleLeft, flipLeft)
+          : Math.min(naturalLeft, visibleRight - tooltipW)
         const top = Math.max(4, hoverPos.y - 36)
         return (
           <div

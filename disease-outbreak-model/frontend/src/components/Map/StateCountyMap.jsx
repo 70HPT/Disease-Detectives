@@ -20,9 +20,11 @@ const EASING = {
 // MINI GAUGE RING (SVG) — for hover card
 // ============================================
 function MiniGauge({ value, max = 100, size = 28, color, label }) {
+  const hasValue = value != null && Number.isFinite(value)
   const radius = (size - 4) / 2
   const circumference = 2 * Math.PI * radius
-  const progress = (value / max) * circumference
+  const progress = hasValue ? (value / max) * circumference : 0
+  const ringColor = hasValue ? color : 'rgba(255,255,255,0.08)'
 
   return (
     <div className="hover-gauge">
@@ -33,7 +35,7 @@ function MiniGauge({ value, max = 100, size = 28, color, label }) {
         />
         <circle
           cx={size/2} cy={size/2} r={radius}
-          fill="none" stroke={color} strokeWidth="2.5"
+          fill="none" stroke={ringColor} strokeWidth="2.5"
           strokeDasharray={circumference}
           strokeDashoffset={circumference - progress}
           strokeLinecap="round"
@@ -41,8 +43,9 @@ function MiniGauge({ value, max = 100, size = 28, color, label }) {
           style={{ transition: 'stroke-dashoffset 0.6s cubic-bezier(0.4, 0, 0.2, 1)' }}
         />
         <text x={size/2} y={size/2} textAnchor="middle" dominantBaseline="central"
-          fill="rgba(255,255,255,0.7)" fontSize="8" fontFamily="'JetBrains Mono', monospace" fontWeight="600">
-          {value}
+          fill={hasValue ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.3)'}
+          fontSize="8" fontFamily="'JetBrains Mono', monospace" fontWeight="600">
+          {hasValue ? value : '—'}
         </text>
       </svg>
       <span className="hover-gauge-label">{label}</span>
@@ -84,8 +87,11 @@ export default function StateCountyMap() {
   const [rankingsFilter, setRankingsFilter] = useState('')
 
   // County color metric — local to the county view so it doesn't fight
-  // the globe's heatmap selection.
-  const [colorMetric, setColorMetric] = useState('riskScore')
+  // the globe's heatmap selection. Default to populationNum because it
+  // always has real data from /locations; riskScore / vaccination / health
+  // depend on the ML endpoint which can be offline, in which case those
+  // metrics paint every county a uniform amber that looks broken.
+  const [colorMetric, setColorMetric] = useState('populationNum')
   const [colorMetricOpen, setColorMetricOpen] = useState(false)
 
   // Legend toggle (collapsed by default on mobile)
@@ -422,11 +428,29 @@ export default function StateCountyMap() {
 
     batchPredictRisk(fipsList, disease.apiKey)
       .then(riskData => {
-        if (cancelled || !riskData) return
+        if (cancelled) return
+        // If the response is null (backend offline) keep the previous
+        // fallback colors. If it's an empty object (new disease has no
+        // predictions for these counties), clear the old disease's risk
+        // fields so we don't silently relabel them.
+        if (!riskData) return
         setCounties(prev => prev.map(c => {
           const fips = c.properties.fips
           const real = riskData[fips]
-          if (!real) return c
+          if (!real) {
+            // New disease has no prediction for this county — clear any
+            // stale values left over from the previous disease.
+            return {
+              ...c,
+              properties: {
+                ...c.properties,
+                riskScore: null,
+                outbreakRisk: null,
+                vaccinationRate: null,
+                healthIndex: null,
+              },
+            }
+          }
           return {
             ...c,
             properties: {
@@ -577,25 +601,30 @@ export default function StateCountyMap() {
     return out
   }, [counties])
 
-  // Color based on active metric. Risk uses a 4-step gradient; others use
-  // a continuous normalized mapping.
+  // Color based on active metric. Any metric that requires ML data falls
+  // back to neutral gray when the backend is offline, so the map reads as
+  // "no data" rather than a misleading uniform color.
+  const NO_DATA_COLOR = 'rgba(120, 130, 150, 0.25)'
   const getCountyColor = useCallback((properties) => {
     if (colorMetric === 'riskScore') {
-      const riskScore = properties.riskScore || 50
+      if (properties.riskScore == null) return NO_DATA_COLOR
+      const riskScore = properties.riskScore
       if (riskScore < 30) return '#10b981'
       if (riskScore < 50) return '#f59e0b'
       if (riskScore < 70) return '#f97316'
       return '#ef4444'
     }
-    // Population: more populous = darker blue (no risk-semantic)
     if (colorMetric === 'populationNum') {
-      const max = metricMax.populationNum || 1
-      const t = Math.min(1, (properties.populationNum || 0) / max)
+      if (!metricMax.populationNum || properties.populationNum == null) {
+        return NO_DATA_COLOR
+      }
+      const t = Math.min(1, properties.populationNum / metricMax.populationNum)
       const alpha = 0.2 + t * 0.7
       return `rgba(14, 165, 233, ${alpha.toFixed(2)})`
     }
-    // Vaccination / Health: higher = greener
-    const v = properties[colorMetric] ?? 50
+    // Vaccination / Health: higher = greener; neutral gray when no data
+    if (properties[colorMetric] == null) return NO_DATA_COLOR
+    const v = properties[colorMetric]
     if (v >= 70) return '#10b981'
     if (v >= 50) return '#f59e0b'
     if (v >= 30) return '#f97316'
@@ -701,6 +730,11 @@ export default function StateCountyMap() {
 
   // Back button
   const handleBackClick = useCallback(() => {
+    // Close any open overlays so they don't reappear on the next county
+    // view entry (state is retained in closure otherwise)
+    setRankingsOpen(false)
+    setColorMetricOpen(false)
+    setSortDropdownOpen(false)
     const countyPaths = document.querySelectorAll('.county-path')
     countyPaths.forEach((path, i) => {
       path.animate([
@@ -716,10 +750,27 @@ export default function StateCountyMap() {
     setTimeout(() => { exitCountyView() }, 400)
   }, [exitCountyView])
 
-  // Rankings click
+  // Rankings click — close the panel, select the county, and pan the map
+  // so the newly-selected county is centered (otherwise in a big state like
+  // Texas the user has no idea where their pick is on the map).
   const handleRankingClick = useCallback((county) => {
     selectCounty(county.properties.name, selectedState.name, county.properties.fips)
-  }, [selectCounty, selectedState])
+    setRankingsOpen(false)
+    if (pathGenerator) {
+      const centroid = pathGenerator.centroid(county)
+      if (centroid && Number.isFinite(centroid[0]) && Number.isFinite(centroid[1])) {
+        const t = transformRef.current
+        // Bump zoom to 1.6x if currently at or near default so the county
+        // is actually visible, not lost in the full state view.
+        if (t.zoom < 1.2) t.zoom = 1.6
+        const cx = (dimensions.width / 2 - 20)
+        const cy = (dimensions.height / 2 - 120)
+        t.panX = t.zoom * (cx - centroid[0])
+        t.panY = t.zoom * (cy - centroid[1])
+        applyTransform(true)
+      }
+    }
+  }, [selectCounty, selectedState, pathGenerator, dimensions, applyTransform])
 
   // Gauge color helper
   const getGaugeColor = useCallback((value, inverted = false) => {
@@ -785,13 +836,25 @@ export default function StateCountyMap() {
               <polyline points="6 9 12 15 18 9" />
             </svg>
           </button>
-          {colorMetricOpen && (
+          {colorMetricOpen && (() => {
+            // Detect which metrics have real data loaded right now, so the
+            // picker can surface "unavailable" instead of misleading labels.
+            const hasMetric = (key) => counties.some(c => c.properties[key] != null)
+            const availability = {
+              riskScore: hasMetric('riskScore'),
+              populationNum: hasMetric('populationNum'),
+              vaccinationRate: hasMetric('vaccinationRate'),
+              healthIndex: hasMetric('healthIndex'),
+            }
+            const subFor = (key, liveSub) =>
+              availability[key] ? liveSub : 'unavailable offline'
+            return (
             <div className="color-metric-menu">
               {[
-                { value: 'riskScore', label: 'Risk Score', sub: 'ML prediction' },
-                { value: 'populationNum', label: 'Population', sub: 'Census / locations' },
-                { value: 'vaccinationRate', label: 'Vaccination', sub: 'ML factor' },
-                { value: 'healthIndex', label: 'Health Index', sub: 'derived composite' },
+                { value: 'riskScore', label: 'Risk Score', sub: subFor('riskScore', 'ML prediction') },
+                { value: 'populationNum', label: 'Population', sub: subFor('populationNum', 'Census / locations') },
+                { value: 'vaccinationRate', label: 'Vaccination', sub: subFor('vaccinationRate', 'ML factor') },
+                { value: 'healthIndex', label: 'Health Index', sub: subFor('healthIndex', 'derived composite') },
               ].map(opt => (
                 <button
                   type="button"
@@ -804,7 +867,8 @@ export default function StateCountyMap() {
                 </button>
               ))}
             </div>
-          )}
+            )
+          })()}
         </div>
 
         {/* Rankings toggle button with rotating chevron */}
@@ -826,7 +890,7 @@ export default function StateCountyMap() {
 
       {/* County Rankings Panel */}
       {rankingsOpen && (
-        <div className="rankings-panel">
+        <div className="rankings-panel" data-lenis-prevent>
           <div className="rankings-header">
             <span className="rankings-title">County Rankings</span>
             <div className="custom-dropdown">
@@ -1106,7 +1170,8 @@ export default function StateCountyMap() {
         </g>
       </svg>
 
-      {/* Zoom + Pan controls */}
+      {/* Zoom + Pan controls. Reset is always visible so accidental
+          zooms (in *or* out) can be undone without hunting for a way back. */}
       <div className="zoom-controls">
         <button className="zoom-btn" onClick={zoomIn} title="Zoom in">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -1118,13 +1183,11 @@ export default function StateCountyMap() {
             <line x1="5" y1="12" x2="19" y2="12" />
           </svg>
         </button>
-        {isZoomed && (
-          <button className="zoom-btn zoom-reset" onClick={zoomReset} title="Reset zoom">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M3 12a9 9 0 109-9" /><polyline points="3 3 3 9 9 3" />
-            </svg>
-          </button>
-        )}
+        <button className="zoom-btn zoom-reset" onClick={zoomReset} title="Reset view">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M3 12a9 9 0 109-9" /><polyline points="3 3 3 9 9 3" />
+          </svg>
+        </button>
       </div>
 
       {/* D-pad for panning (visible when zoomed) */}

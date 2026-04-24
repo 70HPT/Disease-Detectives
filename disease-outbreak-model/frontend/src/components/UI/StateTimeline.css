@@ -559,11 +559,13 @@
 
 .tl-trend-svg {
   width: 100%;
-  /* viewBox is 800x180 with preserveAspectRatio="none".
+  /* viewBox is 800x240 with preserveAspectRatio="none".
      Under ~720px the line/labels start compressing — enforce that as the
-     floor and let the parent scroll horizontally when the panel is narrower. */
+     floor and let the parent scroll horizontally when the panel is narrower.
+     Height bumped from 180→240 so low-value flat periods aren't crushed
+     into a few pixels when a peak dominates the Y range. */
   min-width: 720px;
-  height: 180px;
+  height: 240px;
   display: block;
   cursor: crosshair;
 }
@@ -635,9 +637,13 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 24px;
   padding: 6px 20px 0;
   flex-wrap: wrap;
+  /* Match the chart's min-width so the controls row stretches across the
+     full scrollable width of the chart — stats get breathing room, and
+     range + source sit comfortably at the edges. */
+  min-width: 720px;
 }
 
 .tl-trend-range-group {
@@ -673,10 +679,21 @@
 
 .tl-trend-stats {
   display: flex;
-  gap: 14px;
+  gap: 22px;
+  /* Hold the stats row as a stable-width block so the Peak · date suffix
+     has breathing room inside the narrow (720px) county-panel chart and
+     the cluster doesn't word-wrap mid-value. */
+  flex: 1 1 auto;
+  min-width: 300px;
+  justify-content: flex-start;
+  flex-wrap: nowrap;
   font-family: 'JetBrains Mono', monospace;
   font-size: 10px;
   color: rgba(255, 255, 255, 0.75);
+}
+
+.tl-trend-stats > span {
+  white-space: nowrap;
 }
 
 .tl-trend-stats em {
@@ -689,7 +706,8 @@
 .tl-trend-stat-sub {
   color: rgba(255, 255, 255, 0.35);
   font-size: 9px;
-  margin-left: 2px;
+  margin-left: 4px;
+  white-space: nowrap;
 }
 
 .tl-trend-footer {

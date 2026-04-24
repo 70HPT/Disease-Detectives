@@ -60,6 +60,9 @@ export default function StateHealthRings() {
   const viewMode = useStore((state) => state.viewMode)
   const trendView = useStore((state) => state.trendView)
   const clearSelection = useStore((state) => state.clearSelection)
+  // Live lookup so the Health Grade ring reflects the CURRENT disease's
+  // healthIndex, not the one captured at state-click time.
+  const liveStateEntry = useStore((s) => selectedState?.name ? s.stateData[selectedState.name] : null)
   const [animate, setAnimate] = useState(false)
   const [visible, setVisible] = useState(false)
   const prevStateRef = useRef(null)
@@ -83,8 +86,10 @@ export default function StateHealthRings() {
         setVisible(false)
       }
       prevStateRef.current = selectedState.name
-      const showTimer = setTimeout(() => setVisible(true), 300)
-      const animTimer = setTimeout(() => setAnimate(true), 600)
+      // Show and animate in sync with the state panel's 500ms slide-in so
+      // the left side doesn't look empty while the right panel is populated.
+      const showTimer = setTimeout(() => setVisible(true), 100)
+      const animTimer = setTimeout(() => setAnimate(true), 300)
       return () => { clearTimeout(showTimer); clearTimeout(animTimer) }
     } else {
       setVisible(false)
@@ -94,12 +99,12 @@ export default function StateHealthRings() {
 
   if (!selectedState || isCountyView) return null
 
-  const healthIndex = selectedState.healthIndex
+  const healthIndex = liveStateEntry?.healthIndex ?? selectedState.healthIndex
   const gradeInfo = healthIndex != null ? getHealthGrade(healthIndex) : { grade: '\u2014', pct: 0, color: '#8892a4', glow: 'transparent' }
   const facts = STATE_FACTS[selectedState.name] || DEFAULT_FACT
 
   return (
-    <div className={`health-rings ${visible ? 'visible' : ''} ${trendView === 'surveillance' ? 'surveillance-mode' : 'history-mode'}`}>
+    <div className={`health-rings ${visible ? 'visible' : ''} ${trendView === 'surveillance' ? 'surveillance-mode' : 'history-mode'}`} data-lenis-prevent>
       <div className="hr-breadcrumb">
         <span className="hr-crumb clickable" onClick={handleBreadcrumbHome}>
           United States

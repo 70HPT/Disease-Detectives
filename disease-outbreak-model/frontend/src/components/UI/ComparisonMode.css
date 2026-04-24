@@ -735,6 +735,25 @@
   margin-bottom: 1.5rem;
 }
 
+.cmp-offline-notice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.85rem;
+  line-height: 1.4;
+  margin-bottom: 1.5rem;
+}
+
+.cmp-offline-notice svg {
+  flex-shrink: 0;
+  color: rgba(255, 255, 255, 0.4);
+}
+
 .cmp-radar-svg {
   width: 100%;
   max-width: 400px;

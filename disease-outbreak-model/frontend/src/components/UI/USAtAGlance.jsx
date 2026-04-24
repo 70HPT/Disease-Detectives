@@ -130,51 +130,58 @@ export default function USAtAGlance({ visible, rootRef }) {
         <span className="uag-subtitle">{stateDataLoaded ? 'live' : '—'}</span>
       </div>
 
-      {/* Risk distribution */}
-      <div className="uag-row">
-        <span className="uag-row-label">Risk distribution</span>
-        {summary.totalWithRisk > 0 ? (
-          <div className="uag-risk-bar">
-            {summary.highRisk > 0 && (
-              <span
-                className="uag-risk-seg high"
-                style={{ flex: summary.highRisk }}
-                title={`${summary.highRisk} states at High risk`}
-              >
-                {summary.highRisk} High
-              </span>
-            )}
-            {summary.mediumRisk > 0 && (
-              <span
-                className="uag-risk-seg medium"
-                style={{ flex: summary.mediumRisk }}
-                title={`${summary.mediumRisk} states at Medium risk`}
-              >
-                {summary.mediumRisk} Med
-              </span>
-            )}
-            {summary.lowRisk > 0 && (
-              <span
-                className="uag-risk-seg low"
-                style={{ flex: summary.lowRisk }}
-                title={`${summary.lowRisk} states at Low risk`}
-              >
-                {summary.lowRisk} Low
-              </span>
-            )}
+      {/* Risk-model-backed rows — collapse into one "offline" notice when the
+          backend is down so the card doesn't show three consecutive em-dashes. */}
+      {summary.totalWithRisk > 0 ? (
+        <>
+          <div className="uag-row">
+            <span className="uag-row-label">Risk distribution</span>
+            <div className="uag-risk-bar">
+              {summary.highRisk > 0 && (
+                <span
+                  className="uag-risk-seg high"
+                  style={{ flex: summary.highRisk }}
+                  title={`${summary.highRisk} states at High risk`}
+                >
+                  {summary.highRisk} High
+                </span>
+              )}
+              {summary.mediumRisk > 0 && (
+                <span
+                  className="uag-risk-seg medium"
+                  style={{ flex: summary.mediumRisk }}
+                  title={`${summary.mediumRisk} states at Medium risk`}
+                >
+                  {summary.mediumRisk} Med
+                </span>
+              )}
+              {summary.lowRisk > 0 && (
+                <span
+                  className="uag-risk-seg low"
+                  style={{ flex: summary.lowRisk }}
+                  title={`${summary.lowRisk} states at Low risk`}
+                >
+                  {summary.lowRisk} Low
+                </span>
+              )}
+            </div>
           </div>
-        ) : (
-          <span className="uag-row-empty">—</span>
-        )}
-      </div>
-
-      {/* Peak-risk state */}
-      {summary.peakState && (
+          {summary.peakState && (
+            <div className="uag-row">
+              <span className="uag-row-label">Highest risk</span>
+              <span className="uag-row-value">
+                {summary.peakState.name}
+                <span className="uag-row-subtext">{summary.peakState.riskScore}/100</span>
+              </span>
+            </div>
+          )}
+        </>
+      ) : (
         <div className="uag-row">
-          <span className="uag-row-label">Highest risk</span>
-          <span className="uag-row-value">
-            {summary.peakState.name}
-            <span className="uag-row-subtext">{summary.peakState.riskScore}/100</span>
+          <span className="uag-row-label">Risk model</span>
+          <span className="uag-row-value uag-row-subtle">
+            Offline
+            <span className="uag-row-subtext">population data live below</span>
           </span>
         </div>
       )}
@@ -251,7 +258,7 @@ export default function USAtAGlance({ visible, rootRef }) {
       </div>
 
       <div className="uag-footer">
-        Census ACS 2016-20 · BTS T-100 2023 · /risk/map when live
+        Census ACS 2016-20 · BTS T-100 2023
       </div>
     </div>
   )

@@ -53,7 +53,7 @@ export const COUNTIES_WITH_SURVEILLANCE = new Set([
   '42001', // Pennsylvania — Adams
   '44001', // Rhode Island — Bristol
   '45001', // South Carolina — Abbeville
-  '46001', // South Dakota — Aurora
+  '46003', // South Dakota — Beadle
   '47001', // Tennessee — Anderson
   '48001', // Texas — Anderson
   '49001', // Utah — Beaver

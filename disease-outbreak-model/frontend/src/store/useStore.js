@@ -54,6 +54,7 @@ const stateCapitals = {
   'Colorado': { name: 'Denver', lat: 39.739227, lon: -104.984856 },
   'Connecticut': { name: 'Hartford', lat: 41.764046, lon: -72.682198 },
   'Delaware': { name: 'Dover', lat: 39.157307, lon: -75.519722 },
+  'District of Columbia': { name: 'Washington', lat: 38.9072, lon: -77.0369 },
   'Florida': { name: 'Tallahassee', lat: 30.438118, lon: -84.281296 },
   'Georgia': { name: 'Atlanta', lat: 33.749027, lon: -84.388229 },
   'Hawaii': { name: 'Honolulu', lat: 21.307442, lon: -157.857376 },
@@ -151,7 +152,10 @@ const useStore = create((set, get) => ({
   // ============================================
   // YEAR SELECTION (for WHO data)
   // ============================================
-  selectedYear: new Date().getFullYear(),
+  // Default to 2 years back — WHO GHO data lags 1-2 years, so the
+  // current year almost always returns blank stats. Picking a year with
+  // real data on first load is a better demo impression.
+  selectedYear: new Date().getFullYear() - 2,
   setSelectedYear: (year) => set({ selectedYear: year }),
 
   // ============================================
@@ -301,27 +305,39 @@ const useStore = create((set, get) => ({
   hydrateCountyPopulations: (populations) => set({ countyPopulations: populations }),
 
   hydrateStateData: (mapData) => set((state) => {
-    if (!mapData?.states) return {}
     const updated = { ...state.stateData }
     const riskLabel = { low: 'Low', moderate: 'Medium', high: 'High' }
 
-    for (const [abbr, apiState] of Object.entries(mapData.states)) {
-      const name = apiState.name
-      if (updated[name]) {
-        const risk = Math.round(apiState.avgRiskScore)
-        // Derive a state-level healthIndex from risk (state endpoint doesn't
-        // ship it today). Inverse-of-risk is a reasonable proxy — keeps the
-        // Health Grade ring meaningful instead of always showing "—".
-        const healthIndex = Number.isFinite(risk) ? Math.max(0, Math.min(100, 100 - risk)) : null
-        updated[name] = {
-          ...updated[name],
-          riskScore: risk,
-          outbreakRisk: riskLabel[apiState.riskLevel] || null,
-          healthIndex,
+    // Clear risk-model fields across the board first — when the user switches
+    // to a disease that has no predictions for a given state, we must not leave
+    // the previous disease's numbers sitting there labeled as the new disease.
+    for (const name of Object.keys(updated)) {
+      updated[name] = {
+        ...updated[name],
+        riskScore: null,
+        outbreakRisk: null,
+        healthIndex: null,
+      }
+    }
+
+    if (mapData?.states) {
+      for (const [abbr, apiState] of Object.entries(mapData.states)) {
+        const name = apiState.name
+        if (updated[name]) {
+          const risk = Math.round(apiState.avgRiskScore)
+          // Derive a state-level healthIndex from risk (state endpoint doesn't
+          // ship it today). Inverse-of-risk is a reasonable proxy.
+          const healthIndex = Number.isFinite(risk) ? Math.max(0, Math.min(100, 100 - risk)) : null
+          updated[name] = {
+            ...updated[name],
+            riskScore: risk,
+            outbreakRisk: riskLabel[apiState.riskLevel] || null,
+            healthIndex,
+          }
         }
       }
     }
-    return { stateData: updated, stateDataLoaded: true }
+    return { stateData: updated, stateDataLoaded: mapData != null }
   }),
 
   // Merge population totals keyed by 2-letter state code.
@@ -358,8 +374,11 @@ const useStore = create((set, get) => ({
       healthIndex: null
     }
 
-    // If clicking same selected state, enter county view
+    // If clicking same selected state, enter county view — but not while
+    // a view transition is already in flight (prevents double-click from
+    // jumping into county view while the globe is still mid-focus).
     if (state.selectedState?.name === stateName) {
+      if (state.isTransitioning) return {}
       return {
         viewMode: 'state-counties',
         isTransitioning: true,

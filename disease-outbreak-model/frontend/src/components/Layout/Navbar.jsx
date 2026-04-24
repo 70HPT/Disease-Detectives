@@ -402,8 +402,12 @@ export default function Navbar({ visible = false }) {
   const showYearSelector = !selectedState && !isCountyView
 
   const handleStateSearch = useCallback((stateName) => {
+    // If the presenter is mid-county-view and searches a different state,
+    // bail out of county view first so viewMode + selectedCounty don't
+    // carry forward while the globe re-focuses on the new state.
+    if (isCountyView) exitCountyView()
     requestStateZoom(stateName)
-  }, [requestStateZoom])
+  }, [isCountyView, exitCountyView, requestStateZoom])
 
   const handleLogoClick = useCallback(() => {
     if (isCountyView) exitCountyView()

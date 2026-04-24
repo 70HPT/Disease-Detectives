@@ -314,6 +314,12 @@ export default function StatePanel() {
   const enterCountyView = useStore((state) => state.enterCountyView)
   const exitCountyView = useStore((state) => state.exitCountyView)
 
+  // Live lookup for disease-independent fields (population). selectedState
+  // is a frozen snapshot captured at click-time, so reading population
+  // from it can go stale after /locations hydrates or after the store
+  // rebuilds stateData objects on a disease switch.
+  const liveStateEntry = useStore((s) => selectedState?.name ? s.stateData[selectedState.name] : null)
+
   const nationalCtx = useNationalContext(selectedState?.name)
 
   // ── API integration with fallback ──────────────────────────
@@ -322,7 +328,7 @@ export default function StatePanel() {
   const panelDiseaseId = useStore(s => s.selectedDisease)
   const panelDisease = getDiseaseById(panelDiseaseId)
   const panelDiseaseKey = panelDisease.apiKey
-  const { data: mapData, loading: mapLoading } = useMapData()
+  const { data: mapData, loading: mapLoading } = useMapData(panelDiseaseKey)
   const { data: countyRisk, loading: countyLoading } = useLocationRisk(
     selectedCounty?.fips || null,
     panelDiseaseKey,
@@ -424,6 +430,13 @@ export default function StatePanel() {
   const realCountyPop = selectedCounty?.fips ? countyPopulationsMap?.[selectedCounty.fips] : null
   const displayData = {
     ...storeData,
+    // For state-level view, always overlay disease-independent fields from
+    // the live store entry so population doesn't go stale after the
+    // selectedState snapshot was captured at click time.
+    ...(!selectedCounty && liveStateEntry ? {
+      population: liveStateEntry.population ?? storeData.population,
+      populationNum: liveStateEntry.populationNum ?? storeData.populationNum,
+    } : {}),
     // Override with real API values for state-level view
     ...(mapData?.states?.[selectedState.abbr] && !selectedCounty ? {
       riskScore: Math.round(mapData.states[selectedState.abbr].avgRiskScore),
@@ -573,20 +586,19 @@ export default function StatePanel() {
           </div>
 
           {/* Risk score vs state-average delta — only when both values are real.
-              Uses 0.5 pt tolerance so the chip still renders while the backend's
-              risk-score normalization bug is live (scores rounded to 0 would
-              otherwise always match and hide the chip). */}
-          {displayData.riskScore != null && selectedState?.riskScore != null && (() => {
-            const delta = displayData.riskScore - selectedState.riskScore
-            if (Math.abs(delta) < 0.5) return null
+              Read the state avg from live stateData (not the selectedState
+              snapshot) so switching disease updates the baseline correctly. */}
+          {(() => {
+            const stateAvgRisk = liveStateEntry?.riskScore ?? selectedState?.riskScore
+            if (displayData.riskScore == null || stateAvgRisk == null) return null
+            const delta = displayData.riskScore - stateAvgRisk
+            if (Math.abs(delta) < 1) return null
             const above = delta > 0
-            const rounded = Math.round(delta)
-            const display = rounded === 0 ? (above ? '+<1' : '<1') : `${above ? '+' : ''}${rounded}`
             return (
-              <div className="county-vs-state" title={`State average risk score: ${selectedState.riskScore}`}>
+              <div className="county-vs-state" title={`State average risk score: ${stateAvgRisk}`}>
                 <span className="county-vs-state-label">vs {selectedState.abbr} avg</span>
                 <span className={`county-vs-state-delta ${above ? 'above' : 'below'}`}>
-                  {display} pts {above ? 'higher' : 'lower'}
+                  {above ? '+' : ''}{Math.round(delta)} pts {above ? 'higher' : 'lower'}
                 </span>
               </div>
             )
@@ -768,7 +780,7 @@ export default function StatePanel() {
           <div className="panel-footer">
             <p className="hint">
               {hasApiFactors
-                ? `ML: ${countyRisk?.modelVersion || 'model'}${countyRisk?.generatedAt ? ` · ${new Date(countyRisk.generatedAt).toLocaleDateString()}` : ''}`
+                ? `ML: ${countyRisk?.modelVersion || `${panelDiseaseKey}_lstm_v1`}${countyRisk?.generatedAt ? ` · ${new Date(countyRisk.generatedAt).toLocaleDateString()}` : ''}`
                 : 'Derived from Census + FIPS data'}
             </p>
           </div>
@@ -786,6 +798,16 @@ export default function StatePanel() {
               {displayData.outbreakRisk || '\u2014'}
             </span>
           </div>
+
+          {/* When the risk model is offline, all three bars are empty —
+              surface a single status line above them so it reads as an
+              intentional offline state rather than a loading failure. */}
+          {displayData.riskScore == null && displayData.vaccinationRate == null && displayData.healthIndex == null && (
+            <div className="metrics-offline-notice">
+              <span className="metrics-offline-dot" />
+              Risk model offline — metrics unavailable
+            </div>
+          )}
 
           {/* Metrics */}
           <div className="metrics">

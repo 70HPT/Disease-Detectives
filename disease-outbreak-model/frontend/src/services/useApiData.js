@@ -73,12 +73,13 @@ export function useBackendHealth() {
 }
 
 // ── Map data for globe coloring ────────────────────────────────────
-// Returns aggregated risk data per state
+// Returns aggregated risk data per state. Re-fetches when diseaseType
+// changes so the UI picks up the new per-disease aggregation.
 // Falls back to null (components should check and use store's stateData)
-export function useMapData() {
+export function useMapData(diseaseType) {
   return useAsyncData(
-    () => getMapData(),
-    [],
+    () => getMapData(diseaseType),
+    [diseaseType],
     { fallback: null }
   )
 }

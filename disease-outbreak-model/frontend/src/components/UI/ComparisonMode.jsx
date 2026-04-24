@@ -64,9 +64,12 @@ const STATE_COLORS = [
   { fill: 'rgba(240,192,64,0.15)', stroke: '#f0c040', glow: 'rgba(240,192,64,0.4)', bg: 'rgba(240,192,64,0.06)', text: '#f0c040' },
 ]
 
+// vaccinationRate intentionally omitted — the /risk/map endpoint doesn't
+// ship per-state vaccination coverage today, so the axis would flat-line
+// at zero and mislead viewers. Surface vaccination in the county panel
+// (where the per-county ML response has it) instead.
 const RADAR_AXES = [
   { key: 'healthIndex', label: 'Health Index', max: 100 },
-  { key: 'vaccinationRate', label: 'Vaccination', max: 100 },
   { key: 'riskScoreInv', label: 'Safety Score', max: 100 },
   { key: 'infrastructureScore', label: 'Overall', max: 100 },
 ]
@@ -711,6 +714,14 @@ export default function ComparisonMode() {
     }
   }, [comparisonOpen])
 
+  // Close on Escape — parity with SettingsPanel
+  useEffect(() => {
+    if (!comparisonOpen) return
+    const onKey = (e) => { if (e.key === 'Escape') closeComparison() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [comparisonOpen, closeComparison])
+
   useEffect(() => {
     if (comparisonOpen && comparisonStates.length > 0) {
       setAnimate(false)
@@ -730,6 +741,12 @@ export default function ComparisonMode() {
   if (!comparisonOpen) return null
 
   const hasStates = statesWithData.length > 0
+  // When the ML risk-map endpoint is offline, every compared state has
+  // healthIndex/riskScore null → radar + metric bars collapse to origin.
+  // We still show the TrendComparison (live) and SharedCorridors (static).
+  const hasRiskData = statesWithData.some(s =>
+    s.data.healthIndex > 0 || s.data.riskScoreInv > 0
+  )
 
   return (
     <div className="cmp-overlay" onClick={closeComparison}>
@@ -787,6 +804,13 @@ export default function ComparisonMode() {
               </svg>
               <span>Search and add states above to begin comparing</span>
             </div>
+          ) : comparisonStates.length === 1 ? (
+            <div className="cmp-empty">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" opacity="0.15">
+                <path d="M18 20V10M12 20V4M6 20v-6" />
+              </svg>
+              <span>Add a second state to see side-by-side comparison</span>
+            </div>
           ) : (
             <>
               {/* Live disease trend */}
@@ -799,37 +823,51 @@ export default function ComparisonMode() {
               {/* Shared transmission corridors between compared states */}
               <SharedCorridors stateNames={comparisonStates} />
 
-              {/* Radar Chart */}
-              <div className="cmp-radar-section">
-                <div className="cmp-panel-label">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2" />
+              {/* Radar Chart + metric bars — only when the risk model is live.
+                  Without risk data, every axis and bar collapses to zero which
+                  reads as a rendering bug. Surveillance trend + corridors above
+                  stay visible because they run on independent data. */}
+              {hasRiskData ? (
+                <>
+                  <div className="cmp-radar-section">
+                    <div className="cmp-panel-label">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2" />
+                      </svg>
+                      Radar Analysis
+                    </div>
+                    <RadarChart statesData={statesWithData} animate={animate} />
+                  </div>
+                  <div className="cmp-metrics-section">
+                    <div className="cmp-panel-label">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M18 20V10M12 20V4M6 20v-6" />
+                      </svg>
+                      Detailed Comparison
+                    </div>
+                    <div className="cmp-metrics-grid">
+                      <MetricBar label="Health Index" stateNames={comparisonStates}
+                        values={statesWithData.map(s => s.data.healthIndex)} animate={animate} />
+                      <MetricBar label="Safety Score" stateNames={comparisonStates}
+                        values={statesWithData.map(s => s.data.riskScoreInv)} animate={animate} />
+                      <MetricBar label="Overall Score" stateNames={comparisonStates}
+                        values={statesWithData.map(s => s.data.infrastructureScore)} animate={animate}
+                        hint="Composite view — weights risk, health index, and vaccination once per-state vax data lands" />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="cmp-offline-notice">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M12 8v4M12 16h.01" />
                   </svg>
-                  Radar Analysis
+                  <span>
+                    Radar + metric breakdown require live risk-model data.
+                    Surveillance trend and shared corridors above are available offline.
+                  </span>
                 </div>
-                <RadarChart statesData={statesWithData} animate={animate} />
-              </div>
-
-              {/* Metric bars */}
-              <div className="cmp-metrics-section">
-                <div className="cmp-panel-label">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M18 20V10M12 20V4M6 20v-6" />
-                  </svg>
-                  Detailed Comparison
-                </div>
-                <div className="cmp-metrics-grid">
-                  <MetricBar label="Health Index" stateNames={comparisonStates}
-                    values={statesWithData.map(s => s.data.healthIndex)} animate={animate} />
-                  <MetricBar label="Vaccination Rate" stateNames={comparisonStates}
-                    values={statesWithData.map(s => s.data.vaccinationRate)} animate={animate} />
-                  <MetricBar label="Safety Score" stateNames={comparisonStates}
-                    values={statesWithData.map(s => s.data.riskScoreInv)} animate={animate} />
-                  <MetricBar label="Overall Score" stateNames={comparisonStates}
-                    values={statesWithData.map(s => s.data.infrastructureScore)} animate={animate}
-                    hint="Weighted composite: 40% health · 40% vaccination · 20% inverse risk" />
-                </div>
-              </div>
+              )}
             </>
           )}
         </div>

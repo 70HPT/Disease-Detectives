@@ -5,8 +5,11 @@
 .health-rings {
   position: absolute;
   left: 28px;
-  top: 45%;
-  transform: translateY(-50%) translateX(-30px);
+  /* Top-anchored below the navbar, with a bounded max-height so the card
+     never collides with the state timeline / surveillance chart at the
+     bottom. Content scrolls inside the card when it overflows. */
+  top: 70px;
+  transform: translateX(-30px);
   opacity: 0;
   z-index: 90;
 
@@ -14,8 +17,12 @@
   flex-direction: column;
   align-items: center;
   gap: 0;
-  padding: 28px 24px;
+  padding: 24px 24px;
   width: 220px;
+  /* Viewport minus: navbar (42) + top offset (70) + surveillance chart
+     area (~340) + bottom buffer (20). Locks the card into the space above
+     the chart; if content doesn't fit, the card scrolls internally. */
+  max-height: calc(100vh - 472px);
 
   background: linear-gradient(
     165deg,
@@ -29,22 +36,44 @@
     0 0 60px rgba(0, 255, 204, 0.03),
     inset 0 1px 0 rgba(255, 255, 255, 0.04);
 
+  /* Internal scroll when content exceeds max-height */
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 255, 204, 0.15) transparent;
+
   transition: opacity 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94),
-              transform 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94),
-              top 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+              transform 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   pointer-events: none;
+}
+
+.health-rings::-webkit-scrollbar {
+  width: 4px;
+}
+
+.health-rings::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.health-rings::-webkit-scrollbar-thumb {
+  background: rgba(0, 255, 204, 0.15);
+  border-radius: 2px;
+}
+
+.health-rings::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 255, 204, 0.3);
 }
 
 .health-rings.visible {
   opacity: 1;
-  transform: translateY(-50%) translateX(0);
+  transform: translateX(0);
   pointer-events: auto;
 }
 
-/* Surveillance view: chart is ~180px tall, shift rings up so they don't clash */
-.health-rings.surveillance-mode {
-  top: 38%;
-}
+/* Surveillance mode was previously used to nudge the card upward when the
+   chart was ~180px; no longer needed now that max-height bounds the card
+   into the available space directly. Kept as a no-op for safety. */
+.health-rings.surveillance-mode {}
 
 /* Inline breadcrumb at the top of the card */
 .hr-breadcrumb {

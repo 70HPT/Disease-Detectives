@@ -1852,8 +1852,11 @@ export default function EarthWithStates({ scrollTargetRef }) {
         const sum = arr.reduce((s, c) => s + (c.travelVolume || 0), 0)
         normalized = maxCorridor > 0 ? sum / maxCorridor : 0
       } else {
-        const v = data[heatmapMetric] ?? 50
-        normalized = Math.max(0, Math.min(1, v / 100))
+        const raw = data?.[heatmapMetric]
+        // Skip states with no data — don't paint a fake 50 that lands in the
+        // amber middle and makes the globe look like a solid mud color.
+        if (raw == null) return
+        normalized = Math.max(0, Math.min(1, raw / 100))
       }
       if (isInverted) normalized = 1 - normalized
 
@@ -1880,11 +1883,14 @@ export default function EarthWithStates({ scrollTargetRef }) {
     return colors
   }, [heatmapEnabled, heatmapMetric, storeStateData])
 
-  // Pre-compute risk levels for all states (1 memo instead of 51 subscriptions)
+  // Pre-compute risk levels for all states (1 memo instead of 51 subscriptions).
+  // NOTE: we do NOT fall back to the static STATE_RISK_LEVELS table. When the
+  // backend is offline, the globe must show "Unknown" (neutral color) rather
+  // than hardcoded mock colors that would contradict the "—" in the panel.
   const stateRiskLevels = useMemo(() => {
     const levels = {}
     Object.entries(storeStateData).forEach(([name, data]) => {
-      levels[name] = data?.outbreakRisk || STATE_RISK_LEVELS[name] || 'Unknown'
+      levels[name] = data?.outbreakRisk || 'Unknown'
     })
     return levels
   }, [storeStateData])

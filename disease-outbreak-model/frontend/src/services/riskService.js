@@ -47,8 +47,12 @@ import api from './api'
 
 // ── GET /risk/map — Aggregated state data for globe ────────────────
 // Used by: EarthWithStates.jsx (globe coloring), Watchlist, Comparison
-export async function getMapData() {
-  const data = await api.get('/risk/map')
+// diseaseType filters the per-state risk aggregation once the backend's
+// `disease_type` column is populated. Without it the backend returns the
+// default (influenza) regardless of which disease the UI has selected.
+export async function getMapData(diseaseType = null) {
+  const q = diseaseType ? `?disease_type=${encodeURIComponent(diseaseType)}` : ''
+  const data = await api.get(`/risk/map${q}`)
   if (!data) return null
 
   // Normalize into a lookup object keyed by state abbreviation

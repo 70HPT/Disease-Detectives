@@ -112,6 +112,11 @@
   color: rgba(255, 255, 255, 0.9);
 }
 
+.uag-row-value.uag-row-subtle {
+  color: rgba(255, 255, 255, 0.5);
+  font-weight: 500;
+}
+
 .uag-row-subtext {
   font-family: 'JetBrains Mono', monospace;
   font-size: 10px;
