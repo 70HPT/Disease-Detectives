@@ -309,7 +309,9 @@ async def seed_database(database_url: str | None = None):
         await session.commit()
         logger.info(f"Inserted {len(batch)} locations")
 
-    # ── Insert outbreak history (influenza, covid, salmonella) ──────────
+    # ── Insert outbreak history into statewide (XX000) locations ────────
+    # CSV data is state-level aggregates; must go to XX000 rollup rows,
+    # not the first county of each state.
     history_count = 0
     async with async_session() as session:
         history_batch = []
@@ -318,12 +320,22 @@ async def seed_database(database_url: str | None = None):
             source = _DISEASE_CSV_CONFIGS[disease]["candidates"][0].split("/")[-1].replace(".csv", "")
 
             for state_abbr, records in state_records.items():
-                state_fips_list = state_location_map.get(state_abbr, [])
-                if not state_fips_list:
+                state_fips = ABBR_TO_STATE_FIPS.get(state_abbr)
+                if not state_fips:
                     continue
-                loc_id = location_map.get(state_fips_list[0])
-                if not loc_id:
-                    continue
+                statewide_fips = f"{state_fips}000"
+
+                # Find or create the statewide rollup location
+                sw_result = await session.execute(
+                    select(Location).where(Location.fips == statewide_fips)
+                )
+                sw_loc = sw_result.scalar_one_or_none()
+                if not sw_loc:
+                    sw_loc = Location(state=state_abbr, county="STATEWIDE", fips=statewide_fips)
+                    session.add(sw_loc)
+                    await session.flush()
+
+                loc_id = sw_loc.id
 
                 for rec in records:
                     try:
