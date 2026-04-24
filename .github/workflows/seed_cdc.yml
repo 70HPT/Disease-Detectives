@@ -3,7 +3,7 @@ name: Seed CDC disease surveillance
 on:
   workflow_dispatch:
   schedule:
-    - cron: '17 6 * * 1'   # Every Monday at 06:17 UTC
+    - cron: '0 12 * * *'   # Everyday at midnight UTC
 
 concurrency:
   group: cdc-seed
