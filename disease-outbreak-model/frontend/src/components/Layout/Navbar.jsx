@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import useStore from '../../store/useStore'
-import { TRACKED_DISEASES } from '../../data/trackedDiseases'
+import { TRACKED_DISEASES, filterAvailableDiseases } from '../../data/trackedDiseases'
 import { checkBackendHealth } from '../../services/api'
 import './Navbar.css'
 
@@ -157,7 +157,9 @@ function DiseaseSelector({ selected, onChange }) {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const current = TRACKED_DISEASES.find(d => d.id === selected) || TRACKED_DISEASES[0]
+  const availableKeys = useStore(s => s.availableDiseaseKeys)
+  const diseases = filterAvailableDiseases(availableKeys)
+  const current = diseases.find(d => d.id === selected) || diseases[0]
 
   return (
     <div className="year-selector disease-selector" ref={dropdownRef}>
@@ -172,7 +174,7 @@ function DiseaseSelector({ selected, onChange }) {
 
       {isOpen && (
         <div className="year-dropdown" data-lenis-prevent>
-          {TRACKED_DISEASES.map((d) => (
+          {diseases.map((d) => (
             <button
               key={d.id}
               className={`year-option ${d.id === selected ? 'selected' : ''}`}

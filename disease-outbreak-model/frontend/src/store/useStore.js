@@ -164,6 +164,25 @@ const useStore = create((set, get) => ({
   selectedDisease: TRACKED_DISEASES[0].id,
   setSelectedDisease: (id) => set({ selectedDisease: id }),
 
+  // Set of disease apiKeys the backend has active models for. Defaults to
+  // all frontend-tracked diseases so the UI works before the /diseases/available
+  // fetch resolves (or when the backend is offline). `hydrateAvailableDiseases`
+  // replaces it with the live list on mount.
+  availableDiseaseKeys: TRACKED_DISEASES.map(d => d.apiKey),
+  hydrateAvailableDiseases: (keys) => set((state) => {
+    if (!Array.isArray(keys) || keys.length === 0) return {}
+    const available = new Set(keys)
+    // If the user's currently-selected disease is no longer available, fall
+    // back to the first disease that IS available (by TRACKED_DISEASES order).
+    const currentEntry = TRACKED_DISEASES.find(d => d.id === state.selectedDisease)
+    let nextSelected = state.selectedDisease
+    if (!currentEntry || !available.has(currentEntry.apiKey)) {
+      const firstAvailable = TRACKED_DISEASES.find(d => available.has(d.apiKey))
+      if (firstAvailable) nextSelected = firstAvailable.id
+    }
+    return { availableDiseaseKeys: keys, selectedDisease: nextSelected }
+  }),
+
   // ============================================
   // TIMELINE TREND VIEW (drives breadcrumb + health-ring offset)
   // ============================================
@@ -374,11 +393,13 @@ const useStore = create((set, get) => ({
       healthIndex: null
     }
 
-    // If clicking same selected state, enter county view — but not while
-    // a view transition is already in flight (prevents double-click from
-    // jumping into county view while the globe is still mid-focus).
+    // If clicking same selected state, enter county view.
+    // The mid-focus double-click race is already blocked upstream by
+    // handleStateClick's `anim.isAnimating` guard, so we don't need an
+    // `isTransitioning` check here. Adding one caused a separate bug:
+    // exitCountyView sets isTransitioning=true and nothing on the globe
+    // side clears it, which would permanently block re-entry to counties.
     if (state.selectedState?.name === stateName) {
-      if (state.isTransitioning) return {}
       return {
         viewMode: 'state-counties',
         isTransitioning: true,
@@ -423,11 +444,14 @@ const useStore = create((set, get) => ({
     }
   }),
 
-  // Transition from county view back to globe
+  // Transition from county view back to globe.
+  // Clear isTransitioning immediately — there's no globe-side animation that
+  // calls transitionComplete for this direction, so leaving it true would
+  // poison any downstream guard that reads the flag.
   exitCountyView: () => set({
     viewMode: 'globe',
-    isTransitioning: true,
-    transitionType: 'counties-to-globe',
+    isTransitioning: false,
+    transitionType: null,
     selectedCounty: null,
     hoveredCounty: null
   }),

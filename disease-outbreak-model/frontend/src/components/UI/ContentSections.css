@@ -394,6 +394,180 @@
   opacity: 0.7;
 }
 
+/* ============================================
+   VACCINATION STATE PICKER
+   The enclosing .cs-vaccines section scopes the stacking rules so the
+   dropdown menu can escape the per-card stacking contexts created by
+   AnimatedSection's translateY transform.
+   ============================================ */
+.cs-vaccines .cs-section-header {
+  position: relative;
+  z-index: 20;
+}
+
+.cs-vax-state-picker {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+  z-index: 30;
+}
+
+.cs-vax-state-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 11px;
+  border-radius: 999px;
+  background: rgba(0, 255, 204, 0.08);
+  border: 1px solid rgba(0, 255, 204, 0.25);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: rgba(0, 255, 204, 0.9);
+  -webkit-text-fill-color: rgba(0, 255, 204, 0.9);
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease;
+}
+
+.cs-vax-state-trigger:hover,
+.cs-vax-state-picker.open .cs-vax-state-trigger {
+  background: rgba(0, 255, 204, 0.14);
+  border-color: rgba(0, 255, 204, 0.45);
+}
+
+.cs-vax-state-trigger svg {
+  opacity: 0.75;
+}
+
+.cs-vax-state-chevron {
+  transition: transform 0.2s ease;
+}
+.cs-vax-state-chevron.open {
+  transform: rotate(180deg);
+}
+
+.cs-vax-state-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 220px;
+  max-height: 320px;
+  display: flex;
+  flex-direction: column;
+  background: rgba(8, 12, 22, 0.98);
+  border: 1px solid rgba(0, 255, 204, 0.25);
+  border-radius: 10px;
+  box-shadow: 0 12px 38px rgba(0, 0, 0, 0.6);
+  z-index: 40;
+  overflow: hidden;
+  animation: cs-vax-menu-in 0.15s ease-out;
+  /* The parent h2 applies background-clip: text + transparent text-fill
+     for its gradient; reset here so the menu contents are visible. */
+  background-clip: border-box;
+  -webkit-background-clip: border-box;
+  -webkit-text-fill-color: initial;
+}
+
+@keyframes cs-vax-menu-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.cs-vax-state-search {
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.35);
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  outline: none;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.85);
+  -webkit-text-fill-color: rgba(255, 255, 255, 0.85);
+}
+
+.cs-vax-state-search::placeholder {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.cs-vax-state-list {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 4px;
+  /* Firefox */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 255, 204, 0.35) rgba(255, 255, 255, 0.04);
+}
+
+/* WebKit (Chromium/Safari) — custom teal scrollbar matching the theme */
+.cs-vax-state-list::-webkit-scrollbar {
+  width: 6px;
+}
+.cs-vax-state-list::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 3px;
+}
+.cs-vax-state-list::-webkit-scrollbar-thumb {
+  background: rgba(0, 255, 204, 0.3);
+  border-radius: 3px;
+  transition: background 0.2s ease;
+}
+.cs-vax-state-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 255, 204, 0.55);
+}
+
+.cs-vax-state-option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 6px 10px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.82);
+  -webkit-text-fill-color: rgba(255, 255, 255, 0.82);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.cs-vax-state-option:hover {
+  background: rgba(0, 255, 204, 0.08);
+  color: rgba(255, 255, 255, 0.95);
+  -webkit-text-fill-color: rgba(255, 255, 255, 0.95);
+}
+
+.cs-vax-state-option.selected {
+  background: rgba(0, 255, 204, 0.14);
+  color: rgba(0, 255, 204, 0.95);
+  -webkit-text-fill-color: rgba(0, 255, 204, 0.95);
+}
+
+.cs-vax-state-empty {
+  padding: 10px 12px;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.35);
+  -webkit-text-fill-color: rgba(255, 255, 255, 0.35);
+  text-align: center;
+}
+
+/* Empty state inside a VaxCard when the chosen state has no CDC rows. */
+.cs-vax-card.empty {
+  opacity: 0.7;
+}
+
+.cs-vax-empty-note {
+  margin-top: 8px;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 11px;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.4);
+}
+
 .cs-section-subtitle {
   font-family: 'Rajdhani', sans-serif;
   font-size: 0.92rem;
@@ -949,6 +1123,132 @@
   .cs-dx-prevention-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* ============================================
+   VACCINATION COVERAGE
+   ============================================ */
+.cs-vax-subtitle {
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  max-width: 680px;
+  margin-bottom: 1.5rem;
+}
+
+.cs-vax-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+@media (max-width: 1100px) {
+  .cs-vax-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 720px) {
+  .cs-vax-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.cs-vax-card {
+  background: linear-gradient(
+    135deg,
+    rgba(10, 25, 47, 0.5) 0%,
+    rgba(5, 15, 35, 0.6) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 1.125rem 1.25rem 1rem;
+  transition: border-color 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+              background 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+.cs-vax-card:hover {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: linear-gradient(
+    135deg,
+    rgba(12, 30, 56, 0.6) 0%,
+    rgba(6, 18, 42, 0.7) 100%
+  );
+}
+
+.cs-vax-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.cs-vax-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.cs-vax-name {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.cs-vax-value-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.cs-vax-value {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.8rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.cs-vax-value-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.62rem;
+  color: rgba(255, 255, 255, 0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.cs-vax-sparkline {
+  width: 100%;
+  height: 42px;
+  display: block;
+  margin-bottom: 10px;
+}
+
+.cs-vax-trend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.cs-vax-trend.up    { color: #4ade80; }
+.cs-vax-trend.down  { color: #f87171; }
+.cs-vax-trend.flat  { color: rgba(255, 255, 255, 0.4); }
+
+.cs-vax-trend-arrow {
+  font-size: 0.9rem;
+}
+
+.cs-vax-trend-span {
+  color: rgba(255, 255, 255, 0.35);
+  margin-left: auto;
+  font-size: 0.62rem;
 }
 
 /* ============================================

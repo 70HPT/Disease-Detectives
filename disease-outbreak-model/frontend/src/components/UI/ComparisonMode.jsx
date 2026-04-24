@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import useStore from '../../store/useStore'
 import { feature } from 'topojson-client'
 import { getOutbreakHistory } from '../../services/dataService'
-import { getDiseaseById, TRACKED_DISEASES } from '../../data/trackedDiseases'
+import { getDiseaseById, filterAvailableDiseases } from '../../data/trackedDiseases'
 import TRANSMISSION_CORRIDORS from '../../data/transmissionCorridors'
 import './ComparisonMode.css'
 
@@ -10,6 +10,8 @@ import './ComparisonMode.css'
 function DiseasePicker({ selected, onChange }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
+  const availableKeys = useStore(s => s.availableDiseaseKeys)
+  const diseases = filterAvailableDiseases(availableKeys)
 
   useEffect(() => {
     if (!open) return
@@ -18,7 +20,7 @@ function DiseasePicker({ selected, onChange }) {
     return () => document.removeEventListener('mousedown', onDocClick)
   }, [open])
 
-  const current = TRACKED_DISEASES.find(d => d.id === selected) || TRACKED_DISEASES[0]
+  const current = diseases.find(d => d.id === selected) || diseases[0]
 
   return (
     <div className="cmp-disease-picker" ref={ref}>
@@ -35,7 +37,7 @@ function DiseasePicker({ selected, onChange }) {
       </button>
       {open && (
         <div className="cmp-disease-dropdown">
-          {TRACKED_DISEASES.map(d => (
+          {diseases.map(d => (
             <button
               key={d.id}
               className={`cmp-disease-option ${d.id === selected ? 'selected' : ''}`}

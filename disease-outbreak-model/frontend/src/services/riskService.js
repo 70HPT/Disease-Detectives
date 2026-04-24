@@ -56,9 +56,11 @@ export async function getMapData(diseaseType = null) {
   if (!data) return null
 
   // Normalize into a lookup object keyed by state abbreviation
-  // so components can do: mapData['CA'].avg_risk_score
+  // so components can do: mapData['CA'].avg_risk_score. Guard against the
+  // backend returning null/missing `states` (happens when the queried
+  // disease has zero predictions).
   const stateMap = {}
-  for (const state of data.states) {
+  for (const state of (data.states ?? [])) {
     stateMap[state.state] = {
       abbr: state.state,
       name: state.state_name,
@@ -102,17 +104,52 @@ export async function predictRisk(fips, diseaseType = 'influenza') {
 
 // ── POST /risk/batch — Multiple county predictions at once ─────────
 // Used by: StateCountyMap (to get real risk scores for all counties)
+// Backend caps `fips_codes` at 100 per request (Pydantic max_length). Big
+// states (TX 254, GA 159, KY 120, NC 100, MO 115, KS 105, IL 102) blow
+// that limit — without chunking the server rejects with 422 and the map
+// paints every county as "unavailable offline".
+const BATCH_CHUNK_SIZE = 100
+
 export async function batchPredictRisk(fipsCodes, diseaseType = 'influenza') {
   if (!fipsCodes || fipsCodes.length === 0) return null
-  const data = await api.post('/risk/batch', {
-    fips_codes: fipsCodes,
-    disease_type: diseaseType,
-  })
-  if (!data?.predictions) return null
+
+  const chunks = []
+  for (let i = 0; i < fipsCodes.length; i += BATCH_CHUNK_SIZE) {
+    chunks.push(fipsCodes.slice(i, i + BATCH_CHUNK_SIZE))
+  }
+
+  // 15s per chunk — a cold chunk may run up to 100 fresh ML predictions
+  // server-side on first access, which easily exceeds the default 3s.
+  // Subsequent loads of the same state hit the cache and return fast.
+  const responses = await Promise.all(
+    chunks.map(chunk =>
+      api.post(
+        '/risk/batch',
+        { fips_codes: chunk, disease_type: diseaseType },
+        { timeoutMs: 15000 }
+      ).catch(() => null)
+    )
+  )
+
+  // If every chunk failed, treat as backend-offline. If some chunks
+  // returned data, merge what we got — partial data beats no data.
+  const anySucceeded = responses.some(r => r != null)
+  if (!anySucceeded) return null
 
   const result = {}
-  for (const pred of data.predictions) {
-    result[pred.fips] = normalizeRiskResponse(pred)
+  for (const data of responses) {
+    const predictions = Array.isArray(data?.predictions)
+      ? data.predictions
+      : Array.isArray(data)
+      ? data
+      : []
+    for (const pred of predictions) {
+      if (pred?.fips == null) continue
+      // Normalize FIPS to 5-digit zero-padded string so backend integers
+      // (e.g. 37001) match the frontend's string keys ('37001').
+      const fipsKey = String(pred.fips).padStart(5, '0')
+      result[fipsKey] = normalizeRiskResponse(pred)
+    }
   }
   return result
 }
@@ -138,6 +175,17 @@ function normalizeRiskResponse(data) {
     modelVersion: data.model_version,
     generatedAt: data.generated_at,
   }
+}
+
+// ── GET /diseases/available — Active disease models ───────────────
+// Returns the apiKey strings (e.g. ['covid', 'influenza', 'salmonella'])
+// for diseases that have a registered ML model. Frontend uses this to
+// filter the hardcoded TRACKED_DISEASES list so the disease picker only
+// shows models that actually work.
+export async function getAvailableDiseases() {
+  const data = await api.get('/diseases/available')
+  if (!data?.diseases || !Array.isArray(data.diseases)) return null
+  return data.diseases
 }
 
 // ── Helper: Convert risk score to frontend risk level label ────────

@@ -1,7 +1,18 @@
 import { useEffect, useState, useMemo } from 'react'
 import useStore from '../../store/useStore'
 import TRANSMISSION_CORRIDORS from '../../data/transmissionCorridors'
+import { STATE_EVENTS } from '../../data/stateHealthData'
 import './StateHoverTooltip.css'
+
+// Mirror StateEventMarkers' severity palette so the tooltip dot matches
+// the colored dot the user saw pulsing on the globe.
+const EVENT_SEVERITY_COLOR = {
+  critical: '#ff4060',
+  high: '#f0a030',
+  medium: '#0ea5e9',
+  low: '#00ffcc',
+}
+const SEVERITY_RANK = { critical: 3, high: 2, medium: 1, low: 0 }
 
 // ============================================
 // STATE HOVER TOOLTIP
@@ -31,13 +42,28 @@ export default function StateHoverTooltip() {
     [hoveredState],
   )
 
+  // Pick the most severe historical event for this state (matches the
+  // colored dot on the globe — worst-of severity drives the marker color).
+  const historyEvent = useMemo(() => {
+    if (!hoveredState) return null
+    const events = STATE_EVENTS[hoveredState]
+    if (!events || events.length === 0) return null
+    return events.reduce((worst, e) =>
+      (SEVERITY_RANK[e.severity] ?? 0) > (SEVERITY_RANK[worst.severity] ?? 0) ? e : worst,
+      events[0]
+    )
+  }, [hoveredState])
+  const historyCount = hoveredState ? (STATE_EVENTS[hoveredState]?.length ?? 0) : 0
+
   if (!shouldShow || !data) return null
 
-  // Keep the tooltip on-screen (clamp to viewport)
+  // Keep the tooltip on-screen (clamp to viewport). Height grows when a
+  // history event is present so the footer doesn't get pushed off-screen
+  // against the viewport edge.
   const OFFSET_X = 18
   const OFFSET_Y = -12
   const WIDTH = 240
-  const HEIGHT_EST = 160
+  const HEIGHT_EST = historyEvent ? 260 : 160
   let left = pos.x + OFFSET_X
   let top = pos.y + OFFSET_Y
   if (left + WIDTH > window.innerWidth - 16) left = pos.x - OFFSET_X - WIDTH
@@ -93,6 +119,24 @@ export default function StateHoverTooltip() {
           <span className="sht-corridor-volume">{fmtVol(topCorridor.travelVolume)}/day</span>
         </div>
       )}
+
+      {historyEvent && (() => {
+        const eventColor = EVENT_SEVERITY_COLOR[historyEvent.severity] || EVENT_SEVERITY_COLOR.medium
+        return (
+          <div className="sht-history">
+            <div className="sht-history-head">
+              <span className="sht-history-dot" style={{ background: eventColor, boxShadow: `0 0 6px ${eventColor}` }} />
+              <span className="sht-history-label">Historical marker</span>
+              {historyCount > 1 && <span className="sht-history-count">+{historyCount - 1}</span>}
+            </div>
+            <div className="sht-history-title">
+              <span className="sht-history-year">{historyEvent.year}</span>
+              <span className="sht-history-name">{historyEvent.name}</span>
+            </div>
+            <p className="sht-history-desc">{historyEvent.desc}</p>
+          </div>
+        )
+      })()}
 
       <div className="sht-footer">Click to explore</div>
     </div>

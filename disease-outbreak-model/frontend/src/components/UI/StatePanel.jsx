@@ -1,10 +1,10 @@
 import { useState, useMemo, useEffect } from 'react'
 import useStore from '../../store/useStore'
 import TRANSMISSION_CORRIDORS, { getCorridorRiskColor } from '../../data/transmissionCorridors'
+import { STATE_EVENTS } from '../../data/stateHealthData'
 import { getDiseaseById } from '../../data/trackedDiseases'
 import { useMapData, useLocationRisk } from '../../services'
 import { StatePanelSkeleton, EmptyPrediction } from './LoadingStates'
-import { CaseTrendChart } from './StateTimeline'
 import './LoadingStates.css'
 import './StatePanel.css'
 
@@ -235,6 +235,75 @@ function TransmissionAnalysis({ stateName }) {
 }
 
 // ============================================
+// HISTORICAL EVENTS — what the pulsing globe dots mean
+// Shown only for states with entries in STATE_EVENTS. Ordered newest-first.
+// ============================================
+const EVENT_SEVERITY_COLOR = {
+  critical: '#ff4060',
+  high: '#f0a030',
+  medium: '#0ea5e9',
+  low: '#00ffcc',
+}
+
+function HistoricalEvents({ stateName }) {
+  const events = useMemo(() => {
+    const list = STATE_EVENTS[stateName]
+    if (!list?.length) return []
+    return [...list].sort((a, b) => b.year - a.year)
+  }, [stateName])
+
+  if (!events.length) return null
+
+  return (
+    <div className="sp-history">
+      <div className="sp-history-head">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <circle cx="12" cy="12" r="9" /><path d="M12 7v6l4 2" />
+        </svg>
+        <span className="sp-history-title">Historical Markers</span>
+        <span className="sp-history-badge" title="These are the pulsing dots visible on the globe">
+          {events.length} event{events.length > 1 ? 's' : ''}
+        </span>
+      </div>
+
+      <div className="sp-history-list">
+        {events.map((e, i) => {
+          const color = EVENT_SEVERITY_COLOR[e.severity] || EVENT_SEVERITY_COLOR.medium
+          return (
+            <div
+              key={`${e.year}-${e.name}`}
+              className="sp-history-item"
+              style={{ animationDelay: `${i * 80}ms` }}
+            >
+              <div className="sp-history-item-head">
+                <span className="sp-history-dot" style={{ background: color, boxShadow: `0 0 6px ${color}` }} />
+                <span className="sp-history-year">{e.year}</span>
+                <span className="sp-history-name">{e.name}</span>
+                <span
+                  className="sp-history-severity"
+                  style={{ color, borderColor: `${color}40`, background: `${color}10` }}
+                >
+                  {e.severity}
+                </span>
+              </div>
+              <div className="sp-history-meta">
+                <span className="sp-history-type">{e.type}</span>
+                {e.deaths && e.deaths !== '—' && (
+                  <span className="sp-history-deaths" title="Reported deaths for this event">
+                    Deaths: {e.deaths}
+                  </span>
+                )}
+              </div>
+              <p className="sp-history-desc">{e.desc}</p>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ============================================
 // NATIONAL CONTEXT — rank + US averages
 // Computed from the hydrated store so any metric that has real values
 // immediately gets a peer benchmark. Falls back gracefully when empty.
@@ -437,11 +506,19 @@ export default function StatePanel() {
       population: liveStateEntry.population ?? storeData.population,
       populationNum: liveStateEntry.populationNum ?? storeData.populationNum,
     } : {}),
-    // Override with real API values for state-level view
-    ...(mapData?.states?.[selectedState.abbr] && !selectedCounty ? {
-      riskScore: Math.round(mapData.states[selectedState.abbr].avgRiskScore),
-    } : {}),
-    // Override with real API values for county-level view
+    // Override with real API values for state-level view. Guard against
+    // `avgRiskScore: null` — Math.round(null) silently returns 0, which
+    // would render "0/100" and a green progress bar instead of "—".
+    ...(() => {
+      if (selectedCounty) return {}
+      const apiEntry = mapData?.states?.[selectedState.abbr]
+      if (!apiEntry || apiEntry.avgRiskScore == null) return {}
+      return { riskScore: Math.round(apiEntry.avgRiskScore) }
+    })(),
+    // Override with real API values for county-level view. healthIndex is
+    // a derived composite (vax + climate inverse + historical inverse) —
+    // mirrors StateCountyMap so the HealthGradeRing letter grade matches
+    // what the map paints under the "Health" color metric.
     ...(countyRisk && selectedCounty ? {
       riskScore: countyRisk.riskScore,
       outbreakRisk: countyRisk.riskScore < 33 ? 'Low' : countyRisk.riskScore < 66 ? 'Medium' : 'High',
@@ -450,6 +527,11 @@ export default function StatePanel() {
       climateRisk: Math.round(countyRisk.factors.climateRisk * 100),
       historicalTrend: Math.round(countyRisk.factors.historicalTrend * 100),
       searchTrend: Math.round(countyRisk.factors.searchTrend * 100),
+      healthIndex: Math.round(
+        countyRisk.factors.vaccinationCoverage * 50
+        + (1 - countyRisk.factors.climateRisk) * 30
+        + (1 - countyRisk.factors.historicalTrend) * 20
+      ),
     } : {}),
     // Backfill county population from the locations hydration
     ...(realCountyPop && selectedCounty ? {
@@ -587,9 +669,13 @@ export default function StatePanel() {
 
           {/* Risk score vs state-average delta — only when both values are real.
               Read the state avg from live stateData (not the selectedState
-              snapshot) so switching disease updates the baseline correctly. */}
+              snapshot). DON'T fall back to selectedState.riskScore with ??
+              because that re-introduces the stale snapshot read — if live is
+              null we mean null, return null rather than showing stale numbers. */}
           {(() => {
-            const stateAvgRisk = liveStateEntry?.riskScore ?? selectedState?.riskScore
+            const stateAvgRisk = liveStateEntry
+              ? liveStateEntry.riskScore
+              : selectedState?.riskScore
             if (displayData.riskScore == null || stateAvgRisk == null) return null
             const delta = displayData.riskScore - stateAvgRisk
             if (Math.abs(delta) < 1) return null
@@ -720,17 +806,11 @@ export default function StatePanel() {
             </div>
           )}
 
-          {/* County surveillance chart — uses the county's 5-digit FIPS
-              directly since outbreak_history is seeded at county level. */}
-          {selectedCounty?.fips && (
-            <CaseTrendChart
-              key={`${selectedCounty.fips}-${panelDiseaseKey}`}
-              fipsOverride={selectedCounty.fips}
-              locationLabel={selectedCounty.name}
-              scope="county"
-              animate
-            />
-          )}
+          {/* County-level surveillance chart intentionally omitted. CDC
+              NHSN / NNDSS / NORS only publish at the state level, so the
+              county chart would be empty or misleadingly state-wide. The
+              state timeline in the background panel already covers the
+              weekly trend — step back to the state view to see it. */}
 
           {/* Disease context — key profile facts for interpreting the chart
               + risk. Pulled from TRACKED_DISEASES (previously only surfaced
@@ -871,6 +951,9 @@ export default function StatePanel() {
 
           {/* Transmission Analysis — AI context card */}
           <TransmissionAnalysis stateName={selectedState.name} />
+
+          {/* Historical markers — explains the pulsing dots on the globe */}
+          <HistoricalEvents stateName={selectedState.name} />
 
           {/* Footer */}
           <div className="panel-footer">

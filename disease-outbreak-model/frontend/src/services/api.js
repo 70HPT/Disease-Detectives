@@ -42,17 +42,20 @@ async function apiFetch(endpoint, options = {}) {
 
   const url = `${API_BASE}${endpoint}`
 
-  // AbortController for fast timeout
+  // AbortController — per-request timeout override for slow endpoints.
+  // /risk/batch may run up to 100 fresh ML predictions on first hit,
+  // which easily blows through the default 3s budget.
+  const { timeoutMs, ...fetchOptions } = options
   const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT)
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs ?? FETCH_TIMEOUT)
 
   const config = {
     headers: {
       'Content-Type': 'application/json',
-      ...options.headers,
+      ...fetchOptions.headers,
     },
     signal: controller.signal,
-    ...options,
+    ...fetchOptions,
   }
 
   try {
@@ -83,11 +86,12 @@ async function apiFetch(endpoint, options = {}) {
 
 // ── Convenience methods ────────────────────────────────────────────
 export const api = {
-  get: (endpoint) => apiFetch(endpoint, { method: 'GET' }),
+  get: (endpoint, opts) => apiFetch(endpoint, { method: 'GET', ...opts }),
 
-  post: (endpoint, body) => apiFetch(endpoint, {
+  post: (endpoint, body, opts) => apiFetch(endpoint, {
     method: 'POST',
     body: JSON.stringify(body),
+    ...opts,
   }),
 }
 

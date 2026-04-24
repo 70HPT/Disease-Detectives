@@ -269,7 +269,7 @@ export function CaseTrendChart({ stateName, animate, fipsOverride, locationLabel
           </div>
           <div className="tl-trend-empty-subtitle">
             {scope === 'county'
-              ? `Weekly ${disease.name.toLowerCase()} case history for ${effectiveLabel} isn't available yet. Try another disease, or check back later.`
+              ? `Public ${disease.name.toLowerCase()} surveillance is only published at the state level (CDC NHSN / NNDSS / NORS aggregates). Step back to the state view to see the weekly trend.`
               : `Weekly ${disease.name.toLowerCase()} surveillance for ${effectiveLabel} isn't available yet. The chart will populate once the data is live.`}
           </div>
         </div>
@@ -282,7 +282,11 @@ export function CaseTrendChart({ stateName, animate, fipsOverride, locationLabel
   const maxCase = Math.max(...cases, 1)
   const minCase = Math.min(...cases, 0)
   const meanCase = cases.reduce((s, v) => s + v, 0) / cases.length
-  const peakIdx = cases.indexOf(maxCase)
+  // If every value is 0, maxCase becomes 1 (the sentinel), indexOf returns
+  // -1, and downstream xOf(-1) produces NaN SVG coordinates. Clamp to 0 so
+  // the peak marker lands somewhere plausible.
+  const peakIdxRaw = cases.indexOf(maxCase)
+  const peakIdx = peakIdxRaw === -1 ? 0 : peakIdxRaw
   const current = cases[cases.length - 1]
   const ma = movingAverage(cases, 3)
   const ticks = yearTicks(data)

@@ -1901,6 +1901,10 @@ export default function EarthWithStates({ scrollTargetRef }) {
     isDragging: false,
     // Is user hovering over a state?
     isHoveringState: false,
+    // Smooth 0..1 factor that eases idle rotation to a stop while hovering.
+    // 1 = full speed, 0 = fully stopped. Lerps toward target each frame so
+    // the globe decelerates into rest instead of snapping.
+    hoverStopFactor: 1,
     // When did user last interact?
     lastInteractionTime: 0,
     homingActive: false,
@@ -2308,8 +2312,13 @@ export default function EarthWithStates({ scrollTargetRef }) {
   }, [])
 
   // HANDLE HOVER STATE CHANGE (for cursor management)
+  // Also gives a fresh IDLE_TIMEOUT window on hover-leave so the globe
+  // doesn't snap back into auto-rotation the instant the cursor exits.
   const handleHoverChange = useCallback((isHovering) => {
     animationRef.current.isHoveringState = isHovering
+    if (!isHovering) {
+      animationRef.current.lastInteractionTime = performance.now()
+    }
   }, [])
 
   // HANDLE STATE CLICK
@@ -2737,10 +2746,12 @@ export default function EarthWithStates({ scrollTargetRef }) {
 
     // MOMENTUM
     if (!anim.isDragging && Math.abs(anim.velocity) > MOMENTUM_THRESHOLD) {
-      // Apply current velocity
-      anim.currentRotationY += anim.velocity
+      // Apply current velocity, scaled by the hover-stop factor so an
+      // ongoing spin gently eases out when the cursor lands on a state.
+      anim.currentRotationY += anim.velocity * anim.hoverStopFactor
 
-      // Apply SAME friction regardless of direction
+      // Standard friction — decay handled naturally by the factor above
+      // when hovering, so we don't need to boost friction separately.
       anim.velocity *= MOMENTUM_FRICTION
 
       // Update interaction time during momentum
@@ -2871,6 +2882,14 @@ export default function EarthWithStates({ scrollTargetRef }) {
       }
     }
 
+    // Hover stop factor — smoothly lerps toward 0 while hovering a state,
+    // back to 1 otherwise. Applied as a multiplier on idle rotation so the
+    // globe coasts to rest instead of stopping in a single frame.
+    const hoverTargetFactor = anim.isHoveringState ? 0 : 1
+    const hoverLerpSpeed = 3 // ~0.33s to reach target; feels like a glide
+    anim.hoverStopFactor += (hoverTargetFactor - anim.hoverStopFactor)
+      * Math.min(1, hoverLerpSpeed * delta)
+
     const timeSinceInteraction = now - anim.lastInteractionTime
     if (!anim.isAnimating &&
         !anim.isDragging &&
@@ -2880,12 +2899,15 @@ export default function EarthWithStates({ scrollTargetRef }) {
         introComplete &&
         autoRotateRef.current &&
         timeSinceInteraction > IDLE_TIMEOUT &&
-        Math.abs(kb.velocity) < 0.0001) {
-      // Ease in over 2 seconds after timeout ramps from 0% to 100% speed
+        Math.abs(kb.velocity) < 0.0001 &&
+        anim.hoverStopFactor > 0.001) {
+      // Ease in over 2 seconds after timeout ramps from 0% to 100% speed.
+      // Multiplied by hoverStopFactor so pointing at a state smoothly
+      // decelerates the globe to rest.
       const easeInDuration = 2000
       const easeProgress = Math.min(1, (timeSinceInteraction - IDLE_TIMEOUT) / easeInDuration)
       const easedSpeed = IDLE_ROTATION_SPEED * easeProgress * easeProgress // Quadratic ease-in
-      anim.currentRotationY += easedSpeed * delta * IDLE_DIRECTION
+      anim.currentRotationY += easedSpeed * delta * IDLE_DIRECTION * anim.hoverStopFactor
     }
 
     // Apply rotation to earth

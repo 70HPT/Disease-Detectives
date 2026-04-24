@@ -817,6 +817,136 @@
 }
 
 /* ============================================
+   HISTORICAL MARKERS — explains globe pulse dots
+   ============================================ */
+.sp-history {
+  margin-top: 1.25rem;
+  padding: 0.85rem 0.95rem;
+  background: rgba(240, 160, 48, 0.04);
+  border: 1px solid rgba(240, 160, 48, 0.18);
+  border-radius: 8px;
+}
+
+.sp-history-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.55rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.sp-history-head svg {
+  color: rgba(240, 160, 48, 0.8);
+  flex-shrink: 0;
+}
+
+.sp-history-title {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.sp-history-badge {
+  margin-left: auto;
+  padding: 2px 7px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.04em;
+  color: rgba(240, 160, 48, 0.85);
+  background: rgba(240, 160, 48, 0.08);
+  border: 1px solid rgba(240, 160, 48, 0.22);
+  border-radius: 5px;
+  cursor: help;
+}
+
+.sp-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.sp-history-item {
+  opacity: 0;
+  animation: sp-history-fade 0.4s ease-out forwards;
+}
+
+@keyframes sp-history-fade {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.sp-history-item-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 3px;
+  flex-wrap: wrap;
+}
+
+.sp-history-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.sp-history-year {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  color: rgba(240, 160, 48, 0.85);
+}
+
+.sp-history-name {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.sp-history-severity {
+  margin-left: auto;
+  padding: 1px 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.58rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border: 1px solid;
+  border-radius: 4px;
+}
+
+.sp-history-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 3px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.6rem;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.sp-history-type {
+  padding: 1px 6px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 4px;
+}
+
+.sp-history-deaths {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.sp-history-desc {
+  margin: 0;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+/* ============================================
    RESPONSIVE
    ============================================ */
 

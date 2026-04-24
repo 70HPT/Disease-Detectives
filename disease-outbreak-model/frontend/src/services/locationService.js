@@ -24,6 +24,16 @@ import api from './api'
 //   economic_data: object,  // { per_capita_income, gdp, ... }
 // }
 
+// Backend returns either a plain array or a paginated envelope
+// ({items: [...], total: N}). Handle both shapes so a FastAPI upgrade
+// to pagination can't crash the UI.
+function extractLocationList(data) {
+  if (Array.isArray(data)) return data
+  if (data && Array.isArray(data.items)) return data.items
+  if (data && Array.isArray(data.results)) return data.results
+  return []
+}
+
 // ── GET /locations/?state=XX — All counties in a state ─────────────
 // Used by: StateCountyMap (to get county-level data for selected state)
 export async function getStateLocations(stateAbbr) {
@@ -31,7 +41,7 @@ export async function getStateLocations(stateAbbr) {
   const data = await api.get(`/locations/?state=${stateAbbr}&limit=500`)
   if (!data) return null
 
-  return data.map(normalizeLocation)
+  return extractLocationList(data).map(normalizeLocation)
 }
 
 // ── GET /locations/{fips} — Single location ────────────────────────
@@ -50,7 +60,7 @@ export async function listLocations({ limit = 100, offset = 0 } = {}) {
   const data = await api.get(`/locations/?limit=${limit}&offset=${offset}`)
   if (!data) return null
 
-  return data.map(normalizeLocation)
+  return extractLocationList(data).map(normalizeLocation)
 }
 
 // ── GET /locations/states/list — Distinct states ───────────────────

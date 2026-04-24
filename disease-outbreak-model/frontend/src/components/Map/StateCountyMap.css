@@ -145,6 +145,68 @@
   color: rgba(0, 255, 204, 0.75);
 }
 
+/* Loading pill — shown while the /risk/batch fetch is in flight. First-hit
+   cold starts can take several seconds while the backend runs fresh ML
+   predictions; this keeps the user oriented. */
+.risk-loading-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 0.8rem;
+  background: rgba(10, 20, 30, 0.75);
+  border: 1px solid rgba(0, 255, 204, 0.18);
+  border-radius: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(0, 255, 204, 0.85);
+  animation: risk-loading-pill-fade 0.25s ease-out;
+}
+
+.risk-loading-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #00ffcc;
+  box-shadow: 0 0 8px rgba(0, 255, 204, 0.8);
+  animation: risk-loading-dot-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes risk-loading-pill-fade {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes risk-loading-dot-pulse {
+  0%, 100% { opacity: 0.4; transform: scale(0.85); }
+  50%      { opacity: 1;   transform: scale(1.15); }
+}
+
+/* Pulsing stroke that hugs only the outer edges of the state. The path
+   itself comes from us-atlas' states layer (dissolved silhouette), so
+   internal county borders stay untouched. Rendered above the counties
+   so the filled polygons don't eat the inner half of the stroke. */
+.state-outline-pulse {
+  stroke: #00ffcc;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  animation: state-outline-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes state-outline-pulse {
+  0%, 100% {
+    stroke-opacity: 0.5;
+    stroke-width: 1;
+    filter: drop-shadow(0 0 4px rgba(0, 255, 204, 0.4));
+  }
+  50% {
+    stroke-opacity: 1;
+    stroke-width: 1.75;
+    filter: drop-shadow(0 0 10px rgba(0, 255, 204, 0.75));
+  }
+}
+
 /* ============================================
    RANKINGS TOGGLE BUTTON
    ============================================ */
@@ -831,6 +893,30 @@
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+}
+
+/* Metric gradient section — shown above the risk filter when the user
+   has picked a non-risk color metric (Population / Vaccination / Health). */
+.legend-metric-section {
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.legend-gradient-bar {
+  height: 8px;
+  border-radius: 4px;
+  margin: 4px 0 6px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.legend-gradient-labels {
+  display: flex;
+  justify-content: space-between;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.58rem;
+  color: rgba(255, 255, 255, 0.4);
+  letter-spacing: 0.04em;
 }
 
 .legend-item {

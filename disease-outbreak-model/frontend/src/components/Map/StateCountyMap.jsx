@@ -4,7 +4,6 @@ import { feature } from 'topojson-client'
 import useStore from '../../store/useStore'
 import { batchPredictRisk } from '../../services/riskService'
 import { getDiseaseById } from '../../data/trackedDiseases'
-import { hasSurveillanceData } from '../../data/countiesWithData'
 import './StateCountyMap.css'
 
 // Cubic bezier easing functions for Web Animations API
@@ -60,6 +59,9 @@ export default function StateCountyMap() {
   const animatedCountiesRef = useRef(new Set())
 
   const [counties, setCounties] = useState([])
+  // State silhouette as a single feature — used to render the outer-edge
+  // pulse during risk loading without tracing every county boundary.
+  const [stateOutline, setStateOutline] = useState(null)
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 })
   const [loading, setLoading] = useState(true)
   const [animationPhase, setAnimationPhase] = useState('loading')
@@ -87,11 +89,11 @@ export default function StateCountyMap() {
   const [rankingsFilter, setRankingsFilter] = useState('')
 
   // County color metric — local to the county view so it doesn't fight
-  // the globe's heatmap selection. Default to populationNum because it
-  // always has real data from /locations; riskScore / vaccination / health
-  // depend on the ML endpoint which can be offline, in which case those
-  // metrics paint every county a uniform amber that looks broken.
-  const [colorMetric, setColorMetric] = useState('populationNum')
+  // the globe's heatmap selection. Risk is the most meaningful lens for
+  // this tool; the getCountyColor helper paints counties neutral gray
+  // when predictions aren't loaded yet, so this stays readable even if
+  // the ML endpoint is slow or partially unavailable.
+  const [colorMetric, setColorMetric] = useState('riskScore')
   const [colorMetricOpen, setColorMetricOpen] = useState(false)
 
   // Legend toggle (collapsed by default on mobile)
@@ -332,6 +334,7 @@ export default function StateCountyMap() {
       // Clear the old state's counties so the risk-fetch effect below
       // doesn't fire with stale FIPS during the fetch window.
       setCounties([])
+      setStateOutline(null)
       setVisibleCounties([])
       setVisibleLabels([])
       animatedCountiesRef.current.clear()
@@ -364,6 +367,21 @@ export default function StateCountyMap() {
           const countyFips = f.id.toString().padStart(5, '0')
           return countyFips.startsWith(stateCode)
         })
+
+        // Pull the dissolved state silhouette from the same topology so the
+        // loading pulse hugs the outer boundary instead of every county.
+        // us-atlas may ship state ids as integers OR zero-padded strings
+        // depending on the version, so compare both forms.
+        const stateIdNum = parseInt(stateCode, 10)
+        let outlineFeat = null
+        if (topology.objects.states) {
+          const statesGeo = feature(topology, topology.objects.states)
+          outlineFeat = statesGeo.features.find(s =>
+            s.id === stateIdNum ||
+            String(s.id) === String(stateCode) ||
+            String(s.id).padStart(2, '0') === String(stateCode).padStart(2, '0')
+          ) ?? null
+        }
 
         const countyNames = topology.objects.counties.geometries.reduce((acc, g) => {
           acc[g.id] = g.properties?.name || `County ${g.id}`
@@ -402,6 +420,7 @@ export default function StateCountyMap() {
 
         if (cancelled) return
         setCounties(seededCounties)
+        setStateOutline(outlineFeat)
         setLoading(false)
         setTimeout(() => { if (!cancelled) setAnimationPhase('counties') }, 100)
       } catch (error) {
@@ -416,6 +435,11 @@ export default function StateCountyMap() {
     return () => { cancelled = true }
   }, [selectedState, stateFips, generateCountyData, reloadTick])
 
+  // Whether the batch risk fetch is currently in flight. Used to drive the
+  // pulse/overlay so the user knows the map is still resolving — the first
+  // hit can take 5+s while the backend runs fresh ML predictions.
+  const [riskLoading, setRiskLoading] = useState(false)
+
   // Fetch risk predictions separately — runs when state *or* disease changes.
   // On disease switch the geometry stays on screen; only the colors animate
   // once the new predictions arrive.
@@ -426,6 +450,7 @@ export default function StateCountyMap() {
     const fipsList = counties.map(c => c.properties.fips).filter(Boolean)
     if (fipsList.length === 0) return
 
+    setRiskLoading(true)
     batchPredictRisk(fipsList, disease.apiKey)
       .then(riskData => {
         if (cancelled) return
@@ -468,6 +493,7 @@ export default function StateCountyMap() {
         }))
       })
       .catch(() => { /* backend offline — keep fallback colors */ })
+      .finally(() => { if (!cancelled) setRiskLoading(false) })
 
     return () => { cancelled = true }
     // counties.length (not counties itself) — only trigger when the geometry
@@ -657,8 +683,13 @@ export default function StateCountyMap() {
       ? counties.filter(c => c.properties.name?.toLowerCase().includes(q))
       : counties
     return [...list].sort((a, b) => {
-      const aVal = a.properties[sortMetric] || 0
-      const bVal = b.properties[sortMetric] || 0
+      // Push null-valued counties to the bottom so they don't all tie at 0
+      // with counties that legitimately scored 0.
+      const aVal = a.properties[sortMetric]
+      const bVal = b.properties[sortMetric]
+      if (aVal == null && bVal == null) return 0
+      if (aVal == null) return 1
+      if (bVal == null) return -1
       return bVal - aVal
     })
   }, [counties, sortMetric, rankingsFilter])
@@ -815,6 +846,12 @@ export default function StateCountyMap() {
             )
           })()}
         </div>
+        {riskLoading && (
+          <div className="risk-loading-pill" title="Running fresh ML predictions for this state">
+            <span className="risk-loading-dot" />
+            Resolving risk…
+          </div>
+        )}
       </div>
 
       {/* Top-right control cluster — keeps the metric picker and rankings
@@ -837,8 +874,10 @@ export default function StateCountyMap() {
             </svg>
           </button>
           {colorMetricOpen && (() => {
-            // Detect which metrics have real data loaded right now, so the
-            // picker can surface "unavailable" instead of misleading labels.
+            // Detect which metrics have real data loaded right now. "No
+            // prediction" is more honest than "offline" — the backend may
+            // be fine, but Ahmed hasn't seeded every state × disease pair
+            // yet, so some counties genuinely have no ML output.
             const hasMetric = (key) => counties.some(c => c.properties[key] != null)
             const availability = {
               riskScore: hasMetric('riskScore'),
@@ -847,7 +886,7 @@ export default function StateCountyMap() {
               healthIndex: hasMetric('healthIndex'),
             }
             const subFor = (key, liveSub) =>
-              availability[key] ? liveSub : 'unavailable offline'
+              availability[key] ? liveSub : 'no prediction for this state'
             return (
             <div className="color-metric-menu">
               {[
@@ -953,12 +992,20 @@ export default function StateCountyMap() {
             {sortedCounties.map((county, i) => {
               const props = county.properties
               const isActive = selectedCounty?.name === props.name
-              const metricVal = props[sortMetric] || 0
-              const displayVal = sortMetric === 'populationNum'
+              const rawVal = props[sortMetric]
+              const hasVal = rawVal != null
+              const displayVal = !hasVal
+                ? '—'
+                : sortMetric === 'populationNum'
                 ? (props.population || '—')
                 : sortMetric === 'vaccinationRate'
-                ? `${metricVal}%`
-                : `${metricVal}`
+                ? `${rawVal}%`
+                : `${rawVal}`
+              const barWidth = !hasVal
+                ? 0
+                : sortMetric === 'populationNum'
+                ? Math.min((rawVal / 500000) * 100, 100)
+                : rawVal
 
               return (
                 <div
@@ -974,9 +1021,7 @@ export default function StateCountyMap() {
                       <div
                         className="ranking-bar-fill"
                         style={{
-                          width: `${sortMetric === 'populationNum'
-                            ? Math.min((metricVal / 500000) * 100, 100)
-                            : metricVal}%`,
+                          width: `${barWidth}%`,
                           backgroundColor: getCountyColor(props)
                         }}
                       />
@@ -1072,21 +1117,18 @@ export default function StateCountyMap() {
             const path = pathGenerator(county)
             const riskCategory = getRiskCategory(county.properties.riskScore)
             const isFiltered = !activeFilters.has(riskCategory)
-            const hasData = hasSurveillanceData(county.properties.fips)
 
             if (!path) return null
 
-            // Stroke: teal-bright for data-available counties so the user can
-            // pick a county with surveillance at a glance. Selection + hover
-            // override to their usual brighter treatment.
+            // CDC NHSN / COVID / Salmonella public data sources only publish
+            // state-level aggregates — there's no authoritative per-county
+            // surveillance to advertise. Uniform subtle stroke across counties.
             const stroke = isSelected
               ? '#00ffcc'
               : isHovered
               ? '#ffffff'
-              : hasData
-              ? 'rgba(0, 255, 204, 0.7)'
               : 'rgba(255,255,255,0.4)'
-            const strokeWidth = isSelected ? 2.5 : isHovered ? 1.5 : hasData ? 1.2 : 0.5
+            const strokeWidth = isSelected ? 2.5 : isHovered ? 1.5 : 0.5
 
             return (
               <path
@@ -1166,6 +1208,18 @@ export default function StateCountyMap() {
               </text>
             </g>
           )}
+
+          {/* Outer-edge loading pulse — sits ABOVE the counties so the
+              county fills don't eat the inner half of the stroke. Rendered
+              once per loading cycle; removed when batch predictions land. */}
+          {riskLoading && stateOutline && pathGenerator && (
+            <path
+              className="state-outline-pulse"
+              d={pathGenerator(stateOutline)}
+              fill="none"
+              pointerEvents="none"
+            />
+          )}
         </g>
         </g>
       </svg>
@@ -1235,50 +1289,83 @@ export default function StateCountyMap() {
         </svg>
       </button>
 
-      {/* Legend + Filter Toggles */}
-      {legendOpen && (
+      {/* Legend — content swaps to match the active color metric */}
+      {legendOpen && (() => {
+        const metricGradients = {
+          populationNum: {
+            heading: 'Population',
+            gradient: 'linear-gradient(90deg, rgba(120,130,150,0.25) 0%, rgba(14,165,233,0.2) 20%, rgba(14,165,233,0.9) 100%)',
+            lowLabel: 'Small',
+            highLabel: 'Largest',
+          },
+          vaccinationRate: {
+            heading: 'Vaccination Rate',
+            gradient: 'linear-gradient(90deg, #ef4444 0%, #f97316 33%, #f59e0b 66%, #10b981 100%)',
+            lowLabel: '0%',
+            highLabel: '100%',
+          },
+          healthIndex: {
+            heading: 'Health Index',
+            gradient: 'linear-gradient(90deg, #ef4444 0%, #f97316 33%, #f59e0b 66%, #10b981 100%)',
+            lowLabel: 'Poor',
+            highLabel: 'Excellent',
+          },
+        }
+        const activeMetric = metricGradients[colorMetric]
+        return (
         <div className="map-legend">
-          <h4>Risk Level</h4>
-          <div className="legend-items">
-            {[
-              { key: 'low', color: '#10b981', label: 'Low (0-29)' },
-              { key: 'medium', color: '#f59e0b', label: 'Medium (30-49)' },
-              { key: 'elevated', color: '#f97316', label: 'Elevated (50-69)' },
-              { key: 'high', color: '#ef4444', label: 'High (70+)' },
-            ].map(item => (
-              <div
-                key={item.key}
-                className={`legend-item filterable ${activeFilters.has(item.key) ? 'active' : 'inactive'}`}
-                onClick={() => toggleFilter(item.key)}
-              >
-                <span
-                  className="legend-color"
-                  style={{
-                    background: activeFilters.has(item.key) ? item.color : 'rgba(255,255,255,0.08)',
-                    borderColor: activeFilters.has(item.key) ? item.color : 'rgba(255,255,255,0.1)'
-                  }}
-                />
-                <span>{item.label}</span>
-                {activeFilters.has(item.key) ? (
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="filter-check">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                ) : (
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="filter-x">
-                    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                  </svg>
-                )}
+          {activeMetric ? (
+            // Non-risk metric — just a gradient reference
+            <div className="legend-metric-section">
+              <h4>{activeMetric.heading}</h4>
+              <div className="legend-gradient-bar" style={{ background: activeMetric.gradient }} />
+              <div className="legend-gradient-labels">
+                <span>{activeMetric.lowLabel}</span>
+                <span>{activeMetric.highLabel}</span>
               </div>
-            ))}
-          </div>
+            </div>
+          ) : (
+            // Risk score — interactive filter buckets (filters counties on the map)
+            <>
+              <h4>Risk Level</h4>
+              <div className="legend-items">
+                {[
+                  { key: 'low', color: '#10b981', label: 'Low (0-29)' },
+                  { key: 'medium', color: '#f59e0b', label: 'Medium (30-49)' },
+                  { key: 'elevated', color: '#f97316', label: 'Elevated (50-69)' },
+                  { key: 'high', color: '#ef4444', label: 'High (70+)' },
+                ].map(item => (
+                  <div
+                    key={item.key}
+                    className={`legend-item filterable ${activeFilters.has(item.key) ? 'active' : 'inactive'}`}
+                    onClick={() => toggleFilter(item.key)}
+                  >
+                    <span
+                      className="legend-color"
+                      style={{
+                        background: activeFilters.has(item.key) ? item.color : 'rgba(255,255,255,0.08)',
+                        borderColor: activeFilters.has(item.key) ? item.color : 'rgba(255,255,255,0.1)'
+                      }}
+                    />
+                    <span>{item.label}</span>
+                    {activeFilters.has(item.key) ? (
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" className="filter-check">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    ) : (
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="filter-x">
+                        <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                      </svg>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
 
-          {/* Data availability legend — shown only when there are counties with data */}
-          <div className="legend-data-note">
-            <span className="legend-data-ring" />
-            <span>Teal border = surveillance data available</span>
-          </div>
         </div>
-      )}
+        )
+      })()}
 
       {/* Breadcrumb handled by App.jsx (external .breadcrumb) in county view */}
 
@@ -1319,14 +1406,7 @@ export default function StateCountyMap() {
             <MiniGauge value={hoveredData.vaccinationRate} color={getGaugeColor(hoveredData.vaccinationRate)} label="Vacc" />
             <MiniGauge value={hoveredData.healthIndex} color={getGaugeColor(hoveredData.healthIndex)} label="Health" />
           </div>
-          {hasSurveillanceData(hoveredData.fips) ? (
-            <div className="hover-card-footer hover-card-footer-live">
-              <span className="hover-card-footer-dot" />
-              Surveillance data available · click for chart
-            </div>
-          ) : (
-            <div className="hover-card-footer">Click for details</div>
-          )}
+          <div className="hover-card-footer">Click for details</div>
         </div>
       )}
     </div>

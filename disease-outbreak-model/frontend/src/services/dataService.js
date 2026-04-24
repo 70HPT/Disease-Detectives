@@ -37,7 +37,16 @@ export async function getOutbreakHistory(fips, { diseaseType = 'total', limit = 
   try {
     const data = await api.get(`/data/history/${fips}${params}`)
     if (!data) return null
-    return data.map(record => ({
+    // Accept both a plain array and wrapped shapes ({items: [...]} etc.)
+    // so a backend pagination change can't turn the chart into an empty state.
+    const records = Array.isArray(data)
+      ? data
+      : Array.isArray(data.items) ? data.items
+      : Array.isArray(data.records) ? data.records
+      : Array.isArray(data.history) ? data.history
+      : null
+    if (!records) return null
+    return records.map(record => ({
       id: record.id,
       locationId: record.location_id,
       diseaseType: record.disease_type,

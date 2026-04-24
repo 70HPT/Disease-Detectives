@@ -105,3 +105,19 @@ export const TRACKED_DISEASES = [
 export function getDiseaseById(id) {
   return TRACKED_DISEASES.find(d => d.id === id) ?? TRACKED_DISEASES[0]
 }
+
+// Given a list of apiKeys (from /diseases/available), return the subset of
+// TRACKED_DISEASES that the backend actively supports. Keeps the frontend
+// metadata (spotlight, profile, accent, etc.) as the source of truth while
+// letting the backend decide which diseases are live.
+export function filterAvailableDiseases(availableKeys) {
+  if (!Array.isArray(availableKeys) || availableKeys.length === 0) {
+    return TRACKED_DISEASES
+  }
+  const available = new Set(availableKeys)
+  const filtered = TRACKED_DISEASES.filter(d => available.has(d.apiKey))
+  // Never return an empty picker — if the backend claims support for diseases
+  // we don't have frontend metadata for, fall back to the full list rather
+  // than hiding the picker entirely.
+  return filtered.length > 0 ? filtered : TRACKED_DISEASES
+}

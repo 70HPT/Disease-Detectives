@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from 'react'
 import useStore from '../../store/useStore'
 import { useWHOPulse } from '../../services/useWHOPulse'
 import { getDiseaseIndicator } from '../../services/whoService'
-import { TRACKED_DISEASES, getDiseaseById } from '../../data/trackedDiseases'
+import { getOutbreakHistory } from '../../services/dataService'
+import { getDiseaseById, filterAvailableDiseases } from '../../data/trackedDiseases'
 import { NATIONAL_EVENTS } from '../../data/stateHealthData'
 import './ContentSections.css'
 
@@ -124,6 +125,8 @@ function GlobalHealthPulse({ year, isVisible }) {
 function DiseaseSpotlight({ year, isVisible }) {
   const selectedDisease = useStore(s => s.selectedDisease)
   const setSelectedDisease = useStore(s => s.setSelectedDisease)
+  const availableKeys = useStore(s => s.availableDiseaseKeys)
+  const availableDiseases = filterAvailableDiseases(availableKeys)
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const dropdownRef = useRef(null)
   const [whoIndicator, setWhoIndicator] = useState(null)
@@ -180,7 +183,7 @@ function DiseaseSpotlight({ year, isVisible }) {
 
           {dropdownOpen && (
             <div className="cs-disease-options">
-              {TRACKED_DISEASES.map(disease => (
+              {availableDiseases.map(disease => (
                 <button
                   key={disease.id}
                   className={`cs-disease-option ${disease.id === selectedDisease ? 'selected' : ''}`}
@@ -424,6 +427,252 @@ function NationalOutbreakTimeline({ isVisible }) {
 }
 
 // ============================================
+// VACCINATION COVERAGE — per-vaccine trend cards
+// State-switchable picker (default California). CDC's adult-coverage
+// dataset only publishes state-level rollups, so the data is always
+// anchored to a single state rather than a national aggregate.
+// ============================================
+const DEFAULT_VAX_STATE = 'California'
+const TRACKED_VACCINES = [
+  { key: 'vaccination_coverage::Pneumococcal', name: 'Pneumococcal', accent: '#0ea5e9' },
+  { key: 'vaccination_coverage::Tetanus', name: 'Tetanus (Td/Tdap)', accent: '#34d399' },
+  { key: 'vaccination_coverage::Zoster (Shingles)', name: 'Zoster (Shingles)', accent: '#a855f7' },
+]
+
+function VaxSparkline({ points, color }) {
+  const width = 160
+  const height = 42
+  if (!points || points.length < 2) {
+    return <svg width={width} height={height} className="cs-vax-sparkline" />
+  }
+  const vals = points.map(p => p.value)
+  const max = Math.max(...vals, 1)
+  const min = Math.min(...vals, 0)
+  const span = max - min || 1
+  const stepX = width / (points.length - 1)
+  const pathD = points.map((p, i) => {
+    const x = i * stepX
+    const y = height - ((p.value - min) / span) * (height - 4) - 2
+    return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`
+  }).join(' ')
+  const areaD = `${pathD} L${width},${height} L0,${height} Z`
+  return (
+    <svg width={width} height={height} className="cs-vax-sparkline" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
+      <defs>
+        <linearGradient id={`vaxGrad-${color.slice(1)}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.35" />
+          <stop offset="100%" stopColor={color} stopOpacity="0.02" />
+        </linearGradient>
+      </defs>
+      <path d={areaD} fill={`url(#vaxGrad-${color.slice(1)})`} />
+      <path d={pathD} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function VaxCard({ vaccine, series, loading, isVisible, delay }) {
+  const latest = series?.[series.length - 1]
+  const first = series?.[0]
+  const delta = (latest && first && first.value !== 0)
+    ? ((latest.value - first.value) / first.value) * 100
+    : null
+  const trend = delta == null ? 'flat' : delta > 1 ? 'up' : delta < -1 ? 'down' : 'flat'
+
+  const noData = !loading && !latest
+
+  return (
+    <AnimatedSection className={`cs-vax-card ${noData ? 'empty' : ''}`} isVisible={isVisible} delay={delay}>
+      <div className="cs-vax-card-header">
+        <span className="cs-vax-dot" style={{ background: vaccine.accent, boxShadow: `0 0 6px ${vaccine.accent}` }} />
+        <span className="cs-vax-name">{vaccine.name}</span>
+      </div>
+      <div className="cs-vax-value-row">
+        <span className="cs-vax-value" style={{ color: noData ? 'rgba(255,255,255,0.35)' : vaccine.accent }}>
+          {loading ? '…' : latest ? `${latest.value.toFixed(1)}%` : '—'}
+        </span>
+        <span className="cs-vax-value-label">{noData ? 'Not reported' : 'Coverage'}</span>
+      </div>
+      <VaxSparkline points={series} color={vaccine.accent} />
+      {delta != null && (
+        <div className={`cs-vax-trend ${trend}`}>
+          <span className="cs-vax-trend-arrow">
+            {trend === 'up' ? '↑' : trend === 'down' ? '↓' : '→'}
+          </span>
+          {delta > 0 ? '+' : ''}{delta.toFixed(1)}%
+          <span className="cs-vax-trend-span">
+            {first?.date?.slice(0, 4)}–{latest?.date?.slice(0, 4)}
+          </span>
+        </div>
+      )}
+      {noData && (
+        <div className="cs-vax-empty-note">CDC Socrata has no rows seeded for this state yet.</div>
+      )}
+    </AnimatedSection>
+  )
+}
+
+function VaccinationCoverage({ isVisible }) {
+  // 2-digit state FIPS lookup from the store (e.g. "06" for California)
+  const stateFipsMap = useStore(s => s.stateFips)
+  const [pickedState, setPickedState] = useState(DEFAULT_VAX_STATE)
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [pickerQuery, setPickerQuery] = useState('')
+  const pickerRef = useRef(null)
+
+  // Bulk fetch all vaccination_coverage rows for the selected state, then
+  // group per vaccine with a contains match. Exact disease_type equality
+  // was missing rows because CDC Socrata's `vaccine` values vary (e.g.
+  // "Zoster (Shingles)" vs "Zoster"). Client-side filter is more forgiving.
+  const [seriesByKey, setSeriesByKey] = useState({})
+  const [loading, setLoading] = useState(false)
+
+  // Close the menu on outside click
+  useEffect(() => {
+    if (!pickerOpen) return
+    const handler = (e) => {
+      if (pickerRef.current && !pickerRef.current.contains(e.target)) {
+        setPickerOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [pickerOpen])
+
+  // Alphabetized state name list, filtered by the search query
+  const stateOptions = Object.keys(stateFipsMap || {})
+    .filter(n => n.toLowerCase().includes(pickerQuery.toLowerCase()))
+    .sort()
+
+  const pickedFips2 = stateFipsMap?.[pickedState]
+  const pickedFipsRoll = pickedFips2 ? `${pickedFips2}000` : null
+
+  // One bulk fetch per state change. The backend returns up to 1000 rows;
+  // we then bucket each row to one of the TRACKED_VACCINES via a case-
+  // insensitive contains match on the disease_type suffix.
+  useEffect(() => {
+    if (!pickedFipsRoll) return
+    let cancelled = false
+    setLoading(true)
+    setSeriesByKey({})
+    // Use diseaseType='total' so the backend skips the equality filter
+    // and returns every row for this location — we do the vaccine-name
+    // matching on the client to tolerate CDC's inconsistent naming.
+    getOutbreakHistory(pickedFipsRoll, { diseaseType: 'total', limit: 1000 })
+      .then(rows => {
+        if (cancelled) return
+        // Coverage percent lives in climate_data.estimate_pct (seeded from
+        // CDC Socrata). Socrata ships it as a string; coerce to number.
+        const toPct = (r) => {
+          const raw = r.climateData?.estimate_pct ?? r.climate_data?.estimate_pct
+          const n = raw != null ? parseFloat(raw) : NaN
+          return Number.isFinite(n) ? n : null
+        }
+        // Only consider rows produced by the vax seed. Cheap prefix check.
+        const vaxRows = (rows || []).filter(r =>
+          (r.diseaseType || '').toLowerCase().startsWith('vaccination_coverage::')
+        )
+        const buckets = {}
+        for (const vax of TRACKED_VACCINES) {
+          const needle = vax.name.split(' ')[0].toLowerCase() // "Pneumococcal", "Tetanus", "Zoster"
+          const matched = vaxRows
+            .filter(r => (r.diseaseType || '').toLowerCase().includes(needle))
+            .map(r => ({ date: r.date, value: toPct(r) }))
+            .filter(p => p.value != null)
+            // Backend ships newest-first; sort chronological for the sparkline.
+            .sort((a, b) => String(a.date).localeCompare(String(b.date)))
+          buckets[vax.key] = matched.length > 0 ? matched : null
+        }
+        setSeriesByKey(buckets)
+        setLoading(false)
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSeriesByKey({})
+          setLoading(false)
+        }
+      })
+    return () => { cancelled = true }
+  }, [pickedFipsRoll])
+
+  return (
+    <section className="cs-section cs-vaccines">
+      <AnimatedSection className="cs-section-header" isVisible={isVisible} delay={100}>
+        <span className="cs-section-tag">Live surveillance</span>
+        <h2 className="cs-section-title">
+          Vaccination Coverage
+          <span
+            ref={pickerRef}
+            className={`cs-vax-state-picker ${pickerOpen ? 'open' : ''}`}
+          >
+            <button
+              type="button"
+              className="cs-vax-state-trigger"
+              onClick={() => { setPickerOpen(o => !o); setPickerQuery('') }}
+              title="Switch the anchor state for coverage data"
+            >
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M3 21h18M5 21V9l7-5 7 5v12M9 9h6v12H9z" />
+              </svg>
+              {pickedState}
+              <svg
+                className={`cs-vax-state-chevron ${pickerOpen ? 'open' : ''}`}
+                width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+            {pickerOpen && (
+              <div className="cs-vax-state-menu" data-lenis-prevent>
+                <input
+                  type="text"
+                  className="cs-vax-state-search"
+                  placeholder="Filter states…"
+                  value={pickerQuery}
+                  onChange={(e) => setPickerQuery(e.target.value)}
+                  autoFocus
+                />
+                <div className="cs-vax-state-list" data-lenis-prevent>
+                  {stateOptions.length === 0 && (
+                    <div className="cs-vax-state-empty">No match</div>
+                  )}
+                  {stateOptions.map(name => (
+                    <button
+                      type="button"
+                      key={name}
+                      className={`cs-vax-state-option ${name === pickedState ? 'selected' : ''}`}
+                      onClick={() => { setPickedState(name); setPickerOpen(false) }}
+                    >
+                      {name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </span>
+        </h2>
+      </AnimatedSection>
+
+      <AnimatedSection className="cs-vax-subtitle" isVisible={isVisible} delay={150}>
+        Annual adult vaccination coverage sourced from CDC Socrata. CDC only publishes state-level rollups, so the numbers anchor to the state above — switch it to compare.
+      </AnimatedSection>
+
+      <div className="cs-vax-grid">
+        {TRACKED_VACCINES.map((v, i) => (
+          <VaxCard
+            key={`${pickedFipsRoll}-${v.key}`}
+            vaccine={v}
+            series={seriesByKey[v.key] ?? null}
+            loading={loading}
+            isVisible={isVisible}
+            delay={220 + i * 100}
+          />
+        ))}
+      </div>
+    </section>
+  )
+}
+
+// ============================================
 // DATA SOURCES — Enhanced with real WHO dataset names
 // ============================================
 function DataSources({ isVisible }) {
@@ -432,8 +681,6 @@ function DataSources({ isVisible }) {
     { name: 'WHO GHO', full: 'Global Health Observatory', type: 'National indicators feeding the Global Health Pulse, direct API', status: 'ready' },
     { name: 'Internal DB', full: 'Neon Postgres · Locations + Predictions', type: 'County demographics and model outputs, served via FastAPI', status: 'ready' },
     { name: 'Outbreak LSTM', full: 'DiseasePredictor (Influenza · COVID-19 · Salmonella)', type: 'Per-disease risk scores and classification from the trained model', status: 'ready' },
-    { name: 'CDC Socrata', full: 'CDC Surveillance API', type: 'State-level disease reporting — on the roadmap', status: 'planned' },
-    { name: 'NOAA CDO', full: 'Climate Data Online', type: 'Climate factors for outbreak risk — on the roadmap', status: 'planned' },
   ]
 
   return (
@@ -486,6 +733,7 @@ export default function ContentSections({ isVisible }) {
       <GlobalHealthPulse year={year} isVisible={shouldAnimate} />
       <DiseaseSpotlight year={year} isVisible={shouldAnimate} />
       <NationalOutbreakTimeline isVisible={shouldAnimate} />
+      <VaccinationCoverage isVisible={shouldAnimate} />
       <DataSources isVisible={shouldAnimate} />
 
       {/* CTA */}

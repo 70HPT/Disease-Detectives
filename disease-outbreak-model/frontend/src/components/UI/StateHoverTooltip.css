@@ -122,6 +122,79 @@
   color: rgba(255, 255, 255, 0.5);
 }
 
+/* Historical marker section — explains the pulsing dot on the globe.
+   Mirrors the marker's severity color so the connection reads instantly. */
+.sht-history {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: rgba(240, 160, 48, 0.05);
+  border: 1px solid rgba(240, 160, 48, 0.18);
+  border-radius: 7px;
+}
+
+.sht-history-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 5px;
+}
+
+.sht-history-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.sht-history-label {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.sht-history-count {
+  margin-left: auto;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.sht-history-title {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  margin-bottom: 4px;
+}
+
+.sht-history-year {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: rgba(240, 160, 48, 0.85);
+  letter-spacing: 0.02em;
+}
+
+.sht-history-name {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.92);
+  line-height: 1.2;
+}
+
+.sht-history-desc {
+  margin: 0;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 10.5px;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.55);
+}
+
 .sht-footer {
   margin-top: 8px;
   padding-top: 6px;

@@ -16,7 +16,7 @@ import SettingsPanel from './components/UI/SettingsPanel'
 import ErrorBoundary from './components/UI/ErrorBoundary'
 import USAtAGlance from './components/UI/USAtAGlance'
 import StateHoverTooltip from './components/UI/StateHoverTooltip'
-import { getMapData } from './services/riskService'
+import { getMapData, getAvailableDiseases } from './services/riskService'
 import { listLocations } from './services/locationService'
 import { getDiseaseById } from './data/trackedDiseases'
 
@@ -159,6 +159,14 @@ function App() {
     })
     return () => { cancelled = true }
   }, [selectedDisease, hydrateStateData])
+
+  // One-time: discover which diseases the backend has active models for.
+  // If this fails, we fall back to showing all TRACKED_DISEASES.
+  useEffect(() => {
+    getAvailableDiseases().then((keys) => {
+      if (keys) useStore.getState().hydrateAvailableDiseases(keys)
+    })
+  }, [])
 
   // One-time hydration: populations from /locations (independent of disease).
   useEffect(() => {
