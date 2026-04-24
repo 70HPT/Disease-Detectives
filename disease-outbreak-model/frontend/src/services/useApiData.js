@@ -17,47 +17,49 @@ import { getDashboardSnapshot, getUSATimeSeries, WHO_INDICATORS } from './whoSer
 import { checkBackendHealth } from './api'
 
 // ── Generic async data hook ────────────────────────────────────────
+// Per-request cancellation via a local `cancelled` flag keeps stale
+// responses (e.g. from the previous selected state / county) from
+// overwriting fresh data during rapid switching.
 function useAsyncData(fetchFn, deps = [], options = {}) {
   const { enabled = true, fallback = null } = options
   const [data, setData] = useState(fallback)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
-  const mountedRef = useRef(true)
+  // Track the most recent fetch generation — older fetches that resolve
+  // after a newer one started will see a mismatch and bail out.
+  const genRef = useRef(0)
 
-  const fetch = useCallback(async () => {
+  const refetch = useCallback(() => {
     if (!enabled) return
+    const myGen = ++genRef.current
     setLoading(true)
     setError(null)
 
-    try {
-      const result = await fetchFn()
-
-      if (!mountedRef.current) return
-
-      if (result !== null) {
-        setData(result)
-      } else {
-        // Backend unavailable — keep fallback data
+    Promise.resolve()
+      .then(fetchFn)
+      .then(result => {
+        if (myGen !== genRef.current) return
+        if (result !== null) setData(result)
+        else if (fallback) setData(fallback)
+        setLoading(false)
+      })
+      .catch(err => {
+        if (myGen !== genRef.current) return
+        setError(err.message)
+        console.warn('[useAsyncData] Error:', err.message)
         if (fallback) setData(fallback)
-      }
-    } catch (err) {
-      if (!mountedRef.current) return
-      setError(err.message)
-      console.warn('[useAsyncData] Error:', err.message)
-      // On error, keep fallback data
-      if (fallback) setData(fallback)
-    } finally {
-      if (mountedRef.current) setLoading(false)
-    }
+        setLoading(false)
+      })
   }, deps) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    mountedRef.current = true
-    fetch()
-    return () => { mountedRef.current = false }
-  }, [fetch])
+    refetch()
+    // Bump the generation on unmount/dep-change so any in-flight fetch's
+    // `.then` callbacks see a mismatch and early-return.
+    return () => { genRef.current++ }
+  }, [refetch])
 
-  return { data, loading, error, refetch: fetch }
+  return { data, loading, error, refetch }
 }
 
 // ── Backend health check ───────────────────────────────────────────

@@ -115,6 +115,8 @@ export async function batchPredictRisk(fipsCodes, diseaseType = 'influenza') {
 
 // ── Normalize backend response to frontend-friendly shape ──────────
 function normalizeRiskResponse(data) {
+  // Guard on factors in case the backend ships `null` (not just missing keys)
+  const f = data.factors || {}
   return {
     fips: data.fips,
     county: data.county,
@@ -123,11 +125,11 @@ function normalizeRiskResponse(data) {
     confidence: data.confidence,
     riskLevel: data.risk_level,
     factors: {
-      populationDensity: data.factors?.population_density ?? 0,
-      climateRisk: data.factors?.climate_risk ?? 0,
-      vaccinationCoverage: data.factors?.vaccination_coverage ?? 0,
-      historicalTrend: data.factors?.historical_trend ?? 0,
-      searchTrend: data.factors?.search_trend ?? 0,
+      populationDensity: f.population_density ?? 0,
+      climateRisk: f.climate_risk ?? 0,
+      vaccinationCoverage: f.vaccination_coverage ?? 0,
+      historicalTrend: f.historical_trend ?? 0,
+      searchTrend: f.search_trend ?? 0,
     },
     modelVersion: data.model_version,
     generatedAt: data.generated_at,

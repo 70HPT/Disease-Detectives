@@ -108,8 +108,11 @@ function MiniSparkline({ fips, color, width = 80, height = 24 }) {
 // HEALTH GRADE RING — A-F letter grade
 // ============================================
 function HealthGradeRing({ healthIndex }) {
+  // Distinguish "no data" (null/undefined) from an honest failing grade of 0
+  const hasValue = healthIndex != null && Number.isFinite(healthIndex)
   let grade, color
-  if (healthIndex >= 90) { grade = 'A'; color = '#10b981' }
+  if (!hasValue) { grade = '—'; color = '#8892a4' }
+  else if (healthIndex >= 90) { grade = 'A'; color = '#10b981' }
   else if (healthIndex >= 80) { grade = 'B'; color = '#34d399' }
   else if (healthIndex >= 65) { grade = 'C'; color = '#f0a030' }
   else if (healthIndex >= 50) { grade = 'D'; color = '#f97316' }
@@ -119,7 +122,7 @@ function HealthGradeRing({ healthIndex }) {
   const strokeWidth = 5
   const radius = (size - strokeWidth * 2) / 2
   const circumference = 2 * Math.PI * radius
-  const progress = (healthIndex / 100) * circumference
+  const progress = hasValue ? (healthIndex / 100) * circumference : 0
 
   return (
     <div className="health-grade-ring">
@@ -193,7 +196,7 @@ function TransmissionAnalysis({ stateName }) {
           <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
         </svg>
         <span className="ta-title">Transmission Analysis</span>
-        <span className="ta-badge" title="Travel volumes sourced from Census ACS and BTS; risk model integration next">Sourced</span>
+        <span className="ta-badge" title="Travel volumes from Census ACS commuter flows and BTS air-traffic data">Census · BTS</span>
       </div>
 
       <p className="ta-summary">{summary}</p>
@@ -325,13 +328,21 @@ export default function StatePanel() {
     panelDiseaseKey,
   )
 
-  // Stop Lenis while panel is open so it doesn't fight panel scroll
+  // Stop Lenis while panel is open so it doesn't fight panel scroll.
+  // Read the lenis instance fresh in the cleanup (don't capture it in the
+  // closure) so HMR or a full Lenis re-init can't leave us calling .start()
+  // on a destroyed instance. Also track whether we actually stopped it so
+  // a cleanup without a matching stop can't re-enable scroll by accident.
   useEffect(() => {
     if (!selectedState) return
     const lenis = window.__lenis
-    if (lenis) {
-      lenis.stop()
-      return () => lenis.start()
+    if (!lenis) return
+    lenis.stop()
+    let stopped = true
+    return () => {
+      if (!stopped) return
+      stopped = false
+      window.__lenis?.start()
     }
   }, [selectedState])
 
@@ -521,7 +532,7 @@ export default function StatePanel() {
         <>
           {/* Health Grade + Risk Badge Row */}
           <div className="county-grade-row">
-            <HealthGradeRing healthIndex={displayData.healthIndex ?? 0} />
+            <HealthGradeRing healthIndex={displayData.healthIndex} />
             <div className="county-risk-card">
               <span className="county-risk-title">Outbreak Risk</span>
               <span className="county-risk-level" style={{ color: getRiskColor(displayData.outbreakRisk) }}>
@@ -561,16 +572,21 @@ export default function StatePanel() {
             />
           </div>
 
-          {/* Risk score vs state-average delta — only when both values are real */}
+          {/* Risk score vs state-average delta — only when both values are real.
+              Uses 0.5 pt tolerance so the chip still renders while the backend's
+              risk-score normalization bug is live (scores rounded to 0 would
+              otherwise always match and hide the chip). */}
           {displayData.riskScore != null && selectedState?.riskScore != null && (() => {
             const delta = displayData.riskScore - selectedState.riskScore
-            if (Math.abs(delta) < 1) return null
+            if (Math.abs(delta) < 0.5) return null
             const above = delta > 0
+            const rounded = Math.round(delta)
+            const display = rounded === 0 ? (above ? '+<1' : '<1') : `${above ? '+' : ''}${rounded}`
             return (
               <div className="county-vs-state" title={`State average risk score: ${selectedState.riskScore}`}>
                 <span className="county-vs-state-label">vs {selectedState.abbr} avg</span>
                 <span className={`county-vs-state-delta ${above ? 'above' : 'below'}`}>
-                  {above ? '+' : ''}{Math.round(delta)} pts {above ? 'higher' : 'lower'}
+                  {display} pts {above ? 'higher' : 'lower'}
                 </span>
               </div>
             )
@@ -779,13 +795,15 @@ export default function StatePanel() {
                 <span className="metric-value">{displayData.riskScore != null ? `${displayData.riskScore}/100` : '\u2014'}</span>
               </div>
               <div className="progress-bar">
-                <div
-                  className="progress-fill"
-                  style={{
-                    width: `${displayData.riskScore ?? 0}%`,
-                    backgroundColor: displayData.riskScore != null ? getProgressColor(100 - displayData.riskScore) : '#8892a4'
-                  }}
-                />
+                {displayData.riskScore != null && (
+                  <div
+                    className="progress-fill"
+                    style={{
+                      width: `${displayData.riskScore}%`,
+                      backgroundColor: getProgressColor(100 - displayData.riskScore),
+                    }}
+                  />
+                )}
               </div>
               <DeltaPill delta={nationalCtx?.riskScoreDelta} inverse />
             </div>
@@ -796,13 +814,15 @@ export default function StatePanel() {
                 <span className="metric-value">{displayData.vaccinationRate != null ? `${displayData.vaccinationRate}%` : '\u2014'}</span>
               </div>
               <div className="progress-bar">
-                <div
-                  className="progress-fill"
-                  style={{
-                    width: `${displayData.vaccinationRate ?? 0}%`,
-                    backgroundColor: displayData.vaccinationRate != null ? getProgressColor(displayData.vaccinationRate) : '#8892a4'
-                  }}
-                />
+                {displayData.vaccinationRate != null && (
+                  <div
+                    className="progress-fill"
+                    style={{
+                      width: `${displayData.vaccinationRate}%`,
+                      backgroundColor: getProgressColor(displayData.vaccinationRate),
+                    }}
+                  />
+                )}
               </div>
               <DeltaPill delta={nationalCtx?.vaccinationDelta} />
             </div>
@@ -813,20 +833,17 @@ export default function StatePanel() {
                 <span className="metric-value">{displayData.healthIndex != null ? `${displayData.healthIndex}/100` : '\u2014'}</span>
               </div>
               <div className="progress-bar">
-                <div
-                  className="progress-fill"
-                  style={{
-                    width: `${displayData.healthIndex ?? 0}%`,
-                    backgroundColor: displayData.healthIndex != null ? getProgressColor(displayData.healthIndex) : '#8892a4'
-                  }}
-                />
+                {displayData.healthIndex != null && (
+                  <div
+                    className="progress-fill"
+                    style={{
+                      width: `${displayData.healthIndex}%`,
+                      backgroundColor: getProgressColor(displayData.healthIndex),
+                    }}
+                  />
+                )}
               </div>
               <DeltaPill delta={nationalCtx?.healthIndexDelta} />
-            </div>
-
-            <div className="metric simple">
-              <span className="metric-label">Air Quality</span>
-              <span className="metric-value">{displayData.airQuality || '\u2014'}</span>
             </div>
           </div>
 

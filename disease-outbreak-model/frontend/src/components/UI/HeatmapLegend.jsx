@@ -6,7 +6,6 @@ const METRICS = [
   { key: 'riskScore', label: 'Risk Score', low: 'Low Risk', high: 'High Risk', inverted: true },
   { key: 'vaccinationRate', label: 'Vaccination Rate', low: '0%', high: '100%', inverted: false },
   { key: 'healthIndex', label: 'Health Index', low: 'Poor', high: 'Excellent', inverted: false },
-  { key: 'airQuality', label: 'Air Quality', low: 'Unhealthy', high: 'Good', inverted: false },
   { key: 'populationNum', label: 'Population', low: 'Small', high: 'Largest', inverted: false },
   { key: 'corridorVolume', label: 'Corridor Volume', low: 'Few travelers', high: 'Hub', inverted: false },
 ]

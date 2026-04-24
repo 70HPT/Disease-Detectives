@@ -213,7 +213,12 @@
   color: rgba(255, 255, 255, 0.8);
   cursor: pointer;
   transition: background 0.15s ease;
+  border: 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  background: transparent;
+  text-align: left;
+  width: 100%;
+  font: inherit;
 }
 
 .color-metric-menu .dropdown-option:last-child {
@@ -376,6 +381,11 @@
   color: rgba(255, 255, 255, 0.5);
   cursor: pointer;
   transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 0;
+  background: transparent;
+  text-align: left;
+  width: 100%;
+  font: inherit;
 }
 
 .dropdown-option:hover {

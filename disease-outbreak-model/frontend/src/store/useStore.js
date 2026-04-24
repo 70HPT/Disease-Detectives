@@ -308,10 +308,16 @@ const useStore = create((set, get) => ({
     for (const [abbr, apiState] of Object.entries(mapData.states)) {
       const name = apiState.name
       if (updated[name]) {
+        const risk = Math.round(apiState.avgRiskScore)
+        // Derive a state-level healthIndex from risk (state endpoint doesn't
+        // ship it today). Inverse-of-risk is a reasonable proxy — keeps the
+        // Health Grade ring meaningful instead of always showing "—".
+        const healthIndex = Number.isFinite(risk) ? Math.max(0, Math.min(100, 100 - risk)) : null
         updated[name] = {
           ...updated[name],
-          riskScore: Math.round(apiState.avgRiskScore),
+          riskScore: risk,
           outbreakRisk: riskLabel[apiState.riskLevel] || null,
+          healthIndex,
         }
       }
     }

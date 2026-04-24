@@ -68,11 +68,8 @@ const RADAR_AXES = [
   { key: 'healthIndex', label: 'Health Index', max: 100 },
   { key: 'vaccinationRate', label: 'Vaccination', max: 100 },
   { key: 'riskScoreInv', label: 'Safety Score', max: 100 },
-  { key: 'airQualityNum', label: 'Air Quality', max: 100 },
-  { key: 'infrastructureScore', label: 'Infrastructure', max: 100 },
+  { key: 'infrastructureScore', label: 'Overall', max: 100 },
 ]
-
-const AIR_QUALITY_MAP = { 'Good': 85, 'Moderate': 60, 'Poor': 35, 'Unhealthy': 15 }
 
 const TOPO_URL = 'https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json'
 
@@ -83,12 +80,10 @@ function getNumericData(state) {
   const hi = state.healthIndex ?? 0
   const vr = state.vaccinationRate ?? 0
   const rs = state.riskScore ?? 0
-  const aq = AIR_QUALITY_MAP[state.airQuality] ?? 0
   return {
     healthIndex: hi,
     vaccinationRate: vr,
     riskScoreInv: state.riskScore != null ? 100 - rs : 0,
-    airQualityNum: aq,
     infrastructureScore: (state.healthIndex != null || state.vaccinationRate != null)
       ? Math.round(hi * 0.4 + vr * 0.4 + (100 - rs) * 0.2)
       : 0,
@@ -476,12 +471,15 @@ function SharedCorridors({ stateNames }) {
 // ============================================
 // METRIC COMPARISON BAR
 // ============================================
-function MetricBar({ label, values, stateNames, maxVal = 100, animate, suffix = '' }) {
+function MetricBar({ label, values, stateNames, maxVal = 100, animate, suffix = '', hint = null }) {
   const best = Math.max(...values)
 
   return (
     <div className="cmp-metric-bar">
-      <span className="cmp-metric-label">{label}</span>
+      <span className="cmp-metric-label" title={hint || undefined}>
+        {label}
+        {hint && <span className="cmp-metric-label-hint"> ⓘ</span>}
+      </span>
       <div className="cmp-metric-tracks">
         {values.map((val, i) => (
           <div key={i} className="cmp-metric-track-row">
@@ -639,7 +637,7 @@ function TrendComparison({ stateNames, disease, animate }) {
         </svg>
 
         {loading && (
-          <div className="cmp-trend-loading">Loading…</div>
+          <div className="cmp-trend-loading">Loading surveillance data…</div>
         )}
         {!loading && !hasAnyData && (
           <div className="cmp-trend-empty">
@@ -688,20 +686,20 @@ export default function ComparisonMode() {
   const [animate, setAnimate] = useState(false)
   const geoFeatures = useDetailedGeo()
 
-  // Lock page scroll when modal is open — use Lenis if available
+  // Lock page scroll when modal is open — use Lenis if available.
+  // Read window.__lenis fresh in the cleanup so HMR or a Lenis re-init
+  // can't leave us calling .start() on a destroyed instance.
   useEffect(() => {
-    if (comparisonOpen) {
-      const lenis = window.__lenis
-      if (lenis) {
-        lenis.stop()
-        return () => lenis.start()
-      } else {
-        const html = document.documentElement
-        const prev = html.style.overflow
-        html.style.overflow = 'hidden'
-        return () => { html.style.overflow = prev }
-      }
+    if (!comparisonOpen) return
+    const lenis = window.__lenis
+    if (lenis) {
+      lenis.stop()
+      return () => { window.__lenis?.start() }
     }
+    const html = document.documentElement
+    const prev = html.style.overflow
+    html.style.overflow = 'hidden'
+    return () => { html.style.overflow = prev }
   }, [comparisonOpen])
 
   useEffect(() => {
@@ -827,10 +825,9 @@ export default function ComparisonMode() {
                     values={statesWithData.map(s => s.data.vaccinationRate)} animate={animate} />
                   <MetricBar label="Safety Score" stateNames={comparisonStates}
                     values={statesWithData.map(s => s.data.riskScoreInv)} animate={animate} />
-                  <MetricBar label="Air Quality" stateNames={comparisonStates}
-                    values={statesWithData.map(s => s.data.airQualityNum)} animate={animate} />
-                  <MetricBar label="Infrastructure" stateNames={comparisonStates}
-                    values={statesWithData.map(s => s.data.infrastructureScore)} animate={animate} />
+                  <MetricBar label="Overall Score" stateNames={comparisonStates}
+                    values={statesWithData.map(s => s.data.infrastructureScore)} animate={animate}
+                    hint="Weighted composite: 40% health · 40% vaccination · 20% inverse risk" />
                 </div>
               </div>
             </>

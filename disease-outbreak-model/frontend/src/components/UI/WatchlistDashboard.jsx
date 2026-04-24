@@ -35,21 +35,15 @@ function generateAlerts(watchlist, stateData) {
         id: `${state}-${i}`,
         state,
         ...alert,
-        time: new Date(now - (si * 3 + i) * 3600000 * 1.5),
       })
     })
   })
 
-  alerts.sort((a, b) => b.time - a.time)
+  // Sort by severity priority (critical > warning > info > good) so the
+  // most-urgent alerts always float to the top.
+  const rank = { critical: 0, warning: 1, info: 2, good: 3 }
+  alerts.sort((a, b) => (rank[a.severity] ?? 9) - (rank[b.severity] ?? 9))
   return alerts
-}
-
-function timeAgo(date) {
-  const mins = Math.floor((Date.now() - date.getTime()) / 60000)
-  if (mins < 60) return `${mins}m ago`
-  const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `${hrs}h ago`
-  return `${Math.floor(hrs / 24)}d ago`
 }
 
 // ============================================
@@ -251,7 +245,7 @@ function StateCard({ stateName, data, index, onRemove, onView, animate, disease 
         </div>
         <div className="wl-card-metric">
           <MiniRing value={data.vaccinationRate} color={data.vaccinationRate != null ? getHealthColor(data.vaccinationRate) : '#8892a4'} />
-          <span className="wl-card-metric-label">Vax Rate</span>
+          <span className="wl-card-metric-label">Vaccination</span>
         </div>
         <div className="wl-card-metric">
           <MiniRing value={data.riskScore} color={data.riskScore != null ? (data.riskScore > 45 ? '#ff4060' : data.riskScore > 30 ? '#f0c040' : '#00ffcc') : '#8892a4'} />
@@ -466,7 +460,7 @@ export default function WatchlistDashboard() {
                     className={`wl-alert-filter ${alertFilter === f ? 'active' : ''}`}
                     onClick={() => setAlertFilter(f)}
                   >
-                    {f}
+                    {f.charAt(0).toUpperCase() + f.slice(1)}
                   </button>
                 ))}
               </div>
@@ -481,7 +475,7 @@ export default function WatchlistDashboard() {
                   <span className={`wl-alert-icon ${alert.severity}`}>{alert.icon}</span>
                   <div className="wl-alert-content">
                     <span className="wl-alert-message">{alert.message}</span>
-                    <span className="wl-alert-time">{timeAgo(alert.time)}</span>
+                    <span className="wl-alert-time">Live</span>
                   </div>
                 </div>
               ))}

@@ -62,6 +62,7 @@ function useScrollProgress() {
   const scrollIndicatorRef = useRef(null)
   const contentWrapperRef = useRef(null)
   const breadcrumbRef = useRef(null)
+  const ataglanceRef = useRef(null)
 
   useEffect(() => {
     let prev = { faded: false, indicator: true, content: false, breadcrumb: false }
@@ -95,6 +96,8 @@ function useScrollProgress() {
       if (breadcrumb !== prev.breadcrumb) {
         prev.breadcrumb = breadcrumb
         breadcrumbRef.current?.classList.toggle('hidden', breadcrumb)
+        // US at-a-glance vanishes on the same threshold as the breadcrumb
+        ataglanceRef.current?.classList.toggle('scroll-hidden', breadcrumb)
       }
     }
 
@@ -111,7 +114,7 @@ function useScrollProgress() {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
-  return { scrollTargetRef, headerRef, scrollIndicatorRef, contentWrapperRef, breadcrumbRef }
+  return { scrollTargetRef, headerRef, scrollIndicatorRef, contentWrapperRef, breadcrumbRef, ataglanceRef }
 }
 
 // ============================================
@@ -199,7 +202,7 @@ function App() {
   }, [isCountyView])
 
   // Scroll — direct DOM manipulation, zero re-renders during scroll
-  const { scrollTargetRef, headerRef, scrollIndicatorRef, contentWrapperRef, breadcrumbRef } = useScrollProgress()
+  const { scrollTargetRef, headerRef, scrollIndicatorRef, contentWrapperRef, breadcrumbRef, ataglanceRef } = useScrollProgress()
 
   // Scroll to top when state is selected
   useEffect(() => {
@@ -260,7 +263,7 @@ function App() {
       {/* US at-a-glance — landing view only */}
       {!selectedState && !isCountyView && (
         <ErrorBoundary label="US at-a-glance" compact>
-          <USAtAGlance visible={navVisible} />
+          <USAtAGlance visible={navVisible} rootRef={ataglanceRef} />
         </ErrorBoundary>
       )}
 
@@ -273,7 +276,7 @@ function App() {
           <div className="scroll-spacer" />
           <div ref={contentWrapperRef} className="content-wrapper">
             <ErrorBoundary label="Content sections">
-              <ContentSections />
+              <ContentSections isVisible={true} />
             </ErrorBoundary>
           </div>
         </>

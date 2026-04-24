@@ -66,8 +66,12 @@ export default function StateCountyMap() {
   // Controlled fade-in
   const [fadeIn, setFadeIn] = useState(false)
 
-  // Enhanced hover state with mouse position
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 })
+  // Enhanced hover state. Mouse position is a ref + rAF-driven DOM mutation
+  // on hoverCardRef (not React state) so moving the cursor doesn't re-render
+  // 100-300 SVG county paths on every pixel.
+  const mousePosRef = useRef({ x: 0, y: 0 })
+  const hoverCardRef = useRef(null)
+  const mouseRafRef = useRef(null)
   const [hoveredData, setHoveredData] = useState(null)
 
   // Map filter state
@@ -87,6 +91,9 @@ export default function StateCountyMap() {
   // Legend toggle (collapsed by default on mobile)
   const [legendOpen, setLegendOpen] = useState(window.innerWidth > 600)
   const [loadError, setLoadError] = useState(null)
+
+  // Bumping this re-runs the county loader effect without a full page reload
+  const [reloadTick, setReloadTick] = useState(0)
 
   // ============================================
   // ZOOM/PAN — ref-based, bypasses React render cycle entirely
@@ -288,12 +295,17 @@ export default function StateCountyMap() {
     }
   }, [])
 
-  // Load county data
+  // Cache the whole-US TopoJSON so switching disease (or re-entering a state
+  // view) doesn't re-download the same 1-2MB file from the CDN.
+  const topologyCacheRef = useRef(null)
+
+  // Load county geometry — only runs when the *selected state* changes.
+  // Disease changes are handled by a separate effect below that re-fetches
+  // just the risk data, so the user never sees the map go blank on a
+  // disease switch.
   useEffect(() => {
     if (!selectedState) return
 
-    // Try primary CDN then mirror. Each wrapped with a 6s timeout so a
-    // hung network doesn't leave the user staring at a spinner forever.
     const fetchWithTimeout = (url, ms = 6000) =>
       Promise.race([
         fetch(url).then(r => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))),
@@ -305,28 +317,37 @@ export default function StateCountyMap() {
       'https://unpkg.com/us-atlas@3/counties-10m.json',
     ]
 
+    let cancelled = false
+
     const loadCounties = async () => {
       setLoading(true)
       setLoadError(null)
       setAnimationPhase('loading')
+      // Clear the old state's counties so the risk-fetch effect below
+      // doesn't fire with stale FIPS during the fetch window.
+      setCounties([])
       setVisibleCounties([])
       setVisibleLabels([])
       animatedCountiesRef.current.clear()
 
       try {
-        let topology = null
-        let lastErr = null
-        for (const url of TOPOJSON_SOURCES) {
-          try {
-            topology = await fetchWithTimeout(url)
-            break
-          } catch (err) {
-            lastErr = err
+        let topology = topologyCacheRef.current
+        if (!topology) {
+          let lastErr = null
+          for (const url of TOPOJSON_SOURCES) {
+            try {
+              topology = await fetchWithTimeout(url)
+              topologyCacheRef.current = topology
+              break
+            } catch (err) {
+              lastErr = err
+            }
           }
+          if (!topology) throw lastErr || new Error('All county data sources failed')
         }
-        if (!topology) throw lastErr || new Error('All county data sources failed')
-        const countiesGeo = feature(topology, topology.objects.counties)
+        if (cancelled) return
 
+        const countiesGeo = feature(topology, topology.objects.counties)
         const stateCode = stateFips[selectedState.name]
         if (!stateCode) {
           setLoading(false)
@@ -343,17 +364,6 @@ export default function StateCountyMap() {
           return acc
         }, {})
 
-        const fipsList = stateCounties.map(f => f.id.toString().padStart(5, '0'))
-
-        // Fetch real risk data for all counties in parallel with rendering.
-        // Passing disease.apiKey so once Jacob's migration is live, the
-        // county colors update per disease.
-        let riskData = null
-        try {
-          riskData = await batchPredictRisk(fipsList, disease.apiKey)
-        } catch (e) { /* backend offline — use fallback */ }
-
-        // Format population with K / M suffix for compact display
         const fmtPop = (n) => {
           if (!n) return null
           if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`
@@ -361,11 +371,13 @@ export default function StateCountyMap() {
           return n.toLocaleString()
         }
 
-        const enrichedCounties = stateCounties.map(f => {
+        // Seed with geometry + fallback data. Risk data arrives via the
+        // disease-aware effect below and is merged in without re-rendering
+        // the whole map.
+        const seededCounties = stateCounties.map(f => {
           const fips = f.id.toString().padStart(5, '0')
           const name = countyNames[f.id] || `County ${f.id}`
           const fallback = generateCountyData(name, selectedState.name)
-          const real = riskData?.[fips]
           const realPop = countyPopulations?.[fips] ?? null
           return {
             ...f,
@@ -378,21 +390,16 @@ export default function StateCountyMap() {
                 population: fmtPop(realPop),
                 populationNum: realPop,
               } : {}),
-              ...(real ? {
-                riskScore: Math.round(real.riskScore),
-                outbreakRisk: real.riskScore < 33 ? 'Low' : real.riskScore < 66 ? 'Medium' : 'High',
-                vaccinationRate: Math.round(real.factors.vaccinationCoverage * 100),
-                healthIndex: Math.round((real.factors.vaccinationCoverage * 50 + (1 - real.factors.climateRisk) * 30 + (1 - real.factors.historicalTrend) * 20) * 100 / 100),
-              } : {}),
             }
           }
         })
 
-        setCounties(enrichedCounties)
+        if (cancelled) return
+        setCounties(seededCounties)
         setLoading(false)
-
-        setTimeout(() => { setAnimationPhase('counties') }, 100)
+        setTimeout(() => { if (!cancelled) setAnimationPhase('counties') }, 100)
       } catch (error) {
+        if (cancelled) return
         console.error('Failed to load county data:', error)
         setLoadError(error?.message || 'Unknown error')
         setLoading(false)
@@ -400,7 +407,49 @@ export default function StateCountyMap() {
     }
 
     loadCounties()
-  }, [selectedState, stateFips, generateCountyData, disease.apiKey])
+    return () => { cancelled = true }
+  }, [selectedState, stateFips, generateCountyData, reloadTick])
+
+  // Fetch risk predictions separately — runs when state *or* disease changes.
+  // On disease switch the geometry stays on screen; only the colors animate
+  // once the new predictions arrive.
+  useEffect(() => {
+    if (!selectedState || counties.length === 0) return
+    let cancelled = false
+
+    const fipsList = counties.map(c => c.properties.fips).filter(Boolean)
+    if (fipsList.length === 0) return
+
+    batchPredictRisk(fipsList, disease.apiKey)
+      .then(riskData => {
+        if (cancelled || !riskData) return
+        setCounties(prev => prev.map(c => {
+          const fips = c.properties.fips
+          const real = riskData[fips]
+          if (!real) return c
+          return {
+            ...c,
+            properties: {
+              ...c.properties,
+              riskScore: Math.round(real.riskScore),
+              outbreakRisk: real.riskScore < 33 ? 'Low' : real.riskScore < 66 ? 'Medium' : 'High',
+              vaccinationRate: Math.round(real.factors.vaccinationCoverage * 100),
+              healthIndex: Math.round(
+                real.factors.vaccinationCoverage * 50
+                + (1 - real.factors.climateRisk) * 30
+                + (1 - real.factors.historicalTrend) * 20
+              ),
+            },
+          }
+        }))
+      })
+      .catch(() => { /* backend offline — keep fallback colors */ })
+
+    return () => { cancelled = true }
+    // counties.length (not counties itself) — only trigger when the geometry
+    // list changes (new state), not every time we patch a county in place.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedState, disease.apiKey, counties.length])
 
   // Hydrate population into already-loaded counties when the store lookup
   // arrives (fires once when /locations resolves, even if county view was
@@ -438,9 +487,13 @@ export default function StateCountyMap() {
     const totalDuration = 800
     const staggerDelay = totalDuration / counties.length
 
+    // Collect every timer ID so we can cancel on cleanup. Without this,
+    // clicking Back → another state mid-animation fires stale timers into
+    // the new state's DOM (wrong county paths animate).
+    const timers = []
+
     sortedIndices.forEach(({ index }, i) => {
-      setTimeout(() => {
-        setVisibleCounties(prev => [...prev, index])
+      timers.push(setTimeout(() => {
         const countyPath = document.querySelector(`[data-county-index="${index}"]`)
         if (countyPath && !animatedCountiesRef.current.has(index)) {
           animatedCountiesRef.current.add(index)
@@ -453,24 +506,35 @@ export default function StateCountyMap() {
             fill: 'forwards'
           })
         }
-      }, i * staggerDelay)
+      }, i * staggerDelay))
     })
 
-    setTimeout(() => { setAnimationPhase('labels') }, totalDuration + 200)
+    // One batched update once the animations are underway so React's opacity
+    // attribute matches reality (prevents later re-renders from flashing the
+    // counties back to opacity 0).
+    timers.push(setTimeout(() => {
+      setVisibleCounties(counties.map((_, i) => i))
+    }, Math.min(100, staggerDelay * 2)))
+
+    timers.push(setTimeout(() => { setAnimationPhase('labels') }, totalDuration + 200))
+
+    return () => { timers.forEach(clearTimeout) }
   }, [animationPhase, counties])
 
-  // Staggered label animation
+  // Staggered label animation — same batching treatment as counties to
+  // avoid N re-renders across the 600ms label fade-in. CSS opacity
+  // transition on .county-label handles the visual stagger via delay.
   useEffect(() => {
     if (animationPhase !== 'labels' || counties.length === 0) return
 
     const totalDuration = 600
     const staggerDelay = totalDuration / counties.length
 
-    counties.forEach((_, index) => {
-      setTimeout(() => {
-        setVisibleLabels(prev => [...prev, index])
-      }, index * staggerDelay)
-    })
+    // Flip all labels to visible in one render; visual stagger is done
+    // by CSS transition on .county-label (opacity 0.3s).
+    setTimeout(() => {
+      setVisibleLabels(counties.map((_, i) => i))
+    }, Math.min(50, staggerDelay))
 
     setTimeout(() => {
       setAnimationPhase('complete')
@@ -613,8 +677,26 @@ export default function StateCountyMap() {
     })
   }, [setHoveredCounty])
 
+  // Mouse tracker — writes to a ref, then schedules a single rAF to mutate
+  // the hover card's position in the DOM. This replaces a per-pixel setState
+  // that was re-rendering all county paths.
   const handleMouseMove = useCallback((e) => {
-    setMousePos({ x: e.clientX, y: e.clientY })
+    mousePosRef.current.x = e.clientX
+    mousePosRef.current.y = e.clientY
+    if (mouseRafRef.current != null) return
+    mouseRafRef.current = requestAnimationFrame(() => {
+      mouseRafRef.current = null
+      const el = hoverCardRef.current
+      if (!el) return
+      const { x, y } = mousePosRef.current
+      el.style.left = `${Math.min(x + 16, window.innerWidth - 260)}px`
+      el.style.top = `${Math.max(y - 80, 10)}px`
+    })
+  }, [])
+
+  // Cancel any pending rAF on unmount
+  useEffect(() => () => {
+    if (mouseRafRef.current != null) cancelAnimationFrame(mouseRafRef.current)
   }, [])
 
   // Back button
@@ -711,14 +793,15 @@ export default function StateCountyMap() {
                 { value: 'vaccinationRate', label: 'Vaccination', sub: 'ML factor' },
                 { value: 'healthIndex', label: 'Health Index', sub: 'derived composite' },
               ].map(opt => (
-                <div
+                <button
+                  type="button"
                   key={opt.value}
                   className={`dropdown-option ${colorMetric === opt.value ? 'selected' : ''}`}
                   onClick={() => { setColorMetric(opt.value); setColorMetricOpen(false) }}
                 >
                   <span>{opt.label}</span>
                   <span className="color-metric-sub">{opt.sub}</span>
-                </div>
+                </button>
               ))}
             </div>
           )}
@@ -765,13 +848,14 @@ export default function StateCountyMap() {
                     { value: 'healthIndex', label: 'Health Index' },
                     { value: 'populationNum', label: 'Population' },
                   ].map(opt => (
-                    <div
+                    <button
+                      type="button"
                       key={opt.value}
                       className={`dropdown-option ${sortMetric === opt.value ? 'selected' : ''}`}
                       onClick={() => { setSortMetric(opt.value); setSortDropdownOpen(false) }}
                     >
                       {opt.label}
-                    </div>
+                    </button>
                   ))}
                 </div>
               )}
@@ -865,11 +949,12 @@ export default function StateCountyMap() {
             <button
               className="county-error-btn primary"
               onClick={() => {
+                // Re-trigger the loader without a full page reload
+                // (a full reload would wipe Zustand state and dump the
+                // user back on the landing globe)
                 setLoadError(null)
-                // Re-trigger the effect by touching a dep (forcing re-run
-                // via a state change). Simplest way: re-run the loader by
-                // re-entering the county view.
-                window.location.reload()
+                topologyCacheRef.current = null
+                setReloadTick(t => t + 1)
               }}
             >
               Reload
@@ -1135,13 +1220,15 @@ export default function StateCountyMap() {
       {/* Breadcrumb handled by App.jsx (external .breadcrumb) in county view */}
 
 
-      {/* Rich Hover Card — follows cursor */}
+      {/* Rich Hover Card — position updated via ref + rAF in handleMouseMove,
+          not React state, so cursor movement doesn't re-render the map. */}
       {hoveredData && !selectedCounty && (
         <div
+          ref={hoverCardRef}
           className="county-hover-card"
           style={{
-            left: Math.min(mousePos.x + 16, window.innerWidth - 260),
-            top: Math.max(mousePos.y - 80, 10),
+            left: Math.min(mousePosRef.current.x + 16, window.innerWidth - 260),
+            top: Math.max(mousePosRef.current.y - 80, 10),
           }}
         >
           <div className="hover-card-header">

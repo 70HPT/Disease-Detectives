@@ -160,8 +160,11 @@ export function CaseTrendChart({ stateName, animate, fipsOverride, locationLabel
   const disease = getDiseaseById(selectedDisease)
 
   // If an explicit FIPS is passed (county scope), use it; otherwise fall
-  // back to the statewide rollup derived from stateName.
-  const effectiveFips = fipsOverride || (stateName ? stateFips[stateName] + '000' : null)
+  // back to the statewide rollup derived from stateName. Guard on the
+  // lookup so an unknown state (typo, territory we don't have mapped)
+  // doesn't produce "undefined000" and waste 2.4s of retries.
+  const effectiveFips = fipsOverride
+    || (stateName && stateFips[stateName] ? stateFips[stateName] + '000' : null)
   const effectiveLabel = locationLabel || stateName
 
   useEffect(() => {
@@ -266,8 +269,8 @@ export function CaseTrendChart({ stateName, animate, fipsOverride, locationLabel
           </div>
           <div className="tl-trend-empty-subtitle">
             {scope === 'county'
-              ? `${disease.name} case history for ${effectiveLabel} isn't available yet. Try a different disease or check back once the dataset is updated.`
-              : `${disease.name} surveillance for ${effectiveLabel} is awaiting a statewide rollup in the database. The UI will populate automatically once the aggregated weekly totals are seeded.`}
+              ? `Weekly ${disease.name.toLowerCase()} case history for ${effectiveLabel} isn't available yet. Try another disease, or check back later.`
+              : `Weekly ${disease.name.toLowerCase()} surveillance for ${effectiveLabel} isn't available yet. The chart will populate once the data is live.`}
           </div>
         </div>
       </div>
@@ -489,8 +492,9 @@ export function CaseTrendChart({ stateName, animate, fipsOverride, locationLabel
 
       {/* Tooltip — positioned absolutely to follow the cursor.
           Climate snapshot is included when the record ships one. */}
-      {hoverIdx !== null && (() => {
+      {hoverIdx !== null && hoverIdx < data.length && (() => {
         const row = data[hoverIdx]
+        if (!row) return null
         const climate = row?.climateData || null
         const temp = climate?.avg_temp ?? climate?.avgTemp
         const humidity = climate?.avg_humidity ?? climate?.avgHumidity

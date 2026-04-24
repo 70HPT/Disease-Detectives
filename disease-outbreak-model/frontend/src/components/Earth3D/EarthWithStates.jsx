@@ -10,7 +10,10 @@ import StateEventMarkers from '../Earth3D/StateEventMarkers'
 import { OCEAN_PRESETS } from '../../store/useStore'
 import STATE_CENTROIDS from '../../data/stateCentroids'
 
-import earthDayMap6 from '../../assets/textures/8k_earth_daymap6.png'
+// Use the 4MB .jpg over the 19MB .png — the PNG was slow to decode
+// (and sometimes failed to load) on first paint, leaving the globe blank
+// even though the topographic variant worked fine.
+import earthDayMap6 from '../../assets/textures/8k_earth_daymap6.jpg'
 import earthDayMap1 from '../../assets/textures/8k_earth_daymap1.jpg'
 import earthDayMap3 from '../../assets/textures/8k_earth_daymap3.jpg'
 
@@ -277,18 +280,27 @@ function MilkyWaySkybox({ rotationRef, introProgressRef, scrollProgressRef, scen
     sceneReadyRef.current = sceneReady
   }, [sceneReady])
 
+  // Hold the previous texture so we can dispose GPU memory on swap / unmount.
+  // Without this, cycling skyboxes in settings accumulates VRAM over the demo.
+  const currentTextureRef = useRef(null)
+
   useEffect(() => {
     const textureUrl = skyboxUrl || milkyWayMap
     if (!textureUrl) return
     const loader = new THREE.TextureLoader()
+    let cancelled = false
 
     loader.load(
       textureUrl,
       (loadedTexture) => {
+        if (cancelled) { loadedTexture.dispose(); return }
         loadedTexture.colorSpace = THREE.SRGBColorSpace
         loadedTexture.anisotropy = 4
         loadedTexture.minFilter = THREE.LinearMipmapLinearFilter
         loadedTexture.magFilter = THREE.LinearFilter
+        // Release the previous skybox texture now that the new one is in.
+        currentTextureRef.current?.dispose()
+        currentTextureRef.current = loadedTexture
         setTexture(loadedTexture)
         if (onTextureLoadedRef.current) onTextureLoadedRef.current('milkyway')
       },
@@ -298,7 +310,12 @@ function MilkyWaySkybox({ rotationRef, introProgressRef, scrollProgressRef, scen
         if (onTextureLoadedRef.current) onTextureLoadedRef.current('milkyway')
       }
     )
+
+    return () => { cancelled = true }
   }, [skyboxUrl])
+
+  // Dispose the final texture when the component unmounts entirely
+  useEffect(() => () => { currentTextureRef.current?.dispose() }, [])
 
   // Parallax rotation with Earth + intro zoom effect + fade-in animation
   useFrame(() => {
@@ -1766,6 +1783,9 @@ export default function EarthWithStates({ scrollTargetRef }) {
     }
   }, [introComplete])
   const [statesVisible, setStatesVisible] = useState(false) // Triggers state mesh mounting
+  // Guards the deferred setStatesVisible trigger from firing on every frame
+  // between 95% and when React flushes the state update on the next tick
+  const statesVisibleSentRef = useRef(false)
   const zoomSpeedRef = useRef(0)
   const statesOpacityRef = useRef(0)
   const introStartTime = useRef(null)
@@ -1800,7 +1820,6 @@ export default function EarthWithStates({ scrollTargetRef }) {
   const heatmapColors = useMemo(() => {
     if (!heatmapEnabled) return null
     const colors = {}
-    const airMap = { 'Good': 85, 'Moderate': 60, 'Poor': 35, 'Unhealthy': 15 }
     // Determine if higher = better or worse (in green/red gradient terms)
     const invertMetrics = { riskScore: true } // higher risk = worse
 
@@ -1825,10 +1844,7 @@ export default function EarthWithStates({ scrollTargetRef }) {
 
     Object.entries(storeStateData).forEach(([name, data]) => {
       let normalized
-      if (heatmapMetric === 'airQuality') {
-        const v = airMap[data.airQuality] || 50
-        normalized = Math.max(0, Math.min(1, v / 100))
-      } else if (heatmapMetric === 'populationNum') {
+      if (heatmapMetric === 'populationNum') {
         const v = data?.populationNum || 0
         normalized = maxPop > 0 ? v / maxPop : 0
       } else if (heatmapMetric === 'corridorVolume') {
@@ -2600,9 +2616,12 @@ export default function EarthWithStates({ scrollTargetRef }) {
       }
       earthOpacityRef.current.value = earthFadeProgress
 
-      // Mount state meshes at 95% progress (delayed to avoid CPU spike during zoom)
-      if (rawProgress > 0.95 && !statesVisible) {
-        setStatesVisible(true)
+      // Mount state meshes at 95% progress (delayed to avoid CPU spike during zoom).
+      // Defer the React state update out of the render frame so the setter
+      // doesn't cause a mid-frame re-render stutter at the 95% mark.
+      if (rawProgress > 0.95 && !statesVisible && !statesVisibleSentRef.current) {
+        statesVisibleSentRef.current = true
+        setTimeout(() => setStatesVisible(true), 0)
       }
 
       // Intro complete

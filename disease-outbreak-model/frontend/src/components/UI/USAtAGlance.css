@@ -31,6 +31,14 @@
   pointer-events: auto;
 }
 
+/* Scroll-driven fade-out — mirrors .breadcrumb.hidden so the card
+   disappears at the same threshold as the breadcrumb. */
+.us-ataglance.visible.scroll-hidden {
+  opacity: 0;
+  transform: translateY(20px);
+  pointer-events: none;
+}
+
 .uag-header {
   display: flex;
   align-items: center;

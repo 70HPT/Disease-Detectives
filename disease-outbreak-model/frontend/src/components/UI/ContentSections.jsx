@@ -264,7 +264,7 @@ function DiseaseSpotlight({ year, isVisible }) {
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7z" />
               </svg>
-              Summary · Reference
+              Overview
             </div>
             <p>{data.overview}</p>
           </div>
@@ -432,8 +432,8 @@ function DataSources({ isVisible }) {
     { name: 'WHO GHO', full: 'Global Health Observatory', type: 'National indicators feeding the Global Health Pulse, direct API', status: 'ready' },
     { name: 'Internal DB', full: 'Neon Postgres · Locations + Predictions', type: 'County demographics and model outputs, served via FastAPI', status: 'ready' },
     { name: 'Outbreak LSTM', full: 'DiseasePredictor (Influenza · COVID-19 · Salmonella)', type: 'Per-disease risk scores and classification from the trained model', status: 'ready' },
-    { name: 'CDC Socrata', full: 'CDC Surveillance API', type: 'State-level disease reporting — integration reserved', status: 'pending' },
-    { name: 'NOAA CDO', full: 'Climate Data Online', type: 'Climate factors for outbreak risk — integration reserved', status: 'pending' },
+    { name: 'CDC Socrata', full: 'CDC Surveillance API', type: 'State-level disease reporting — on the roadmap', status: 'planned' },
+    { name: 'NOAA CDO', full: 'Climate Data Online', type: 'Climate factors for outbreak risk — on the roadmap', status: 'planned' },
   ]
 
   return (
@@ -454,7 +454,7 @@ function DataSources({ isVisible }) {
             <div className="cs-source-top">
               <span className="cs-source-name">{source.name}</span>
               <span className={`cs-source-status status-${source.status}`}>
-                {source.status === 'ready' ? 'Connected' : 'Pending'}
+                {source.status === 'ready' ? 'Connected' : 'Planned'}
               </span>
             </div>
             <span className="cs-source-full">{source.full}</span>

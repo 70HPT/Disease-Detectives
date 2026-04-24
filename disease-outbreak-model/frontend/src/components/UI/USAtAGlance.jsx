@@ -29,7 +29,7 @@ const REGION_BUCKETS = {
 // Pulls live from hydrated store + corridor data so it updates when the
 // backend comes online.
 // ============================================
-export default function USAtAGlance({ visible }) {
+export default function USAtAGlance({ visible, rootRef }) {
   const stateData = useStore(s => s.stateData)
   const stateDataLoaded = useStore(s => s.stateDataLoaded)
   const openComparison = useStore(s => s.openComparison)
@@ -123,11 +123,11 @@ export default function USAtAGlance({ visible }) {
   }
 
   return (
-    <div className={`us-ataglance ${entered ? 'visible' : ''}`}>
+    <div ref={rootRef} className={`us-ataglance ${entered ? 'visible' : ''}`}>
       <div className="uag-header">
         <span className="uag-dot" />
         <span className="uag-title">US · At a glance</span>
-        <span className="uag-subtitle">{stateDataLoaded ? 'live' : 'awaiting data'}</span>
+        <span className="uag-subtitle">{stateDataLoaded ? 'live' : '—'}</span>
       </div>
 
       {/* Risk distribution */}
@@ -164,7 +164,7 @@ export default function USAtAGlance({ visible }) {
             )}
           </div>
         ) : (
-          <span className="uag-row-empty">Pending API data</span>
+          <span className="uag-row-empty">—</span>
         )}
       </div>
 
@@ -175,6 +175,17 @@ export default function USAtAGlance({ visible }) {
           <span className="uag-row-value">
             {summary.peakState.name}
             <span className="uag-row-subtext">{summary.peakState.riskScore}/100</span>
+          </span>
+        </div>
+      )}
+
+      {/* Most populous state */}
+      {summary.mostPopulous && (
+        <div className="uag-row">
+          <span className="uag-row-label">Most populous</span>
+          <span className="uag-row-value">
+            {summary.mostPopulous.name}
+            <span className="uag-row-subtext">{summary.mostPopulous.population || '—'}</span>
           </span>
         </div>
       )}
