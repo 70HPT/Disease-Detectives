@@ -70,6 +70,37 @@ export const TRACKED_DISEASES = [
     },
   },
   {
+    id: 'Chlamydia',
+    name: 'Chlamydia',
+    apiKey: 'chlamydia',
+    modelKey: 'chlamydia_lstm',
+    sourceLabel: 'AtlasPlus',
+    accent: '#ec4899',
+    spotlight: {
+      overview: (year) => `Chlamydia remained the most commonly reported notifiable STI in ${year}, with roughly 1.6 million US cases. Because up to 70% of infections in women are asymptomatic, reported counts substantially undercount true incidence. Young adults 15-24 account for the majority of diagnoses.`,
+      keyFinding: 'Asymptomatic transmission among women 15-24 drives the bulk of undiagnosed spread — targeted screening remains the highest-leverage intervention',
+      stats: [
+        { label: 'Annual US cases', value: '~1.6M', sub: 'reported to CDC' },
+        { label: 'Age 15-24 share', value: '~60%', sub: 'of diagnoses' },
+        { label: 'Asymptomatic rate', value: '~70%', sub: 'in women' },
+        { label: 'PID risk if untreated', value: '10-15%', sub: 'leading to infertility' },
+      ],
+      profile: {
+        pathogen: 'Chlamydia trachomatis (bacteria)',
+        transmission: 'Sexual contact · perinatal',
+        incubation: '7-21 days',
+        duration: 'Weeks to months if untreated',
+        peakSeason: 'Year-round',
+      },
+      riskGroups: ['Age 15-24', 'Women', 'Men who have sex with men', 'Multiple partners', 'Inconsistent condom use'],
+      prevention: [
+        { label: 'Annual screening', detail: 'sexually active women under 25' },
+        { label: 'Consistent condom use', detail: 'reduces transmission risk' },
+        { label: 'Partner notification + treatment', detail: 'prevents reinfection cycle' },
+      ],
+    },
+  },
+  {
     id: 'Salmonella',
     name: 'Salmonella',
     apiKey: 'salmonella',
