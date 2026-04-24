@@ -36,12 +36,13 @@ async def lifespan(app: FastAPI):
     await init_db()
     logger.info("Database initialized")
 
-    # Load ML model into memory
-    prediction_service.load_model(settings.model_path, settings.model_device)
+    # Load all disease models (influenza, covid, salmonella)
+    prediction_service.load_all_models(settings.model_device)
     if prediction_service.is_loaded:
-        logger.info(f"ML model loaded: {prediction_service.model_version}")
+        loaded = list(prediction_service.disease_state_probs.keys())
+        logger.info(f"ML models loaded: {loaded}")
     else:
-        logger.warning("ML model not found — running with mock predictions")
+        logger.warning("ML models not found — running with mock predictions")
 
     yield
 

@@ -404,6 +404,7 @@ async def seed_database(database_url: str | None = None):
 
                 pred = Prediction(
                     location_id=loc_id,
+                    disease_type=disease,
                     risk_score=score,
                     confidence=round(random.uniform(0.4, 0.9), 4),
                     factors={
