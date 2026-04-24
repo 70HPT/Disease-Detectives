@@ -453,6 +453,12 @@ async def seed_database(database_url: str | None = None):
             "description": "LSTM binary classifier trained on national salmonella monthly data",
             "file_path": "models/best_salmonella_lstm_classifier.pth",
         },
+        {
+            "version": "chlamydia_lstm_v1",
+            "disease": "chlamydia",
+            "description": "LSTM binary classifier trained on county-level CDC AtlasPlus yearly chlamydia data",
+            "file_path": "models/best_us_lstm_classifier.pth",
+        },
     ]
 
     async with async_session() as session:

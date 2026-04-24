@@ -39,6 +39,7 @@ async def predict_risk(req: RiskRequest, db: AsyncSession = Depends(get_db)):
     # Assemble features from DB + external APIs
     features = await build_features_for_location(req.fips, db=db)
     features["state"] = location.state
+    features["fips"] = req.fips
 
     # Run ML prediction
     prediction = prediction_service.predict(features, disease_type=req.disease_type)
@@ -250,6 +251,7 @@ async def batch_predict(req: BatchRiskRequest, db: AsyncSession = Depends(get_db
             # Run a fresh prediction
             features = await build_features_for_location(fips, db=db)
             features["state"] = location.state
+            features["fips"] = fips
             pred_data = prediction_service.predict(features, disease_type=req.disease_type)
 
             db_pred = Prediction(
