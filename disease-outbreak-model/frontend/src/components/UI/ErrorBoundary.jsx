@@ -23,10 +23,10 @@ export default class ErrorBoundary extends Component {
   render() {
     if (!this.state.hasError) return this.props.children
 
-    const { label = 'This panel', compact = false } = this.props
+    const { label = 'This panel', compact = false, fullscreen = false } = this.props
 
     return (
-      <div className={`error-boundary ${compact ? 'compact' : ''}`}>
+      <div className={`error-boundary ${compact ? 'compact' : ''} ${fullscreen ? 'fullscreen' : ''}`}>
         <div className="error-boundary-icon">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="10" />

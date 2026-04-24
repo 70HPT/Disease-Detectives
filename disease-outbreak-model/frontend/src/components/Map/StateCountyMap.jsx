@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, useMemo, useCallback } from 'react'
+import { useRef, useState, useEffect, useLayoutEffect, useMemo, useCallback } from 'react'
 import * as d3 from 'd3'
 import { feature } from 'topojson-client'
 import useStore from '../../store/useStore'
@@ -440,6 +440,12 @@ export default function StateCountyMap() {
   // hit can take 5+s while the backend runs fresh ML predictions.
   const [riskLoading, setRiskLoading] = useState(false)
 
+  // Gate the color-stagger animation so it runs exactly once per
+  // (state, disease) pair — resetting when either changes. Without this,
+  // color-metric toggles or incidental re-renders would re-trigger the
+  // left-to-right reveal and feel glitchy.
+  const colorStaggerDoneRef = useRef(false)
+
   // Fetch risk predictions separately — runs when state *or* disease changes.
   // On disease switch the geometry stays on screen; only the colors animate
   // once the new predictions arrive.
@@ -451,6 +457,8 @@ export default function StateCountyMap() {
     if (fipsList.length === 0) return
 
     setRiskLoading(true)
+    // Reset so the upcoming data landing re-arms the stagger animation.
+    colorStaggerDoneRef.current = false
     batchPredictRisk(fipsList, disease.apiKey)
       .then(riskData => {
         if (cancelled) return
@@ -656,6 +664,58 @@ export default function StateCountyMap() {
     if (v >= 30) return '#f97316'
     return '#ef4444'
   }, [colorMetric, metricMax])
+
+  // Color stagger — once risk data lands, sweep the counties' fills from
+  // neutral gray to their risk color left-to-right. useLayoutEffect fires
+  // synchronously after commit so we beat the browser to paint (no flash
+  // of the target colors before the stagger kicks in). Guarded by a ref
+  // so it runs exactly once per (state × disease) landing.
+  // Placed here (below pathGenerator + getCountyColor) because it reads
+  // both — moving it earlier hits a TDZ ReferenceError.
+  useLayoutEffect(() => {
+    if (riskLoading || colorStaggerDoneRef.current) return
+    if (!pathGenerator || counties.length === 0) return
+    const anyHasRisk = counties.some(c => c.properties.riskScore != null)
+    if (!anyHasRisk) return
+    colorStaggerDoneRef.current = true
+
+    // Sort by centroid x so the reveal sweeps west → east.
+    const ordered = counties
+      .map((c, index) => {
+        const centroid = pathGenerator.centroid(c)
+        return {
+          index,
+          x: Number.isFinite(centroid[0]) ? centroid[0] : 0,
+          targetColor: getCountyColor(c.properties),
+        }
+      })
+      .sort((a, b) => a.x - b.x)
+
+    // Cap per-step delay so wide states (Texas = 254 counties) don't
+    // drag the reveal out to several seconds.
+    const totalDuration = 900
+    const staggerDelay = Math.min(10, totalDuration / ordered.length)
+    const FROM_FILL = NO_DATA_COLOR
+
+    ordered.forEach(({ index, targetColor }, i) => {
+      const path = document.querySelector(`[data-county-index="${index}"]`)
+      if (!path) return
+      path.animate(
+        [
+          { fill: FROM_FILL },
+          { fill: targetColor },
+        ],
+        {
+          duration: 480,
+          delay: i * staggerDelay,
+          easing: 'cubic-bezier(0.4, 0, 0.2, 1)',
+          // `both` applies the first keyframe (gray) during the delay so
+          // counties don't flash their target color before their turn.
+          fill: 'both',
+        }
+      )
+    })
+  }, [riskLoading, counties, pathGenerator, getCountyColor, NO_DATA_COLOR])
 
   // Risk category for filtering — always based on riskScore regardless of
   // the active color metric (filters are a separate concern).

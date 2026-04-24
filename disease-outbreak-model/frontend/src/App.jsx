@@ -302,7 +302,7 @@ function App() {
 
       {/* UI Overlays */}
       {isCountyView && (
-        <ErrorBoundary label="County map">
+        <ErrorBoundary label="County map" fullscreen>
           <StateCountyMap key={countyViewKey} />
         </ErrorBoundary>
       )}

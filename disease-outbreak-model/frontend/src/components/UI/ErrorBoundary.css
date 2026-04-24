@@ -27,6 +27,49 @@
   gap: 4px;
 }
 
+/* Fullscreen variant — used when the failing component was the main
+   content area (e.g. county map). Pins to the viewport minus the fixed
+   42px navbar so the fallback card lands visually centered. The 380px
+   right offset leaves room for the open state panel on desktop. */
+.error-boundary.fullscreen {
+  position: fixed;
+  top: 42px;
+  left: 0;
+  right: 380px;
+  bottom: 0;
+  margin: 0;
+  border-radius: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  z-index: 100;
+}
+
+.error-boundary.fullscreen::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(10, 15, 26, 0.85) 0%,
+    rgba(2, 4, 8, 0.6) 70%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+
+.error-boundary.fullscreen > * {
+  position: relative;
+  z-index: 1;
+}
+
+@media (max-width: 900px) {
+  .error-boundary.fullscreen {
+    right: 0;
+    bottom: 55vh;
+  }
+}
+
 .error-boundary-icon {
   color: rgba(248, 113, 113, 0.75);
   margin-bottom: 2px;
