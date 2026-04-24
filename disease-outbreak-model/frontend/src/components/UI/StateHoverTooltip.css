@@ -1,0 +1,135 @@
+.sht-tooltip {
+  position: fixed;
+  z-index: 200;
+  padding: 12px 14px;
+  background: linear-gradient(
+    165deg,
+    rgba(10, 15, 26, 0.96) 0%,
+    rgba(2, 4, 8, 0.98) 100%
+  );
+  border: 1px solid rgba(0, 255, 204, 0.25);
+  border-radius: 10px;
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.6),
+    0 0 30px rgba(0, 255, 204, 0.05);
+  pointer-events: none;
+  animation: sht-in 0.15s ease-out;
+}
+
+@keyframes sht-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.sht-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.sht-name {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.sht-abbr {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: rgba(0, 255, 204, 0.7);
+  letter-spacing: 0.08em;
+}
+
+.sht-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 4px 0;
+}
+
+.sht-label {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.sht-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.sht-value-sub {
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 10px;
+}
+
+.sht-risk-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.sht-corridor {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 8px;
+  padding: 7px 10px;
+  background: rgba(14, 165, 233, 0.06);
+  border: 1px solid rgba(14, 165, 233, 0.2);
+  border-radius: 7px;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.sht-corridor svg {
+  color: rgba(14, 165, 233, 0.85);
+  flex-shrink: 0;
+}
+
+.sht-corridor-label {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(14, 165, 233, 0.7);
+}
+
+.sht-corridor-target {
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.sht-corridor-volume {
+  margin-left: auto;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.sht-footer {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(0, 255, 204, 0.5);
+  text-align: center;
+}

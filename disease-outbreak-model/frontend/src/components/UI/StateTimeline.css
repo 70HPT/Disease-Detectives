@@ -500,10 +500,33 @@
 
 /* Case Trend Chart */
 .tl-trend-chart {
+  position: relative;
   padding: 8px 20px;
   opacity: 0;
   transform: translateY(6px);
   transition: opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.3s, transform 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.3s;
+  /* Horizontal scroll when the panel is too narrow for the full chart
+     (county context — state panel is only 380px) */
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 255, 204, 0.2) transparent;
+  /* The state panel is a flex column. Without this, the chart gets
+     squeezed to near-zero height when other content fills the panel. */
+  flex-shrink: 0;
+}
+
+.tl-trend-chart::-webkit-scrollbar {
+  height: 6px;
+}
+
+.tl-trend-chart::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.tl-trend-chart::-webkit-scrollbar-thumb {
+  background: rgba(0, 255, 204, 0.2);
+  border-radius: 3px;
 }
 
 .tl-trend-chart.visible {
@@ -516,6 +539,8 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 4px;
+  /* Match the SVG min-width so the header and chart scroll in lockstep */
+  min-width: 720px;
 }
 
 .tl-trend-title {
@@ -534,6 +559,10 @@
 
 .tl-trend-svg {
   width: 100%;
+  /* viewBox is 800x180 with preserveAspectRatio="none".
+     Under ~720px the line/labels start compressing — enforce that as the
+     floor and let the parent scroll horizontally when the panel is narrower. */
+  min-width: 720px;
   height: 180px;
   display: block;
   cursor: crosshair;
@@ -564,18 +593,24 @@
 }
 
 .tl-trend-tooltip {
-  position: relative;
-  margin: 4px 20px -4px auto;
+  /* Follows the cursor — left/top come from React state.
+     Absolute positioning keeps the tooltip out of the flow so the chart
+     doesn't reflow when the user hovers. */
+  position: absolute;
   display: inline-flex;
   gap: 10px;
   padding: 4px 8px;
   border-radius: 4px;
-  background: rgba(10, 16, 32, 0.9);
+  background: rgba(10, 16, 32, 0.95);
   border: 1px solid rgba(0, 255, 204, 0.3);
   font-family: 'JetBrains Mono', monospace;
   font-size: 10px;
-  float: right;
   pointer-events: none;
+  z-index: 5;
+  white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+  /* Smooth position interpolation so fast cursor moves don't jitter */
+  transition: left 0.08s linear, top 0.08s linear;
 }
 
 .tl-trend-tooltip-date {
@@ -585,6 +620,15 @@
 .tl-trend-tooltip-value {
   color: #00ffcc;
   font-weight: 600;
+}
+
+.tl-trend-tooltip-climate {
+  display: inline-flex;
+  gap: 8px;
+  padding-left: 8px;
+  margin-left: 2px;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .tl-trend-controls {
@@ -640,6 +684,12 @@
   color: rgba(255, 255, 255, 0.35);
   margin-right: 4px;
   font-weight: 500;
+}
+
+.tl-trend-stat-sub {
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 9px;
+  margin-left: 2px;
 }
 
 .tl-trend-footer {

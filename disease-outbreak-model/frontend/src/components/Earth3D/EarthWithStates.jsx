@@ -2,9 +2,11 @@ import React, { useRef, useMemo, useState, useEffect, useCallback } from 'react'
 import { useFrame, useLoader, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { TextureLoader } from 'three'
+import TRANSMISSION_CORRIDORS from '../../data/transmissionCorridors'
 import { feature } from 'topojson-client'
 import useStore from '../../store/useStore'
 import TransmissionArcs from '../Earth3D/TransmissionArcs'
+import StateEventMarkers from '../Earth3D/StateEventMarkers'
 import { OCEAN_PRESETS } from '../../store/useStore'
 import STATE_CENTROIDS from '../../data/stateCentroids'
 
@@ -1799,19 +1801,44 @@ export default function EarthWithStates({ scrollTargetRef }) {
     if (!heatmapEnabled) return null
     const colors = {}
     const airMap = { 'Good': 85, 'Moderate': 60, 'Poor': 35, 'Unhealthy': 15 }
-    // Determine if higher = better or worse
+    // Determine if higher = better or worse (in green/red gradient terms)
     const invertMetrics = { riskScore: true } // higher risk = worse
+
+    // For population + corridor volume, normalize against the dataset max
+    // (no fixed 0-100 scale — every state is scored against its peers).
+    let maxPop = 0
+    let maxCorridor = 0
+    if (heatmapMetric === 'populationNum' || heatmapMetric === 'corridorVolume') {
+      for (const [name, data] of Object.entries(storeStateData)) {
+        if (heatmapMetric === 'populationNum' && data?.populationNum) {
+          if (data.populationNum > maxPop) maxPop = data.populationNum
+        }
+        if (heatmapMetric === 'corridorVolume') {
+          const arr = TRANSMISSION_CORRIDORS[name] || []
+          const sum = arr.reduce((s, c) => s + (c.travelVolume || 0), 0)
+          if (sum > maxCorridor) maxCorridor = sum
+        }
+      }
+    }
+
     const isInverted = invertMetrics[heatmapMetric]
 
     Object.entries(storeStateData).forEach(([name, data]) => {
-      let value
+      let normalized
       if (heatmapMetric === 'airQuality') {
-        value = airMap[data.airQuality] || 50
+        const v = airMap[data.airQuality] || 50
+        normalized = Math.max(0, Math.min(1, v / 100))
+      } else if (heatmapMetric === 'populationNum') {
+        const v = data?.populationNum || 0
+        normalized = maxPop > 0 ? v / maxPop : 0
+      } else if (heatmapMetric === 'corridorVolume') {
+        const arr = TRANSMISSION_CORRIDORS[name] || []
+        const sum = arr.reduce((s, c) => s + (c.travelVolume || 0), 0)
+        normalized = maxCorridor > 0 ? sum / maxCorridor : 0
       } else {
-        value = data[heatmapMetric] ?? 50
+        const v = data[heatmapMetric] ?? 50
+        normalized = Math.max(0, Math.min(1, v / 100))
       }
-      // Normalize to 0-1 where 1 = good (green)
-      let normalized = Math.max(0, Math.min(1, value / 100))
       if (isInverted) normalized = 1 - normalized
 
       // Color gradient: red (0) -> amber (0.5) -> green (1)
@@ -3032,10 +3059,21 @@ export default function EarthWithStates({ scrollTargetRef }) {
             />
           ))}
 
-          {/* Transmission corridor arcs appear after zoom to state completes */}
+          {/* Transmission corridor arcs: full set after zoom to state completes,
+              faint preview arc on hover when nothing selected. */}
           <TransmissionArcs
             selectedStateName={selectedState?.name || null}
+            hoveredStateName={hoveredState}
             isAnimatingRef={isAnimatingRef}
+          />
+
+          {/* History event markers — tiny pulsing dots at states with
+              entries in STATE_EVENTS. Hidden once a state is selected so the
+              globe can transition into its state-detail view cleanly. */}
+          <StateEventMarkers
+            selectedStateName={selectedState?.name || null}
+            isAnimatingRef={isAnimatingRef}
+            visible={introComplete && !selectedState && !isCountyView}
           />
         </group>
       </group>

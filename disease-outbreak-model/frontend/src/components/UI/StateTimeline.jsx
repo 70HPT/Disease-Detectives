@@ -147,18 +147,25 @@ function yearTicks(rows) {
   return ticks
 }
 
-function CaseTrendChart({ stateName, animate }) {
+export function CaseTrendChart({ stateName, animate, fipsOverride, locationLabel, scope = 'state' }) {
   const [rawData, setRawData] = useState(null)
   const [loading, setLoading] = useState(false)
   const [range, setRange] = useState('all')
   const [hoverIdx, setHoverIdx] = useState(null)
+  const [hoverPos, setHoverPos] = useState({ x: 0, y: 0 })
   const svgRef = useRef(null)
+  const chartRef = useRef(null)
   const stateFips = useStore(s => s.stateFips)
   const selectedDisease = useStore(s => s.selectedDisease)
   const disease = getDiseaseById(selectedDisease)
 
+  // If an explicit FIPS is passed (county scope), use it; otherwise fall
+  // back to the statewide rollup derived from stateName.
+  const effectiveFips = fipsOverride || (stateName ? stateFips[stateName] + '000' : null)
+  const effectiveLabel = locationLabel || stateName
+
   useEffect(() => {
-    if (!stateName || !stateFips[stateName]) return
+    if (!effectiveFips) return
     let cancelled = false
     let timer
 
@@ -167,11 +174,7 @@ function CaseTrendChart({ stateName, animate }) {
     setRange('all')
     setHoverIdx(null)
 
-    // Statewide rollup FIPS ({state_fips}000). When Jacob's aggregation seed
-    // runs, this automatically starts returning real state-level totals. Until
-    // then the chart honestly shows the empty state rather than pretending a
-    // single county's data represents the whole state.
-    const fips = stateFips[stateName] + '000'
+    const fips = effectiveFips
 
     // Retry up to 3 times with backoff — handles backend cold-start and the
     // api.js offline cooldown that can reject the first request when another
@@ -212,7 +215,7 @@ function CaseTrendChart({ stateName, animate }) {
       cancelled = true
       clearTimeout(timer)
     }
-  }, [stateName, stateFips, disease.apiKey])
+  }, [effectiveFips, disease.apiKey])
 
   const data = useMemo(() => applyRange(rawData, range), [rawData, range])
 
@@ -225,7 +228,7 @@ function CaseTrendChart({ stateName, animate }) {
   const headerFrame = (
     <div className="tl-trend-header">
       <span className="tl-trend-title">{disease.name} Surveillance</span>
-      <span className="tl-trend-range tl-trend-range-muted">{stateName}</span>
+      <span className="tl-trend-range tl-trend-range-muted">{effectiveLabel}</span>
     </div>
   )
 
@@ -258,9 +261,13 @@ function CaseTrendChart({ stateName, animate }) {
             <path d="M3 3v18h18" />
             <path d="M7 14l4-4 3 3 5-6" strokeDasharray="3 3" opacity="0.6" />
           </svg>
-          <div className="tl-trend-empty-title">State-level data pending</div>
+          <div className="tl-trend-empty-title">
+            {scope === 'county' ? 'No surveillance data' : 'State-level data pending'}
+          </div>
           <div className="tl-trend-empty-subtitle">
-            {disease.name} surveillance for {stateName} is awaiting a statewide rollup in the database. The UI will populate automatically once the aggregated weekly totals are seeded.
+            {scope === 'county'
+              ? `${disease.name} case history for ${effectiveLabel} isn't available yet. Try a different disease or check back once the dataset is updated.`
+              : `${disease.name} surveillance for ${effectiveLabel} is awaiting a statewide rollup in the database. The UI will populate automatically once the aggregated weekly totals are seeded.`}
           </div>
         </div>
       </div>
@@ -307,7 +314,8 @@ function CaseTrendChart({ stateName, animate }) {
     ? `${data[0].date?.slice(0, 7) || ''} \u2013 ${data[data.length - 1].date?.slice(0, 7) || ''}`
     : ''
 
-  // Hover handler \u2014 convert mouse x to data index
+  // Hover handler \u2014 convert mouse x to data index, also track pixel position
+  // so the tooltip can follow the cursor instead of floating at the edge.
   const onMove = (e) => {
     const svg = svgRef.current
     if (!svg) return
@@ -320,10 +328,19 @@ function CaseTrendChart({ stateName, animate }) {
     const rel = (local.x - padL) / plotW
     const idx = Math.round(rel * (cases.length - 1))
     setHoverIdx(Math.max(0, Math.min(cases.length - 1, idx)))
+
+    const chart = chartRef.current
+    if (chart) {
+      const r = chart.getBoundingClientRect()
+      setHoverPos({
+        x: e.clientX - r.left + chart.scrollLeft,
+        y: e.clientY - r.top,
+      })
+    }
   }
 
   return (
-    <div className={`tl-trend-chart ${animate ? 'visible' : ''}`}>
+    <div className={`tl-trend-chart ${animate ? 'visible' : ''}`} ref={chartRef}>
       <div className="tl-trend-header">
         <span className="tl-trend-title">{disease.name} Surveillance</span>
         <div className="tl-trend-badges">
@@ -470,13 +487,37 @@ function CaseTrendChart({ stateName, animate }) {
         )}
       </svg>
 
-      {/* Tooltip */}
-      {hoverIdx !== null && (
-        <div className="tl-trend-tooltip">
-          <span className="tl-trend-tooltip-date">{data[hoverIdx].date?.slice(0, 10)}</span>
-          <span className="tl-trend-tooltip-value">{fmt(cases[hoverIdx])} cases</span>
-        </div>
-      )}
+      {/* Tooltip — positioned absolutely to follow the cursor.
+          Climate snapshot is included when the record ships one. */}
+      {hoverIdx !== null && (() => {
+        const row = data[hoverIdx]
+        const climate = row?.climateData || null
+        const temp = climate?.avg_temp ?? climate?.avgTemp
+        const humidity = climate?.avg_humidity ?? climate?.avgHumidity
+        const precip = climate?.precipitation
+        const hasClimate = temp != null || humidity != null || precip != null
+        // Clamp the tooltip inside the chart's scroll width so it never
+        // overflows past the right edge or rides up into the header.
+        const maxLeft = (chartRef.current?.scrollWidth || 720) - (hasClimate ? 260 : 140) - 12
+        const left = Math.max(8, Math.min(hoverPos.x + 14, maxLeft))
+        const top = Math.max(4, hoverPos.y - 36)
+        return (
+          <div
+            className={`tl-trend-tooltip ${hasClimate ? 'with-climate' : ''}`}
+            style={{ left, top }}
+          >
+            <span className="tl-trend-tooltip-date">{row.date?.slice(0, 10)}</span>
+            <span className="tl-trend-tooltip-value">{fmt(cases[hoverIdx])} cases</span>
+            {hasClimate && (
+              <span className="tl-trend-tooltip-climate">
+                {temp != null && <span title="Average temperature">{Math.round(temp)}°F</span>}
+                {humidity != null && <span title="Average humidity">{Math.round(humidity)}% RH</span>}
+                {precip != null && <span title="Precipitation">{precip.toFixed(1)}″</span>}
+              </span>
+            )}
+          </div>
+        )
+      })()}
 
       {/* Controls + footer */}
       <div className="tl-trend-controls">
@@ -501,7 +542,12 @@ function CaseTrendChart({ stateName, animate }) {
           </div>
         </div>
         <div className="tl-trend-stats">
-          <span><em>Peak</em> {fmt(maxCase)}</span>
+          <span title={data[peakIdx]?.date ? `Week of ${data[peakIdx].date.slice(0, 10)}` : ''}>
+            <em>Peak</em> {fmt(maxCase)}
+            {data[peakIdx]?.date && (
+              <span className="tl-trend-stat-sub"> · {data[peakIdx].date.slice(0, 7)}</span>
+            )}
+          </span>
           <span><em>Avg</em> {fmt(meanCase)}</span>
           <span><em>Latest</em> {fmt(current)}</span>
         </div>

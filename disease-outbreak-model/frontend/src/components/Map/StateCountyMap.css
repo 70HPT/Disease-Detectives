@@ -88,31 +88,162 @@
    COUNTY COUNT BADGE — compact, beside back btn
    ============================================ */
 
-.county-count-badge {
+/* Centered cluster at the top of the map: disease pill + county count.
+   Replaces the old standalone county-count-badge. */
+.map-context-cluster {
   position: absolute;
   top: 4.5rem;
-  left: 14rem;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  z-index: 100;
+  opacity: 0;
+  transform: translate(-50%, -10px);
+  animation: badgeCenterFadeIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.4s forwards;
+}
+
+@keyframes badgeCenterFadeIn {
+  from { opacity: 0; transform: translate(-50%, -10px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+
+.map-disease-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0.5rem 0.75rem;
+  background: rgba(10, 20, 30, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.map-disease-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  box-shadow: 0 0 6px currentColor;
+}
+
+.county-count-badge {
   padding: 0.55rem 0.9rem;
   background: rgba(10, 20, 30, 0.7);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 8px;
-  z-index: 100;
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.65rem;
   color: rgba(255, 255, 255, 0.35);
   letter-spacing: 0.03em;
-  opacity: 0;
-  animation: slideInLeft 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.4s forwards;
+}
+
+.county-count-filter {
+  color: rgba(0, 255, 204, 0.75);
 }
 
 /* ============================================
    RANKINGS TOGGLE BUTTON
    ============================================ */
 
-.rankings-toggle {
+/* Shared top-right cluster — holds color-metric picker + rankings toggle
+   so they stay aligned and never overlap regardless of label width. */
+.map-controls-cluster {
   position: absolute;
   top: 4.5rem;
   right: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  z-index: 120;
+}
+
+.color-metric-wrap {
+  position: relative;
+}
+
+.color-metric-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0.6rem 0.9rem;
+  background: rgba(10, 20, 30, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.6);
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.65rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.color-metric-toggle:hover,
+.color-metric-toggle.active {
+  background: rgba(0, 255, 204, 0.08);
+  border-color: rgba(0, 255, 204, 0.3);
+  color: rgba(0, 255, 204, 0.9);
+}
+
+.color-metric-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  min-width: 200px;
+  background: rgba(10, 20, 30, 0.96);
+  border: 1px solid rgba(0, 255, 204, 0.2);
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+  z-index: 121;
+}
+
+.color-metric-menu .dropdown-option {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  transition: background 0.15s ease;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.color-metric-menu .dropdown-option:last-child {
+  border-bottom: 0;
+}
+
+.color-metric-menu .dropdown-option:hover {
+  background: rgba(0, 255, 204, 0.08);
+}
+
+.color-metric-menu .dropdown-option.selected {
+  background: rgba(0, 255, 204, 0.12);
+  color: rgba(0, 255, 204, 0.95);
+}
+
+.color-metric-sub {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.35);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+@media (max-width: 900px) {
+  .map-controls-cluster {
+    top: 7rem;
+    right: 1rem;
+  }
+}
+
+.rankings-toggle {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -128,7 +259,6 @@
   text-transform: uppercase;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  z-index: 120;
   opacity: 0;
   animation: slideInLeft 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.5s forwards;
 }
@@ -256,6 +386,66 @@
 .dropdown-option.selected {
   color: rgba(0, 255, 204, 0.7);
   background: rgba(0, 255, 204, 0.06);
+}
+
+/* Rankings filter input */
+.rankings-filter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 12px 4px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.5);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.rankings-filter:focus-within {
+  border-color: rgba(0, 255, 204, 0.3);
+  background: rgba(0, 255, 204, 0.04);
+}
+
+.rankings-filter input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  color: rgba(255, 255, 255, 0.9);
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 12px;
+}
+
+.rankings-filter input::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.rankings-filter-clear {
+  background: rgba(255, 255, 255, 0.06);
+  border: 0;
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+}
+
+.rankings-filter-clear:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.rankings-empty {
+  padding: 20px 16px;
+  text-align: center;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.4);
 }
 
 .rankings-list {
@@ -796,6 +986,52 @@
   letter-spacing: 0.03em;
 }
 
+.hover-card-footer.hover-card-footer-live {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  color: rgba(0, 255, 204, 0.85);
+  font-weight: 600;
+}
+
+.hover-card-footer-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #00ffcc;
+  box-shadow: 0 0 6px rgba(0, 255, 204, 0.6);
+  animation: hover-data-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes hover-data-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.45; }
+}
+
+.legend-data-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 10px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.55);
+  letter-spacing: 0.04em;
+}
+
+.legend-data-ring {
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid rgba(0, 255, 204, 0.85);
+  border-radius: 3px;
+  flex-shrink: 0;
+  box-shadow: 0 0 4px rgba(0, 255, 204, 0.3);
+}
+
 /* ============================================
    LOADING OVERLAY
    ============================================ */
@@ -846,6 +1082,75 @@
   50% { opacity: 1; }
 }
 
+/* County fetch error overlay */
+.loading-overlay.county-error {
+  color: rgba(248, 113, 113, 0.8);
+  padding: 0 32px;
+  text-align: center;
+}
+
+.loading-overlay.county-error svg {
+  color: rgba(248, 113, 113, 0.75);
+  margin-bottom: 6px;
+}
+
+.county-error-title {
+  margin-top: 0.75rem !important;
+  font-family: 'Orbitron', sans-serif !important;
+  font-size: 0.95rem !important;
+  font-weight: 600 !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+  animation: none !important;
+  letter-spacing: 0.04em;
+}
+
+.county-error-subtitle {
+  margin-top: 0.5rem !important;
+  font-family: 'Rajdhani', sans-serif !important;
+  font-size: 0.85rem !important;
+  color: rgba(255, 255, 255, 0.55) !important;
+  line-height: 1.5;
+  max-width: 360px;
+  animation: none !important;
+}
+
+.county-error-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.county-error-btn {
+  padding: 8px 18px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.75);
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.county-error-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.county-error-btn.primary {
+  background: rgba(0, 255, 204, 0.1);
+  border-color: rgba(0, 255, 204, 0.3);
+  color: rgba(0, 255, 204, 0.95);
+}
+
+.county-error-btn.primary:hover {
+  background: rgba(0, 255, 204, 0.18);
+  border-color: rgba(0, 255, 204, 0.5);
+}
+
 /* ============================================
    RESPONSIVE
    ============================================ */
@@ -879,15 +1184,20 @@
     font-size: 0.65rem;
   }
 
-  .county-count-badge {
+  .map-context-cluster {
     top: 4.5rem;
-    left: 12rem;
+  }
+
+  .county-count-badge {
     font-size: 0.6rem;
   }
 
-  .rankings-toggle {
+  .map-controls-cluster {
     top: 4.5rem;
     right: 1rem;
+  }
+
+  .rankings-toggle {
     font-size: 0.65rem;
     padding: 0.5rem 0.7rem;
   }
@@ -956,16 +1266,21 @@
     gap: 4px;
   }
 
-  .county-count-badge {
+  .map-context-cluster {
     top: 4rem;
-    left: 10.5rem;
+  }
+
+  .county-count-badge {
     padding: 0.45rem 0.65rem;
     font-size: 0.6rem;
   }
 
-  .rankings-toggle {
+  .map-controls-cluster {
     top: 4rem;
     right: 0.75rem;
+  }
+
+  .rankings-toggle {
     padding: 0.45rem 0.65rem;
     font-size: 0.6rem;
   }

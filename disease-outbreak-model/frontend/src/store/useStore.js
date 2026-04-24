@@ -294,6 +294,12 @@ const useStore = create((set, get) => ({
 
   stateDataLoaded: false,
 
+  // Per-county populations keyed by FIPS. Hydrated once from /locations.
+  // Lookup: countyPopulations['06037'] = 10_039_107 (Los Angeles County)
+  countyPopulations: {},
+
+  hydrateCountyPopulations: (populations) => set({ countyPopulations: populations }),
+
   hydrateStateData: (mapData) => set((state) => {
     if (!mapData?.states) return {}
     const updated = { ...state.stateData }
@@ -312,7 +318,9 @@ const useStore = create((set, get) => ({
     return { stateData: updated, stateDataLoaded: true }
   }),
 
-  // Merge population totals keyed by 2-letter state code
+  // Merge population totals keyed by 2-letter state code.
+  // Stores both `population` (formatted display string) and `populationNum`
+  // (raw integer) so downstream components can rank + average.
   hydratePopulations: (pops) => set((state) => {
     const updated = { ...state.stateData }
     const fmt = (n) => {
@@ -323,7 +331,7 @@ const useStore = create((set, get) => ({
     for (const [name, entry] of Object.entries(updated)) {
       const abbr = entry.abbr
       if (pops[abbr]) {
-        updated[name] = { ...entry, population: fmt(pops[abbr]) }
+        updated[name] = { ...entry, population: fmt(pops[abbr]), populationNum: pops[abbr] }
       }
     }
     return { stateData: updated }

@@ -3,6 +3,8 @@ import * as d3 from 'd3'
 import { feature } from 'topojson-client'
 import useStore from '../../store/useStore'
 import { batchPredictRisk } from '../../services/riskService'
+import { getDiseaseById } from '../../data/trackedDiseases'
+import { hasSurveillanceData } from '../../data/countiesWithData'
 import './StateCountyMap.css'
 
 // Cubic bezier easing functions for Web Animations API
@@ -75,9 +77,16 @@ export default function StateCountyMap() {
   const [rankingsOpen, setRankingsOpen] = useState(false)
   const [sortMetric, setSortMetric] = useState('riskScore')
   const [sortDropdownOpen, setSortDropdownOpen] = useState(false)
+  const [rankingsFilter, setRankingsFilter] = useState('')
+
+  // County color metric — local to the county view so it doesn't fight
+  // the globe's heatmap selection.
+  const [colorMetric, setColorMetric] = useState('riskScore')
+  const [colorMetricOpen, setColorMetricOpen] = useState(false)
 
   // Legend toggle (collapsed by default on mobile)
   const [legendOpen, setLegendOpen] = useState(window.innerWidth > 600)
+  const [loadError, setLoadError] = useState(null)
 
   // ============================================
   // ZOOM/PAN — ref-based, bypasses React render cycle entirely
@@ -244,6 +253,9 @@ export default function StateCountyMap() {
   const stateFips = useStore(state => state.stateFips)
   const stateCapitals = useStore(state => state.stateCapitals)
   const generateCountyData = useStore(state => state.generateCountyData)
+  const countyPopulations = useStore(state => state.countyPopulations)
+  const selectedDisease = useStore(state => state.selectedDisease)
+  const disease = getDiseaseById(selectedDisease)
 
   // Get dimensions
   useEffect(() => {
@@ -280,16 +292,39 @@ export default function StateCountyMap() {
   useEffect(() => {
     if (!selectedState) return
 
+    // Try primary CDN then mirror. Each wrapped with a 6s timeout so a
+    // hung network doesn't leave the user staring at a spinner forever.
+    const fetchWithTimeout = (url, ms = 6000) =>
+      Promise.race([
+        fetch(url).then(r => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms)),
+      ])
+
+    const TOPOJSON_SOURCES = [
+      'https://cdn.jsdelivr.net/npm/us-atlas@3/counties-10m.json',
+      'https://unpkg.com/us-atlas@3/counties-10m.json',
+    ]
+
     const loadCounties = async () => {
       setLoading(true)
+      setLoadError(null)
       setAnimationPhase('loading')
       setVisibleCounties([])
       setVisibleLabels([])
       animatedCountiesRef.current.clear()
 
       try {
-        const response = await fetch('https://cdn.jsdelivr.net/npm/us-atlas@3/counties-10m.json')
-        const topology = await response.json()
+        let topology = null
+        let lastErr = null
+        for (const url of TOPOJSON_SOURCES) {
+          try {
+            topology = await fetchWithTimeout(url)
+            break
+          } catch (err) {
+            lastErr = err
+          }
+        }
+        if (!topology) throw lastErr || new Error('All county data sources failed')
         const countiesGeo = feature(topology, topology.objects.counties)
 
         const stateCode = stateFips[selectedState.name]
@@ -310,17 +345,28 @@ export default function StateCountyMap() {
 
         const fipsList = stateCounties.map(f => f.id.toString().padStart(5, '0'))
 
-        // Fetch real risk data for all counties in parallel with rendering
+        // Fetch real risk data for all counties in parallel with rendering.
+        // Passing disease.apiKey so once Jacob's migration is live, the
+        // county colors update per disease.
         let riskData = null
         try {
-          riskData = await batchPredictRisk(fipsList)
+          riskData = await batchPredictRisk(fipsList, disease.apiKey)
         } catch (e) { /* backend offline — use fallback */ }
+
+        // Format population with K / M suffix for compact display
+        const fmtPop = (n) => {
+          if (!n) return null
+          if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`
+          if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`
+          return n.toLocaleString()
+        }
 
         const enrichedCounties = stateCounties.map(f => {
           const fips = f.id.toString().padStart(5, '0')
           const name = countyNames[f.id] || `County ${f.id}`
           const fallback = generateCountyData(name, selectedState.name)
           const real = riskData?.[fips]
+          const realPop = countyPopulations?.[fips] ?? null
           return {
             ...f,
             properties: {
@@ -328,6 +374,10 @@ export default function StateCountyMap() {
               name,
               fips,
               ...fallback,
+              ...(realPop != null ? {
+                population: fmtPop(realPop),
+                populationNum: realPop,
+              } : {}),
               ...(real ? {
                 riskScore: Math.round(real.riskScore),
                 outbreakRisk: real.riskScore < 33 ? 'Low' : real.riskScore < 66 ? 'Medium' : 'High',
@@ -344,12 +394,35 @@ export default function StateCountyMap() {
         setTimeout(() => { setAnimationPhase('counties') }, 100)
       } catch (error) {
         console.error('Failed to load county data:', error)
+        setLoadError(error?.message || 'Unknown error')
         setLoading(false)
       }
     }
 
     loadCounties()
-  }, [selectedState, stateFips, generateCountyData])
+  }, [selectedState, stateFips, generateCountyData, disease.apiKey])
+
+  // Hydrate population into already-loaded counties when the store lookup
+  // arrives (fires once when /locations resolves, even if county view was
+  // opened before that).
+  useEffect(() => {
+    if (!counties.length || !countyPopulations || Object.keys(countyPopulations).length === 0) return
+    const fmtPop = (n) => {
+      if (!n) return null
+      if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`
+      if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`
+      return n.toLocaleString()
+    }
+    // Only patch counties missing a populationNum — avoid clobbering riskData
+    const needsPatch = counties.some(c => c.properties.populationNum == null && countyPopulations[c.properties.fips])
+    if (!needsPatch) return
+    setCounties(prev => prev.map(c => {
+      if (c.properties.populationNum != null) return c
+      const pop = countyPopulations[c.properties.fips]
+      if (!pop) return c
+      return { ...c, properties: { ...c.properties, population: fmtPop(pop), populationNum: pop } }
+    }))
+  }, [counties, countyPopulations])
 
   // Staggered county animation
   useEffect(() => {
@@ -430,16 +503,43 @@ export default function StateCountyMap() {
     return { pathGenerator, capital }
   }, [counties, dimensions, selectedState, stateCapitals])
 
-  // Color based on risk score
-  const getCountyColor = useCallback((properties) => {
-    const riskScore = properties.riskScore || 50
-    if (riskScore < 30) return '#10b981'
-    if (riskScore < 50) return '#f59e0b'
-    if (riskScore < 70) return '#f97316'
-    return '#ef4444'
-  }, [])
+  // Normalization max per non-risk metric (computed once, keyed by metric)
+  const metricMax = useMemo(() => {
+    const out = { populationNum: 0, vaccinationRate: 100, healthIndex: 100 }
+    for (const c of counties) {
+      const p = c.properties
+      if (p.populationNum && p.populationNum > out.populationNum) out.populationNum = p.populationNum
+    }
+    return out
+  }, [counties])
 
-  // Risk category for filtering
+  // Color based on active metric. Risk uses a 4-step gradient; others use
+  // a continuous normalized mapping.
+  const getCountyColor = useCallback((properties) => {
+    if (colorMetric === 'riskScore') {
+      const riskScore = properties.riskScore || 50
+      if (riskScore < 30) return '#10b981'
+      if (riskScore < 50) return '#f59e0b'
+      if (riskScore < 70) return '#f97316'
+      return '#ef4444'
+    }
+    // Population: more populous = darker blue (no risk-semantic)
+    if (colorMetric === 'populationNum') {
+      const max = metricMax.populationNum || 1
+      const t = Math.min(1, (properties.populationNum || 0) / max)
+      const alpha = 0.2 + t * 0.7
+      return `rgba(14, 165, 233, ${alpha.toFixed(2)})`
+    }
+    // Vaccination / Health: higher = greener
+    const v = properties[colorMetric] ?? 50
+    if (v >= 70) return '#10b981'
+    if (v >= 50) return '#f59e0b'
+    if (v >= 30) return '#f97316'
+    return '#ef4444'
+  }, [colorMetric, metricMax])
+
+  // Risk category for filtering — always based on riskScore regardless of
+  // the active color metric (filters are a separate concern).
   const getRiskCategory = useCallback((riskScore) => {
     if (riskScore < 30) return 'low'
     if (riskScore < 50) return 'medium'
@@ -456,15 +556,19 @@ export default function StateCountyMap() {
     })
   }, [])
 
-  // Sorted counties for rankings
+  // Sorted + filtered counties for rankings
   const sortedCounties = useMemo(() => {
     if (!counties.length) return []
-    return [...counties].sort((a, b) => {
+    const q = rankingsFilter.trim().toLowerCase()
+    const list = q
+      ? counties.filter(c => c.properties.name?.toLowerCase().includes(q))
+      : counties
+    return [...list].sort((a, b) => {
       const aVal = a.properties[sortMetric] || 0
       const bVal = b.properties[sortMetric] || 0
       return bVal - aVal
     })
-  }, [counties, sortMetric])
+  }, [counties, sortMetric, rankingsFilter])
 
   // County click
   const handleCountyClick = useCallback((county, event) => {
@@ -559,26 +663,83 @@ export default function StateCountyMap() {
         Back to Globe
       </button>
 
-      {/* County count badge — compact, beside back button */}
-      <div className="county-count-badge">
-        {counties.length} Counties
+      {/* Top-center context — disease being predicted + county count.
+          Keeps the user grounded in "what map am I looking at". */}
+      <div className="map-context-cluster">
+        <div className="map-disease-pill" title={`Colored by ${disease.name} risk score`}>
+          <span className="map-disease-dot" style={{ background: disease.accent }} />
+          <span className="map-disease-label">{disease.name}</span>
+        </div>
+        <div className="county-count-badge">
+          {counties.length} Counties
+          {(() => {
+            const visibleCount = counties.filter(c =>
+              activeFilters.has(getRiskCategory(c.properties.riskScore))
+            ).length
+            if (visibleCount === counties.length) return null
+            return (
+              <span className="county-count-filter"> · {visibleCount} shown</span>
+            )
+          })()}
+        </div>
       </div>
 
-      {/* Rankings toggle button with rotating chevron */}
-      <button
-        className={`rankings-toggle ${rankingsOpen ? 'active' : ''}`}
-        onClick={() => { setRankingsOpen(!rankingsOpen); setSortDropdownOpen(false) }}
-        title="County Rankings"
-      >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M3 6h18M3 12h12M3 18h6" />
-        </svg>
-        Rankings
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
-          className={`toggle-chevron ${rankingsOpen ? 'open' : ''}`}>
-          <polyline points="6 9 12 15 18 9" />
-        </svg>
-      </button>
+      {/* Top-right control cluster — keeps the metric picker and rankings
+          toggle aligned and prevents overlap when labels grow. */}
+      <div className="map-controls-cluster">
+        {/* Color metric picker — paints the county fill by risk / pop / vax / health */}
+        <div className="color-metric-wrap">
+          <button
+            className={`color-metric-toggle ${colorMetricOpen ? 'active' : ''}`}
+            onClick={() => { setColorMetricOpen(o => !o); setRankingsOpen(false) }}
+            title="Color counties by metric"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2" />
+            </svg>
+            {{ riskScore: 'Risk', populationNum: 'Population', vaccinationRate: 'Vaccination', healthIndex: 'Health' }[colorMetric]}
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+              className={`toggle-chevron ${colorMetricOpen ? 'open' : ''}`}>
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+          {colorMetricOpen && (
+            <div className="color-metric-menu">
+              {[
+                { value: 'riskScore', label: 'Risk Score', sub: 'ML prediction' },
+                { value: 'populationNum', label: 'Population', sub: 'Census / locations' },
+                { value: 'vaccinationRate', label: 'Vaccination', sub: 'ML factor' },
+                { value: 'healthIndex', label: 'Health Index', sub: 'derived composite' },
+              ].map(opt => (
+                <div
+                  key={opt.value}
+                  className={`dropdown-option ${colorMetric === opt.value ? 'selected' : ''}`}
+                  onClick={() => { setColorMetric(opt.value); setColorMetricOpen(false) }}
+                >
+                  <span>{opt.label}</span>
+                  <span className="color-metric-sub">{opt.sub}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Rankings toggle button with rotating chevron */}
+        <button
+          className={`rankings-toggle ${rankingsOpen ? 'active' : ''}`}
+          onClick={() => { setRankingsOpen(!rankingsOpen); setSortDropdownOpen(false); setColorMetricOpen(false) }}
+          title="County Rankings"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M3 6h18M3 12h12M3 18h6" />
+          </svg>
+          Rankings
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+            className={`toggle-chevron ${rankingsOpen ? 'open' : ''}`}>
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </button>
+      </div>
 
       {/* County Rankings Panel */}
       {rankingsOpen && (
@@ -590,7 +751,7 @@ export default function StateCountyMap() {
                 className={`dropdown-trigger ${sortDropdownOpen ? 'open' : ''}`}
                 onClick={() => setSortDropdownOpen(!sortDropdownOpen)}
               >
-                <span>{{ riskScore: 'Risk Score', vaccinationRate: 'Vaccination', healthIndex: 'Health Index', populationNum: 'Population', hospitalCapacity: 'Hospital Cap.' }[sortMetric]}</span>
+                <span>{{ riskScore: 'Risk Score', vaccinationRate: 'Vaccination', healthIndex: 'Health Index', populationNum: 'Population' }[sortMetric]}</span>
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
                   className={`toggle-chevron ${sortDropdownOpen ? 'open' : ''}`}>
                   <polyline points="6 9 12 15 18 9" />
@@ -603,7 +764,6 @@ export default function StateCountyMap() {
                     { value: 'vaccinationRate', label: 'Vaccination' },
                     { value: 'healthIndex', label: 'Health Index' },
                     { value: 'populationNum', label: 'Population' },
-                    { value: 'hospitalCapacity', label: 'Hospital Cap.' },
                   ].map(opt => (
                     <div
                       key={opt.value}
@@ -617,14 +777,38 @@ export default function StateCountyMap() {
               )}
             </div>
           </div>
+
+          {/* Quick filter input */}
+          <div className="rankings-filter">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
+            </svg>
+            <input
+              type="text"
+              placeholder={`Filter ${counties.length} counties...`}
+              value={rankingsFilter}
+              onChange={(e) => setRankingsFilter(e.target.value)}
+            />
+            {rankingsFilter && (
+              <button className="rankings-filter-clear" onClick={() => setRankingsFilter('')} title="Clear filter">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            )}
+          </div>
+
           <div className="rankings-list">
+            {sortedCounties.length === 0 && rankingsFilter && (
+              <div className="rankings-empty">No counties match "{rankingsFilter}"</div>
+            )}
             {sortedCounties.map((county, i) => {
               const props = county.properties
               const isActive = selectedCounty?.name === props.name
               const metricVal = props[sortMetric] || 0
               const displayVal = sortMetric === 'populationNum'
-                ? props.population
-                : sortMetric === 'vaccinationRate' || sortMetric === 'hospitalCapacity'
+                ? (props.population || '—')
+                : sortMetric === 'vaccinationRate'
                 ? `${metricVal}%`
                 : `${metricVal}`
 
@@ -663,6 +847,37 @@ export default function StateCountyMap() {
         <div className="loading-overlay">
           <div className="loading-spinner"></div>
           <p>Loading county data...</p>
+        </div>
+      )}
+
+      {/* Fatal error state — both mirrors failed */}
+      {loadError && !loading && counties.length === 0 && (
+        <div className="loading-overlay county-error">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <path d="M12 8v4M12 16h.01" />
+          </svg>
+          <p className="county-error-title">County map unavailable</p>
+          <p className="county-error-subtitle">
+            Couldn't reach either county-geometry source. Check your network and retry, or return to the globe.
+          </p>
+          <div className="county-error-actions">
+            <button
+              className="county-error-btn primary"
+              onClick={() => {
+                setLoadError(null)
+                // Re-trigger the effect by touching a dep (forcing re-run
+                // via a state change). Simplest way: re-run the loader by
+                // re-entering the county view.
+                window.location.reload()
+              }}
+            >
+              Reload
+            </button>
+            <button className="county-error-btn" onClick={exitCountyView}>
+              Back to globe
+            </button>
+          </div>
         </div>
       )}
 
@@ -708,8 +923,21 @@ export default function StateCountyMap() {
             const path = pathGenerator(county)
             const riskCategory = getRiskCategory(county.properties.riskScore)
             const isFiltered = !activeFilters.has(riskCategory)
+            const hasData = hasSurveillanceData(county.properties.fips)
 
             if (!path) return null
+
+            // Stroke: teal-bright for data-available counties so the user can
+            // pick a county with surveillance at a glance. Selection + hover
+            // override to their usual brighter treatment.
+            const stroke = isSelected
+              ? '#00ffcc'
+              : isHovered
+              ? '#ffffff'
+              : hasData
+              ? 'rgba(0, 255, 204, 0.7)'
+              : 'rgba(255,255,255,0.4)'
+            const strokeWidth = isSelected ? 2.5 : isHovered ? 1.5 : hasData ? 1.2 : 0.5
 
             return (
               <path
@@ -717,8 +945,8 @@ export default function StateCountyMap() {
                 data-county-index={index}
                 d={path}
                 fill={getCountyColor(county.properties)}
-                stroke={isSelected ? '#00ffcc' : isHovered ? '#ffffff' : 'rgba(255,255,255,0.4)'}
-                strokeWidth={isSelected ? 2.5 : isHovered ? 1.5 : 0.5}
+                stroke={stroke}
+                strokeWidth={strokeWidth}
                 opacity={isVisible ? (isFiltered ? 0.08 : isSelected ? 1 : 0.8) : 0}
                 filter={isSelected ? 'url(#glow)' : 'none'}
                 className="county-path"
@@ -895,13 +1123,17 @@ export default function StateCountyMap() {
               </div>
             ))}
           </div>
+
+          {/* Data availability legend — shown only when there are counties with data */}
+          <div className="legend-data-note">
+            <span className="legend-data-ring" />
+            <span>Teal border = surveillance data available</span>
+          </div>
         </div>
       )}
 
-      {/* Breadcrumb */}
-      <div className="county-breadcrumb">
-        United States / {selectedState.name} / <strong>Counties</strong>
-      </div>
+      {/* Breadcrumb handled by App.jsx (external .breadcrumb) in county view */}
+
 
       {/* Rich Hover Card — follows cursor */}
       {hoveredData && !selectedCounty && (
@@ -937,7 +1169,14 @@ export default function StateCountyMap() {
             <MiniGauge value={hoveredData.vaccinationRate} color={getGaugeColor(hoveredData.vaccinationRate)} label="Vacc" />
             <MiniGauge value={hoveredData.healthIndex} color={getGaugeColor(hoveredData.healthIndex)} label="Health" />
           </div>
-          <div className="hover-card-footer">Click for details</div>
+          {hasSurveillanceData(hoveredData.fips) ? (
+            <div className="hover-card-footer hover-card-footer-live">
+              <span className="hover-card-footer-dot" />
+              Surveillance data available · click for chart
+            </div>
+          ) : (
+            <div className="hover-card-footer">Click for details</div>
+          )}
         </div>
       )}
     </div>

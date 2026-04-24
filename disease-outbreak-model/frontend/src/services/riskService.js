@@ -74,10 +74,13 @@ export async function getMapData() {
 }
 
 // ── GET /risk/location/{fips} — Cached prediction ──────────────────
-// Used by: StatePanel (on state click), StateHealthRings
-export async function getLocationRisk(fips) {
+// Used by: StatePanel (on state/county click), StateHealthRings
+// diseaseType filters to the ML model's per-disease prediction when the
+// backend migration is live.
+export async function getLocationRisk(fips, diseaseType = 'influenza') {
   if (!fips) return null
-  const data = await api.get(`/risk/location/${fips}`)
+  const q = diseaseType ? `?disease_type=${encodeURIComponent(diseaseType)}` : ''
+  const data = await api.get(`/risk/location/${fips}${q}`)
   if (!data) return null
 
   return normalizeRiskResponse(data)
@@ -85,9 +88,9 @@ export async function getLocationRisk(fips) {
 
 // ── POST /risk/predict — Fresh ML prediction ───────────────────────
 // Used by: StateCountyMap (on county click for real-time prediction)
-export async function predictRisk(fips) {
+export async function predictRisk(fips, diseaseType = 'influenza') {
   if (!fips) return null
-  const data = await api.post('/risk/predict', { fips })
+  const data = await api.post('/risk/predict', { fips, disease_type: diseaseType })
   if (!data) return null
 
   return normalizeRiskResponse(data)
@@ -95,9 +98,12 @@ export async function predictRisk(fips) {
 
 // ── POST /risk/batch — Multiple county predictions at once ─────────
 // Used by: StateCountyMap (to get real risk scores for all counties)
-export async function batchPredictRisk(fipsCodes) {
+export async function batchPredictRisk(fipsCodes, diseaseType = 'influenza') {
   if (!fipsCodes || fipsCodes.length === 0) return null
-  const data = await api.post('/risk/batch', { fips_codes: fipsCodes })
+  const data = await api.post('/risk/batch', {
+    fips_codes: fipsCodes,
+    disease_type: diseaseType,
+  })
   if (!data?.predictions) return null
 
   const result = {}

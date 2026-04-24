@@ -82,21 +82,21 @@ export function useMapData() {
 }
 
 // ── Risk data for a single location ────────────────────────────────
-// Pass a FIPS code, get back normalized risk response
-export function useLocationRisk(fips) {
+// Pass a FIPS code + disease apiKey, get back normalized risk response
+export function useLocationRisk(fips, diseaseType = 'influenza') {
   return useAsyncData(
-    () => getLocationRisk(fips),
-    [fips],
+    () => getLocationRisk(fips, diseaseType),
+    [fips, diseaseType],
     { enabled: !!fips, fallback: null }
   )
 }
 
 // ── Fresh prediction for a county ──────────────────────────────────
 // Triggers the ML model on the backend
-export function usePrediction(fips) {
+export function usePrediction(fips, diseaseType = 'influenza') {
   return useAsyncData(
-    () => predictRisk(fips),
-    [fips],
+    () => predictRisk(fips, diseaseType),
+    [fips, diseaseType],
     { enabled: !!fips, fallback: null }
   )
 }

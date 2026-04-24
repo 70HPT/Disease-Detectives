@@ -318,8 +318,103 @@
   color: rgba(255, 255, 255, 0.4);
 }
 
+.wl-card-trend-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.wl-card-wow {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 999px;
+}
+
+.wl-card-wow.wow-up {
+  background: rgba(248, 113, 113, 0.12);
+  color: rgba(248, 113, 113, 0.95);
+}
+
+.wl-card-wow.wow-down {
+  background: rgba(0, 255, 204, 0.1);
+  color: rgba(0, 255, 204, 0.9);
+}
+
+.wl-card-wow.wow-flat {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.5);
+}
+
 .sparkline-svg {
   display: block;
+}
+
+/* Disease risk flag */
+.wl-card-flag {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 10px;
+  background: rgba(240, 160, 48, 0.08);
+  border: 1px solid rgba(240, 160, 48, 0.25);
+  border-radius: 8px;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 11px;
+  color: rgba(240, 160, 48, 0.9);
+}
+
+.wl-card-flag svg {
+  flex-shrink: 0;
+}
+
+.wl-card-flag-disease {
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.wl-card-flag-reason {
+  color: rgba(255, 255, 255, 0.55);
+  font-weight: 400;
+}
+
+/* Top corridor chip */
+.wl-card-corridor {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 10px;
+  background: rgba(14, 165, 233, 0.05);
+  border: 1px solid rgba(14, 165, 233, 0.15);
+  border-radius: 8px;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 11px;
+}
+
+.wl-card-corridor svg {
+  color: rgba(14, 165, 233, 0.8);
+  flex-shrink: 0;
+}
+
+.wl-card-corridor-label {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(14, 165, 233, 0.7);
+}
+
+.wl-card-corridor-target {
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.wl-card-corridor-volume {
+  margin-left: auto;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.5);
 }
 
 /* View button */

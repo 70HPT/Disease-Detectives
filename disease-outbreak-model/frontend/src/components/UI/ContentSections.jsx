@@ -3,7 +3,16 @@ import useStore from '../../store/useStore'
 import { useWHOPulse } from '../../services/useWHOPulse'
 import { getDiseaseIndicator } from '../../services/whoService'
 import { TRACKED_DISEASES, getDiseaseById } from '../../data/trackedDiseases'
+import { NATIONAL_EVENTS } from '../../data/stateHealthData'
 import './ContentSections.css'
+
+// Severity palette shared between this timeline and the state-level one.
+const SEVERITY_COLORS = {
+  critical: { color: '#ff4060', bg: 'rgba(255, 64, 96, 0.08)', border: 'rgba(255, 64, 96, 0.35)', glow: 'rgba(255, 64, 96, 0.5)' },
+  high:     { color: '#f0a030', bg: 'rgba(240, 160, 48, 0.08)', border: 'rgba(240, 160, 48, 0.35)', glow: 'rgba(240, 160, 48, 0.4)' },
+  medium:   { color: '#0ea5e9', bg: 'rgba(14, 165, 233, 0.08)', border: 'rgba(14, 165, 233, 0.3)', glow: 'rgba(14, 165, 233, 0.4)' },
+  low:      { color: '#00ffcc', bg: 'rgba(0, 255, 204, 0.06)', border: 'rgba(0, 255, 204, 0.3)', glow: 'rgba(0, 255, 204, 0.3)' },
+}
 
 // ============================================
 // CHEVRON ICON
@@ -304,6 +313,117 @@ function DiseaseSpotlight({ year, isVisible }) {
 }
 
 // ============================================
+// NATIONAL OUTBREAK TIMELINE — major U.S. disease events
+// Shows a century of surveillance history as a horizontal scroller.
+// Click any event to expand a detail card.
+// ============================================
+function NationalOutbreakTimeline({ isVisible }) {
+  const [activeIdx, setActiveIdx] = useState(null)
+  const trackRef = useRef(null)
+
+  // Sort oldest-to-newest so the timeline reads left-to-right chronologically
+  const events = [...NATIONAL_EVENTS].sort((a, b) => a.year - b.year)
+
+  // Find a useful default: most recent critical event
+  useEffect(() => {
+    if (activeIdx === null && isVisible) {
+      const mostRecentCritical = [...events].reverse().findIndex(e => e.severity === 'critical')
+      if (mostRecentCritical >= 0) {
+        setActiveIdx(events.length - 1 - mostRecentCritical)
+      }
+    }
+  }, [isVisible])
+
+  const active = activeIdx !== null ? events[activeIdx] : null
+  const activePalette = active ? SEVERITY_COLORS[active.severity] : null
+
+  return (
+    <section className="cs-section cs-timeline-section">
+      <AnimatedSection className="cs-section-header" isVisible={isVisible} delay={100}>
+        <span className="cs-section-tag">Century of surveillance</span>
+        <h2 className="cs-section-title">U.S. Outbreak History</h2>
+      </AnimatedSection>
+
+      <AnimatedSection className="cs-timeline-subtitle" isVisible={isVisible} delay={150}>
+        A hundred-plus years of disease events that reshaped U.S. public health. Click any point to expand.
+      </AnimatedSection>
+
+      {/* Severity legend */}
+      <AnimatedSection className="cs-timeline-legend" isVisible={isVisible} delay={200}>
+        {Object.entries(SEVERITY_COLORS).map(([key, palette]) => (
+          <div key={key} className="cs-timeline-legend-item">
+            <span className="cs-timeline-legend-dot" style={{ background: palette.color, boxShadow: `0 0 6px ${palette.glow}` }} />
+            <span>{key}</span>
+          </div>
+        ))}
+      </AnimatedSection>
+
+      {/* Horizontal track */}
+      <AnimatedSection className="cs-timeline-wrap" isVisible={isVisible} delay={250}>
+        <div className="cs-timeline-track" ref={trackRef}>
+          <div className="cs-timeline-rail" />
+          {events.map((event, i) => {
+            const palette = SEVERITY_COLORS[event.severity] || SEVERITY_COLORS.medium
+            const isActive = activeIdx === i
+            return (
+              <button
+                key={`${event.year}-${event.name}`}
+                className={`cs-timeline-node ${isActive ? 'active' : ''}`}
+                onClick={() => setActiveIdx(isActive ? null : i)}
+                style={{
+                  '--node-color': palette.color,
+                  '--node-glow': palette.glow,
+                  animationDelay: `${400 + i * 80}ms`,
+                }}
+              >
+                <span className="cs-timeline-year">{event.year}</span>
+                <div className="cs-timeline-dot-wrap">
+                  <span className="cs-timeline-pulse" />
+                  <span className="cs-timeline-dot" />
+                </div>
+                <span className="cs-timeline-name">{event.name}</span>
+              </button>
+            )
+          })}
+        </div>
+      </AnimatedSection>
+
+      {/* Detail card for active event */}
+      {active && activePalette && (
+        <div
+          className="cs-timeline-detail"
+          key={active.year}
+          style={{
+            borderColor: activePalette.border,
+            background: `linear-gradient(135deg, ${activePalette.bg} 0%, rgba(10, 15, 26, 0.85) 100%)`,
+          }}
+        >
+          <div className="cs-timeline-detail-header">
+            <span className="cs-timeline-detail-severity" style={{ background: `${activePalette.color}18`, borderColor: activePalette.border, color: activePalette.color }}>
+              <span className="cs-timeline-detail-severity-dot" style={{ background: activePalette.color, boxShadow: `0 0 6px ${activePalette.glow}` }} />
+              {active.severity.toUpperCase()}
+            </span>
+            <span className="cs-timeline-detail-year" style={{ color: activePalette.color }}>{active.year}</span>
+          </div>
+          <h3 className="cs-timeline-detail-title">{active.name}</h3>
+          <div className="cs-timeline-detail-meta">
+            <div className="cs-timeline-detail-meta-item">
+              <span className="cs-timeline-detail-meta-label">Pathogen</span>
+              <span className="cs-timeline-detail-meta-value">{active.type}</span>
+            </div>
+            <div className="cs-timeline-detail-meta-item">
+              <span className="cs-timeline-detail-meta-label">U.S. Deaths</span>
+              <span className="cs-timeline-detail-meta-value">{active.deaths}</span>
+            </div>
+          </div>
+          <p className="cs-timeline-detail-desc">{active.desc}</p>
+        </div>
+      )}
+    </section>
+  )
+}
+
+// ============================================
 // DATA SOURCES — Enhanced with real WHO dataset names
 // ============================================
 function DataSources({ isVisible }) {
@@ -365,6 +485,7 @@ export default function ContentSections({ isVisible }) {
     <div className="content-sections">
       <GlobalHealthPulse year={year} isVisible={shouldAnimate} />
       <DiseaseSpotlight year={year} isVisible={shouldAnimate} />
+      <NationalOutbreakTimeline isVisible={shouldAnimate} />
       <DataSources isVisible={shouldAnimate} />
 
       {/* CTA */}

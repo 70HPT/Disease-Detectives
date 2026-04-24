@@ -112,6 +112,95 @@
   font-size: 0.9rem;
   margin-top: 0.25rem;
   font-family: 'JetBrains Mono', monospace;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Population rank chip (e.g. "1st of 50") */
+.sp-rank-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(0, 255, 204, 0.08);
+  border: 1px solid rgba(0, 255, 204, 0.25);
+  color: rgba(0, 255, 204, 0.9);
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: help;
+}
+
+/* Top corridor chip under the header */
+.sp-top-corridor {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 0.75rem;
+  padding: 6px 12px;
+  background: rgba(14, 165, 233, 0.06);
+  border: 1px solid rgba(14, 165, 233, 0.2);
+  border-radius: 8px;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.sp-top-corridor svg {
+  color: rgba(14, 165, 233, 0.8);
+  flex-shrink: 0;
+}
+
+.sp-top-corridor-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(14, 165, 233, 0.75);
+}
+
+.sp-top-corridor-target {
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.sp-top-corridor-volume {
+  margin-left: auto;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+/* Delta pill shown below each progress bar */
+.sp-delta-pill {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.sp-delta-pill.good {
+  background: rgba(0, 255, 204, 0.08);
+  color: rgba(0, 255, 204, 0.85);
+}
+
+.sp-delta-pill.bad {
+  background: rgba(248, 113, 113, 0.1);
+  color: rgba(248, 113, 113, 0.9);
+}
+
+.sp-delta-pill.neutral {
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.45);
 }
 
 /* ============================================
@@ -333,6 +422,130 @@
   letter-spacing: 0.04em;
 }
 
+/* Confidence pill — tucked beside the risk level when the ML API returns it */
+.county-risk-confidence {
+  align-self: flex-start;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.6rem;
+  padding: 2px 6px;
+  margin-top: -2px;
+  border-radius: 4px;
+  background: rgba(0, 255, 204, 0.08);
+  border: 1px solid rgba(0, 255, 204, 0.2);
+  color: rgba(0, 255, 204, 0.8);
+  letter-spacing: 0.04em;
+  cursor: help;
+}
+
+/* County risk score vs state-average delta chip */
+.county-vs-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 4px 10px;
+  margin: -4px 0 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
+  cursor: help;
+}
+
+.county-vs-state-label {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.county-vs-state-delta {
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.county-vs-state-delta.above {
+  color: #f87171;
+}
+
+.county-vs-state-delta.below {
+  color: #4ade80;
+}
+
+/* Section label for the ML contributing factors block */
+.county-detail-section-label {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.35);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 4px 0 6px;
+  margin-top: 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.county-detail-metrics-ml {
+  margin-top: 8px;
+}
+
+/* Disease context — compact profile facts for interpreting the chart + risk.
+   borderColor is set inline from the disease accent so each disease has its
+   own tint (blue for flu, purple for COVID, amber for salmonella). */
+.county-disease-context {
+  margin: 8px 20px 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.015);
+  flex-shrink: 0;
+}
+
+.county-disease-context-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.county-disease-context-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  box-shadow: 0 0 6px currentColor;
+}
+
+.county-disease-context-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.6rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.county-disease-context-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.county-disease-context-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
+  cursor: help;
+}
+
+.county-disease-context-label {
+  color: rgba(255, 255, 255, 0.35);
+  flex-shrink: 0;
+  letter-spacing: 0.02em;
+}
+
+.county-disease-context-value {
+  color: rgba(255, 255, 255, 0.75);
+  text-align: right;
+}
+
 .mini-sparkline {
   margin-top: 2px;
   opacity: 0.8;
@@ -380,6 +593,7 @@
   flex-direction: column;
   gap: 0;
   animation: countyFadeUp 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.3s backwards;
+  flex-shrink: 0;
 }
 
 .county-detail-row {

@@ -4,6 +4,7 @@ import TRANSMISSION_CORRIDORS, { getCorridorRiskColor } from '../../data/transmi
 import { getDiseaseById } from '../../data/trackedDiseases'
 import { useMapData, useLocationRisk } from '../../services'
 import { StatePanelSkeleton, EmptyPrediction } from './LoadingStates'
+import { CaseTrendChart } from './StateTimeline'
 import './LoadingStates.css'
 import './StatePanel.css'
 
@@ -230,6 +231,77 @@ function TransmissionAnalysis({ stateName }) {
   )
 }
 
+// ============================================
+// NATIONAL CONTEXT — rank + US averages
+// Computed from the hydrated store so any metric that has real values
+// immediately gets a peer benchmark. Falls back gracefully when empty.
+// ============================================
+function useNationalContext(stateName) {
+  const stateData = useStore(s => s.stateData)
+
+  return useMemo(() => {
+    const rows = Object.values(stateData).filter(r => r.name !== 'District of Columbia')
+    const self = stateData[stateName]
+    if (!self) return null
+
+    const rankOf = (key) => {
+      const vals = rows
+        .filter(r => r[key] != null)
+        .sort((a, b) => (b[key] ?? 0) - (a[key] ?? 0))
+      const idx = vals.findIndex(r => r.name === stateName)
+      return idx >= 0 ? { rank: idx + 1, total: vals.length } : null
+    }
+
+    const avgOf = (key) => {
+      const vals = rows.map(r => r[key]).filter(v => v != null)
+      if (!vals.length) return null
+      return vals.reduce((s, v) => s + v, 0) / vals.length
+    }
+
+    const deltaVsAvg = (key) => {
+      const selfVal = self[key]
+      const avg = avgOf(key)
+      if (selfVal == null || avg == null || avg === 0) return null
+      const pct = ((selfVal - avg) / avg) * 100
+      return { pct, direction: pct > 0 ? 'up' : pct < 0 ? 'down' : 'flat' }
+    }
+
+    const ordinal = (n) => {
+      const s = ['th', 'st', 'nd', 'rd']
+      const v = n % 100
+      return n + (s[(v - 20) % 10] || s[v] || s[0])
+    }
+
+    return {
+      populationRank: rankOf('populationNum'),
+      riskScoreDelta: deltaVsAvg('riskScore'),
+      vaccinationDelta: deltaVsAvg('vaccinationRate'),
+      healthIndexDelta: deltaVsAvg('healthIndex'),
+      usAvgRisk: avgOf('riskScore'),
+      usAvgVax: avgOf('vaccinationRate'),
+      usAvgHealth: avgOf('healthIndex'),
+      ordinal,
+    }
+  }, [stateData, stateName])
+}
+
+// Format a delta pill: ↑ 12% vs US | ↓ 8% vs US | on par with US
+function DeltaPill({ delta, inverse = false }) {
+  if (!delta) return null
+  const abs = Math.abs(delta.pct)
+  if (abs < 1) {
+    return <span className="sp-delta-pill neutral">≈ US avg</span>
+  }
+  // "inverse" = higher is worse (risk score) — flip the color signal
+  const isGood = inverse ? delta.direction === 'down' : delta.direction === 'up'
+  const arrow = delta.direction === 'up' ? '↑' : '↓'
+  return (
+    <span className={`sp-delta-pill ${isGood ? 'good' : 'bad'}`}>
+      {arrow} {abs.toFixed(0)}% vs US
+    </span>
+  )
+}
+
 export default function StatePanel() {
   const selectedState = useStore((state) => state.selectedState)
   const selectedCounty = useStore((state) => state.selectedCounty)
@@ -239,12 +311,18 @@ export default function StatePanel() {
   const enterCountyView = useStore((state) => state.enterCountyView)
   const exitCountyView = useStore((state) => state.exitCountyView)
 
+  const nationalCtx = useNationalContext(selectedState?.name)
+
   // ── API integration with fallback ──────────────────────────
   // Try to get real data from backend. If null (backend offline),
   // falls through to store defaults seamlessly.
+  const panelDiseaseId = useStore(s => s.selectedDisease)
+  const panelDisease = getDiseaseById(panelDiseaseId)
+  const panelDiseaseKey = panelDisease.apiKey
   const { data: mapData, loading: mapLoading } = useMapData()
   const { data: countyRisk, loading: countyLoading } = useLocationRisk(
-    selectedCounty?.fips || null
+    selectedCounty?.fips || null,
+    panelDiseaseKey,
   )
 
   // Stop Lenis while panel is open so it doesn't fight panel scroll
@@ -256,6 +334,43 @@ export default function StatePanel() {
       return () => lenis.start()
     }
   }, [selectedState])
+
+  // ── All hooks must run before any early returns (Rules of Hooks) ────
+  const countyPopulationsMap = useStore(s => s.countyPopulations)
+  const stateDataMap = useStore(s => s.stateData)
+  const stateCapitalsMap = useStore(s => s.stateCapitals)
+
+  // Derived county-in-state context — always available from hydrated store.
+  // Shows the county's rank + share of state, regardless of ML availability.
+  const countyContext = useMemo(() => {
+    if (!selectedCounty?.fips) return null
+    const stateCode = selectedCounty.fips.slice(0, 2)
+    const thisPop = countyPopulationsMap?.[selectedCounty.fips]
+    const stateEntry = stateDataMap?.[selectedState?.name]
+
+    // All counties in the same state, sorted by population desc
+    const inStateByPop = Object.entries(countyPopulationsMap || {})
+      .filter(([fips]) => fips.slice(0, 2) === stateCode)
+      .sort((a, b) => b[1] - a[1])
+
+    const rank = inStateByPop.findIndex(([fips]) => fips === selectedCounty.fips)
+    const pctOfState = (thisPop && stateEntry?.populationNum)
+      ? (thisPop / stateEntry.populationNum) * 100
+      : null
+    const ordinal = (n) => {
+      const s = ['th', 'st', 'nd', 'rd']
+      const v = n % 100
+      return n + (s[(v - 20) % 10] || s[v] || s[0])
+    }
+    return {
+      thisPop,
+      countyCount: inStateByPop.length,
+      rank: rank >= 0 ? rank + 1 : null,
+      pctOfState,
+      ordinal,
+      stateCapital: stateCapitalsMap?.[selectedState?.name]?.name,
+    }
+  }, [selectedCounty, countyPopulationsMap, stateDataMap, selectedState, stateCapitalsMap])
 
   if (!selectedState) return null
 
@@ -287,6 +402,15 @@ export default function StatePanel() {
   // Merge API data with store data — API values take priority when available.
   // If backend is offline, storeData passes through untouched.
   const storeData = selectedCounty || selectedState
+  // Pull real county population from the hydrated /locations map if the
+  // selectedCounty object is missing it (generateCountyData sets it null).
+  const fmtPop = (n) => {
+    if (!n) return null
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`
+    if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`
+    return n.toLocaleString()
+  }
+  const realCountyPop = selectedCounty?.fips ? countyPopulationsMap?.[selectedCounty.fips] : null
   const displayData = {
     ...storeData,
     // Override with real API values for state-level view
@@ -302,6 +426,11 @@ export default function StatePanel() {
       climateRisk: Math.round(countyRisk.factors.climateRisk * 100),
       historicalTrend: Math.round(countyRisk.factors.historicalTrend * 100),
       searchTrend: Math.round(countyRisk.factors.searchTrend * 100),
+    } : {}),
+    // Backfill county population from the locations hydration
+    ...(realCountyPop && selectedCounty ? {
+      population: fmtPop(realCountyPop),
+      populationNum: realCountyPop,
     } : {}),
   }
   const hasApiFactors = !!(countyRisk && selectedCounty)
@@ -345,12 +474,43 @@ export default function StatePanel() {
         )}
         <h2>{displayData.name}</h2>
         <p className="population">
-          {isShowingCounty ? `${selectedState.name}` : `Population: ${displayData.population || '\u2014'}`}
+          {isShowingCounty ? `${selectedState.name}` : (
+            <>
+              Population: {displayData.population || '\u2014'}
+              {nationalCtx?.populationRank && (
+                <span className="sp-rank-chip" title="National rank by total population">
+                  {nationalCtx.ordinal(nationalCtx.populationRank.rank)} of {nationalCtx.populationRank.total}
+                </span>
+              )}
+            </>
+          )}
         </p>
         {isShowingCounty && (
           <p className="population" style={{ marginTop: '0.25rem' }}>
             Population: {displayData.population || '\u2014'}
           </p>
+        )}
+
+        {/* Top outgoing corridor \u2014 state view only */}
+        {!isShowingCounty && TRANSMISSION_CORRIDORS[selectedState.name]?.[0] && (
+          <div className="sp-top-corridor">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M5 12h14M12 5l7 7-7 7" />
+            </svg>
+            <span className="sp-top-corridor-label">Top corridor</span>
+            <span className="sp-top-corridor-target">
+              {TRANSMISSION_CORRIDORS[selectedState.name][0].target}
+            </span>
+            <span className="sp-top-corridor-volume">
+              {(() => {
+                const v = TRANSMISSION_CORRIDORS[selectedState.name][0].travelVolume
+                if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M/day`
+                if (v >= 10_000) return `${(v / 1_000).toFixed(0)}K/day`
+                if (v >= 1_000) return `${(v / 1_000).toFixed(1)}K/day`
+                return `${v}/day`
+              })()}
+            </span>
+          </div>
         )}
       </div>
 
@@ -367,6 +527,11 @@ export default function StatePanel() {
               <span className="county-risk-level" style={{ color: getRiskColor(displayData.outbreakRisk) }}>
                 {displayData.outbreakRisk || '\u2014'}
               </span>
+              {countyRisk?.confidence != null && (
+                <span className="county-risk-confidence" title="Model confidence in this prediction">
+                  {Math.round(countyRisk.confidence * 100)}% conf
+                </span>
+              )}
               <MiniSparkline
                 fips={displayData.fips}
                 color={displayData.riskScore != null ? getMetricColor(100 - displayData.riskScore) : '#8892a4'}
@@ -396,11 +561,79 @@ export default function StatePanel() {
             />
           </div>
 
-          {/* Contributing Factors — real API data when available */}
+          {/* Risk score vs state-average delta — only when both values are real */}
+          {displayData.riskScore != null && selectedState?.riskScore != null && (() => {
+            const delta = displayData.riskScore - selectedState.riskScore
+            if (Math.abs(delta) < 1) return null
+            const above = delta > 0
+            return (
+              <div className="county-vs-state" title={`State average risk score: ${selectedState.riskScore}`}>
+                <span className="county-vs-state-label">vs {selectedState.abbr} avg</span>
+                <span className={`county-vs-state-delta ${above ? 'above' : 'below'}`}>
+                  {above ? '+' : ''}{Math.round(delta)} pts {above ? 'higher' : 'lower'}
+                </span>
+              </div>
+            )
+          })()}
+
+          {/* County-in-state context — always shown */}
           <div className="county-detail-metrics">
-            {hasApiFactors ? (
-              <>
-                <div className="county-detail-row">
+            {countyContext?.rank && (
+              <div className="county-detail-row">
+                <div className="county-detail-icon">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M3 6h18M3 12h12M3 18h6" />
+                  </svg>
+                </div>
+                <span className="county-detail-label">Pop. rank in state</span>
+                <span className="county-detail-value">
+                  {countyContext.ordinal(countyContext.rank)} of {countyContext.countyCount}
+                </span>
+              </div>
+            )}
+            {countyContext?.pctOfState != null && (
+              <div className="county-detail-row">
+                <div className="county-detail-icon">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M12 2a10 10 0 0 1 10 10h-10z" fill="currentColor" opacity="0.3" />
+                  </svg>
+                </div>
+                <span className="county-detail-label">Share of state</span>
+                <span className="county-detail-value">
+                  {countyContext.pctOfState < 0.1 ? '<0.1' : countyContext.pctOfState.toFixed(1)}%
+                </span>
+              </div>
+            )}
+            {countyContext?.stateCapital && (
+              <div className="county-detail-row">
+                <div className="county-detail-icon">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M3 21h18M5 21V9l7-5 7 5v12M9 9h6v12H9z" />
+                  </svg>
+                </div>
+                <span className="county-detail-label">State capital</span>
+                <span className="county-detail-value">{countyContext.stateCapital}</span>
+              </div>
+            )}
+            <div className="county-detail-row">
+              <div className="county-detail-icon">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+                </svg>
+              </div>
+              <span className="county-detail-label">FIPS code</span>
+              <span className="county-detail-value" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.8rem' }}>
+                {selectedCounty?.fips || '—'}
+              </span>
+            </div>
+          </div>
+
+          {/* ML contributing factors — only when the backend responded */}
+          {hasApiFactors && (
+            <div className="county-detail-metrics county-detail-metrics-ml">
+              <div className="county-detail-section-label">ML contributing factors</div>
+              <div className="county-detail-row">
                   <div className="county-detail-icon">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><circle cx="9" cy="7" r="4" />
@@ -456,52 +689,72 @@ export default function StatePanel() {
                     <span className="county-detail-value">{displayData.searchTrend}%</span>
                   </div>
                 </div>
-              </>
-            ) : (
-              <>
-                <div className="county-detail-row">
-                  <div className="county-detail-icon">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-                    </svg>
-                  </div>
-                  <span className="county-detail-label">Active Cases</span>
-                  <span className="county-detail-value">{displayData.activeCases ?? '\u2014'}</span>
+            </div>
+          )}
+
+          {/* County surveillance chart — uses the county's 5-digit FIPS
+              directly since outbreak_history is seeded at county level. */}
+          {selectedCounty?.fips && (
+            <CaseTrendChart
+              key={`${selectedCounty.fips}-${panelDiseaseKey}`}
+              fipsOverride={selectedCounty.fips}
+              locationLabel={selectedCounty.name}
+              scope="county"
+              animate
+            />
+          )}
+
+          {/* Disease context — key profile facts for interpreting the chart
+              + risk. Pulled from TRACKED_DISEASES (previously only surfaced
+              on the landing Disease Spotlight). */}
+          {(() => {
+            const profile = panelDisease?.spotlight?.profile
+            if (!profile) return null
+            return (
+              <div className="county-disease-context" style={{ borderColor: `${panelDisease.accent}30` }}>
+                <div className="county-disease-context-head">
+                  <span className="county-disease-context-dot" style={{ background: panelDisease.accent }} />
+                  <span className="county-disease-context-title">About {panelDisease.name}</span>
                 </div>
-                <div className="county-detail-row">
-                  <div className="county-detail-icon">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18M9 3v18" />
-                    </svg>
-                  </div>
-                  <span className="county-detail-label">Hospital Capacity</span>
-                  <span className="county-detail-value">{displayData.hospitalCapacity != null ? `${displayData.hospitalCapacity}%` : '\u2014'}</span>
+                <div className="county-disease-context-grid">
+                  {profile.peakSeason && (
+                    <div className="county-disease-context-row" title="Typical time of year when cases peak">
+                      <span className="county-disease-context-label">Peak season</span>
+                      <span className="county-disease-context-value">{profile.peakSeason}</span>
+                    </div>
+                  )}
+                  {profile.incubation && (
+                    <div className="county-disease-context-row" title="Time from exposure to symptom onset">
+                      <span className="county-disease-context-label">Incubation</span>
+                      <span className="county-disease-context-value">{profile.incubation}</span>
+                    </div>
+                  )}
+                  {profile.transmission && (
+                    <div className="county-disease-context-row" title="How the pathogen spreads">
+                      <span className="county-disease-context-label">Transmission</span>
+                      <span className="county-disease-context-value">{profile.transmission}</span>
+                    </div>
+                  )}
+                  {panelDisease?.spotlight?.riskGroups?.length > 0 && (
+                    <div className="county-disease-context-row" title="Populations most vulnerable to severe outcomes">
+                      <span className="county-disease-context-label">At-risk</span>
+                      <span className="county-disease-context-value">
+                        {panelDisease.spotlight.riskGroups.slice(0, 2).join(' · ')}
+                      </span>
+                    </div>
+                  )}
                 </div>
-                <div className="county-detail-row">
-                  <div className="county-detail-icon">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <circle cx="12" cy="12" r="10" /><path d="M12 8v4l2 2" />
-                    </svg>
-                  </div>
-                  <span className="county-detail-label">Testing Rate</span>
-                  <span className="county-detail-value">{displayData.testingRate != null ? `${displayData.testingRate}%` : '\u2014'}</span>
-                </div>
-                <div className="county-detail-row">
-                  <div className="county-detail-icon">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><circle cx="9" cy="7" r="4" />
-                    </svg>
-                  </div>
-                  <span className="county-detail-label">Air Quality</span>
-                  <span className="county-detail-value air-quality">{displayData.airQuality || '\u2014'}</span>
-                </div>
-              </>
-            )}
-          </div>
+              </div>
+            )
+          })()}
 
           {/* Footer */}
           <div className="panel-footer">
-            <p className="hint">ML model contributing factors</p>
+            <p className="hint">
+              {hasApiFactors
+                ? `ML: ${countyRisk?.modelVersion || 'model'}${countyRisk?.generatedAt ? ` · ${new Date(countyRisk.generatedAt).toLocaleDateString()}` : ''}`
+                : 'Derived from Census + FIPS data'}
+            </p>
           </div>
         </>
       ) : (
@@ -534,6 +787,7 @@ export default function StatePanel() {
                   }}
                 />
               </div>
+              <DeltaPill delta={nationalCtx?.riskScoreDelta} inverse />
             </div>
 
             <div className="metric">
@@ -550,6 +804,7 @@ export default function StatePanel() {
                   }}
                 />
               </div>
+              <DeltaPill delta={nationalCtx?.vaccinationDelta} />
             </div>
 
             <div className="metric">
@@ -566,6 +821,7 @@ export default function StatePanel() {
                   }}
                 />
               </div>
+              <DeltaPill delta={nationalCtx?.healthIndexDelta} />
             </div>
 
             <div className="metric simple">

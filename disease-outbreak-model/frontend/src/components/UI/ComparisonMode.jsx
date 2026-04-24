@@ -3,6 +3,7 @@ import useStore from '../../store/useStore'
 import { feature } from 'topojson-client'
 import { getOutbreakHistory } from '../../services/dataService'
 import { getDiseaseById, TRACKED_DISEASES } from '../../data/trackedDiseases'
+import TRANSMISSION_CORRIDORS from '../../data/transmissionCorridors'
 import './ComparisonMode.css'
 
 // Inline disease picker — lets the user switch diseases without leaving the modal
@@ -394,9 +395,88 @@ function RadarChart({ statesData, animate }) {
 }
 
 // ============================================
+// SHARED CORRIDORS — detect bidirectional transmission links between
+// the compared states and surface them as a callout
+// ============================================
+function SharedCorridors({ stateNames }) {
+  const links = useMemo(() => {
+    if (stateNames.length < 2) return []
+    const results = []
+    for (let i = 0; i < stateNames.length; i++) {
+      for (let j = i + 1; j < stateNames.length; j++) {
+        const a = stateNames[i]
+        const b = stateNames[j]
+        const aToB = (TRANSMISSION_CORRIDORS[a] || []).find(c => c.target === b)
+        const bToA = (TRANSMISSION_CORRIDORS[b] || []).find(c => c.target === a)
+        if (aToB || bToA) {
+          const c = aToB || bToA
+          const combinedVolume = (aToB?.travelVolume || 0) + (bToA?.travelVolume || 0) || c.travelVolume
+          results.push({
+            from: a,
+            to: b,
+            mechanism: c.mechanism,
+            adjacent: c.adjacent,
+            volume: combinedVolume,
+            factors: c.factors,
+            colorA: STATE_COLORS[i]?.stroke,
+            colorB: STATE_COLORS[j]?.stroke,
+          })
+        }
+      }
+    }
+    return results.sort((x, y) => y.volume - x.volume)
+  }, [stateNames])
+
+  if (links.length === 0) return null
+
+  const fmt = (n) => {
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
+    if (n >= 10_000) return `${(n / 1_000).toFixed(0)}K`
+    if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
+    return n.toLocaleString()
+  }
+
+  return (
+    <div className="cmp-shared-section">
+      <div className="cmp-panel-label">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M8 7h8M8 12h8M8 17h5" />
+          <path d="M3 3l18 18" strokeDasharray="2 3" opacity="0.5" />
+        </svg>
+        Shared Corridors
+      </div>
+      <div className="cmp-shared-list">
+        {links.map((link, i) => (
+          <div key={`${link.from}-${link.to}`} className="cmp-shared-link">
+            <div className="cmp-shared-link-states">
+              <span className="cmp-shared-link-dot" style={{ background: link.colorA, boxShadow: `0 0 4px ${link.colorA}` }} />
+              <span className="cmp-shared-link-name">{link.from}</span>
+              <svg className="cmp-shared-link-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M5 12h14M12 5l7 7-7 7" />
+                <path d="M19 12H5M12 19l-7-7 7-7" opacity="0.4" />
+              </svg>
+              <span className="cmp-shared-link-dot" style={{ background: link.colorB, boxShadow: `0 0 4px ${link.colorB}` }} />
+              <span className="cmp-shared-link-name">{link.to}</span>
+            </div>
+            <div className="cmp-shared-link-meta">
+              <span className="cmp-shared-link-mechanism">{link.mechanism}</span>
+              <span className="cmp-shared-link-volume">{fmt(link.volume)}/day</span>
+              {link.adjacent && <span className="cmp-shared-link-adjacent">shared border</span>}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="cmp-shared-footnote">
+        Based on Census ACS commuter flows and BTS T-100 air passengers. Elevated volume = stronger bi-directional transmission coupling.
+      </div>
+    </div>
+  )
+}
+
+// ============================================
 // METRIC COMPARISON BAR
 // ============================================
-function MetricBar({ label, values, stateNames, maxVal = 100, animate }) {
+function MetricBar({ label, values, stateNames, maxVal = 100, animate, suffix = '' }) {
   const best = Math.max(...values)
 
   return (
@@ -420,7 +500,7 @@ function MetricBar({ label, values, stateNames, maxVal = 100, animate }) {
             </div>
             <span className={`cmp-metric-val ${val === best && values.filter(v => v === best).length === 1 ? 'winner' : ''}`}
               style={{ color: STATE_COLORS[i]?.text || '#fff' }}>
-              {val}
+              {val}{suffix}
             </span>
           </div>
         ))}
@@ -434,13 +514,15 @@ function MetricBar({ label, values, stateNames, maxVal = 100, animate }) {
 // ============================================
 function TrendComparison({ stateNames, disease, animate }) {
   const stateFips = useStore(s => s.stateFips)
-  const [series, setSeries] = useState({})
+  const stateData = useStore(s => s.stateData)
+  const [rawSeries, setRawSeries] = useState({})
   const [loading, setLoading] = useState(true)
+  const [normalize, setNormalize] = useState(false)
 
   useEffect(() => {
     let cancelled = false
     setLoading(true)
-    setSeries({})
+    setRawSeries({})
 
     Promise.all(stateNames.map(name => {
       const fips = stateFips[name]
@@ -457,12 +539,25 @@ function TrendComparison({ stateNames, disease, animate }) {
           out[name] = data.map(d => d.caseCount ?? 0).reverse()
         }
       }
-      setSeries(out)
+      setRawSeries(out)
       setLoading(false)
     })
 
     return () => { cancelled = true }
   }, [stateNames.join(','), stateFips, disease.apiKey])
+
+  // Apply per-100K normalization if requested (divides by pop / 100,000)
+  const series = useMemo(() => {
+    if (!normalize) return rawSeries
+    const out = {}
+    for (const [name, values] of Object.entries(rawSeries)) {
+      const pop = stateData[name]?.populationNum
+      if (!pop) { out[name] = values; continue }
+      const per100k = pop / 100_000
+      out[name] = values.map(v => v / per100k)
+    }
+    return out
+  }, [rawSeries, normalize, stateData])
 
   const w = 720, h = 180
   const padL = 40, padR = 16, padT = 12, padB = 24
@@ -476,13 +571,35 @@ function TrendComparison({ stateNames, disease, animate }) {
   const xOf = (i, len) => padL + (len > 1 ? (i / (len - 1)) * (w - padL - padR) : (w - padL - padR) / 2)
   const yOf = (v) => padT + (h - padT - padB) - (v / maxVal) * (h - padT - padB)
 
+  const fmtY = (v) => normalize ? v.toFixed(1) : Math.round(v).toLocaleString()
+
   return (
     <div className="cmp-trend-section">
-      <div className="cmp-panel-label">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-        </svg>
-        {disease.name} Trend — last 12 weeks
+      <div className="cmp-trend-header-row">
+        <div className="cmp-panel-label">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+          </svg>
+          {disease.name} Trend — last 12 weeks
+        </div>
+        <div className="cmp-normalize-toggle" role="group" aria-label="Scale">
+          <button
+            type="button"
+            className={`cmp-normalize-btn ${!normalize ? 'active' : ''}`}
+            onClick={() => setNormalize(false)}
+            title="Raw case counts"
+          >
+            Total
+          </button>
+          <button
+            type="button"
+            className={`cmp-normalize-btn ${normalize ? 'active' : ''}`}
+            onClick={() => setNormalize(true)}
+            title="Weekly cases divided by population/100k — eliminates state-size bias"
+          >
+            Per 100K
+          </button>
+        </div>
       </div>
 
       <div className="cmp-trend-chart-wrap">
@@ -496,7 +613,7 @@ function TrendComparison({ stateNames, disease, animate }) {
                   stroke="rgba(255,255,255,0.05)" strokeDasharray="2 4" />
                 <text x={padL - 6} y={yOf(yVal) + 3} textAnchor="end"
                   fontSize="9" fill="rgba(255,255,255,0.35)" fontFamily="'JetBrains Mono', monospace">
-                  {Math.round(yVal).toLocaleString()}
+                  {fmtY(yVal)}
                 </text>
               </g>
             )
@@ -542,7 +659,9 @@ function TrendComparison({ stateNames, disease, animate }) {
               <span className="cmp-trend-legend-dot" style={{ background: color.stroke, boxShadow: `0 0 6px ${color.glow}` }} />
               <span className="cmp-trend-legend-name" style={{ color: color.text }}>{name}</span>
               <span className="cmp-trend-legend-val">
-                {latest != null ? `${latest.toLocaleString()} cases` : '—'}
+                {latest != null
+                  ? (normalize ? `${latest.toFixed(1)} / 100K` : `${Math.round(latest).toLocaleString()} cases`)
+                  : '—'}
               </span>
             </div>
           )
@@ -678,6 +797,9 @@ export default function ComparisonMode() {
                 disease={disease}
                 animate={animate}
               />
+
+              {/* Shared transmission corridors between compared states */}
+              <SharedCorridors stateNames={comparisonStates} />
 
               {/* Radar Chart */}
               <div className="cmp-radar-section">

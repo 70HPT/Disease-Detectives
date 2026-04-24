@@ -55,7 +55,8 @@ body {
 .state-panel {
   position: fixed !important;
   right: 0 !important;
-  top: 0 !important;
+  /* Sit below the 42px navbar so its right-side tools remain reachable */
+  top: 42px !important;
   bottom: 0 !important;
   width: 380px !important;
   z-index: 200 !important;

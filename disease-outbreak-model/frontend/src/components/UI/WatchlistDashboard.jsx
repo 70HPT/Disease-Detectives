@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import useStore from '../../store/useStore'
 import { getOutbreakHistory } from '../../services/dataService'
 import { getDiseaseById } from '../../data/trackedDiseases'
+import TRANSMISSION_CORRIDORS from '../../data/transmissionCorridors'
 import './WatchlistDashboard.css'
 
 function generateAlerts(watchlist, stateData) {
@@ -89,59 +90,91 @@ function MiniRing({ value, max = 100, color, size = 44, strokeWidth = 3 }) {
 }
 
 // ============================================
-// SPARKLINE — real outbreak history data
+// useStateWeeklyCases — fetches 12 weeks of surveillance for a state
+// Returns { cases, wow } where wow is the week-over-week % change.
 // ============================================
-function Sparkline({ stateName, color, width = 80, height = 28 }) {
-  const [pathData, setPathData] = useState(null)
-  const [endPt, setEndPt] = useState(null)
+function useStateWeeklyCases(stateName, apiKey) {
   const stateFips = useStore(s => s.stateFips)
-  const selectedDisease = useStore(s => s.selectedDisease)
-  const apiKey = getDiseaseById(selectedDisease).apiKey
+  const [cases, setCases] = useState(null)
 
   useEffect(() => {
     if (!stateName || !stateFips[stateName]) return
     let cancelled = false
-    setPathData(null)
-    setEndPt(null)
-    // Statewide rollup FIPS — auto-populates once Jacob's SUM seed runs.
+    setCases(null)
     const fips = stateFips[stateName] + '000'
     getOutbreakHistory(fips, { diseaseType: apiKey, limit: 12 })
       .then(data => {
         if (cancelled || !data || data.length < 2) return
-        const cases = data.map(d => d.caseCount ?? 0).reverse()
-        const min = Math.min(...cases)
-        const max = Math.max(...cases, 1)
-        const range = max - min || 1
-        const pts = cases.map((c, i) => {
-          const x = (i / (cases.length - 1)) * width
-          const y = height - ((c - min) / range) * (height - 4) - 2
-          return { x, y }
-        })
-        setPathData(pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' '))
-        setEndPt(pts[pts.length - 1])
+        setCases(data.map(d => d.caseCount ?? 0).reverse())
       })
-      .catch(() => { /* 404 or offline — stay empty */ })
+      .catch(() => { /* stay empty */ })
     return () => { cancelled = true }
-  }, [stateName, stateFips, width, height, apiKey])
+  }, [stateName, stateFips, apiKey])
 
-  if (!pathData) {
+  const wow = useMemo(() => {
+    if (!cases || cases.length < 2) return null
+    const latest = cases[cases.length - 1]
+    const prev = cases[cases.length - 2]
+    if (prev === 0) return latest > 0 ? { pct: 100, direction: 'up' } : null
+    const pct = ((latest - prev) / prev) * 100
+    return { pct, direction: pct > 2 ? 'up' : pct < -2 ? 'down' : 'flat' }
+  }, [cases])
+
+  return { cases, wow }
+}
+
+// ============================================
+// SPARKLINE — renders points, no fetching of its own
+// ============================================
+function Sparkline({ cases, color, width = 80, height = 28 }) {
+  if (!cases || cases.length < 2) {
     return <svg width={width} height={height} className="sparkline-svg">
       <line x1="0" y1={height / 2} x2={width} y2={height / 2} stroke="rgba(255,255,255,0.08)" strokeWidth="1" strokeDasharray="3,3" />
     </svg>
   }
 
+  const min = Math.min(...cases)
+  const max = Math.max(...cases, 1)
+  const range = max - min || 1
+  const pts = cases.map((c, i) => ({
+    x: (i / (cases.length - 1)) * width,
+    y: height - ((c - min) / range) * (height - 4) - 2,
+  }))
+  const pathData = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')
+  const endPt = pts[pts.length - 1]
+
   return (
     <svg width={width} height={height} className="sparkline-svg">
       <path d={pathData} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.6" />
-      {endPt && <circle cx={endPt.x} cy={endPt.y} r="2.5" fill={color} />}
+      <circle cx={endPt.x} cy={endPt.y} r="2.5" fill={color} />
     </svg>
   )
 }
 
 // ============================================
+// Disease-risk heuristic per state.
+// Flags states whose demographics are known to overlap with the current
+// disease's high-risk populations. Rough but defensible for demo.
+// ============================================
+const DISEASE_RISK_STATES = {
+  influenza: {
+    states: ['Florida', 'Maine', 'West Virginia', 'Vermont', 'New Hampshire', 'Pennsylvania', 'Montana', 'Delaware', 'Hawaii'],
+    reason: 'older-skewing population — flu hospitalization risk',
+  },
+  covid: {
+    states: ['Florida', 'Maine', 'West Virginia', 'Vermont', 'New Hampshire', 'Pennsylvania', 'Arizona'],
+    reason: 'large 65+ population — COVID severity risk',
+  },
+  salmonella: {
+    states: ['California', 'Iowa', 'Texas', 'Nebraska', 'Kansas', 'Arkansas', 'Mississippi', 'Georgia', 'North Carolina'],
+    reason: 'major poultry/egg/produce production',
+  },
+}
+
+// ============================================
 // STATE CARD
 // ============================================
-function StateCard({ stateName, data, index, onRemove, onView, animate }) {
+function StateCard({ stateName, data, index, onRemove, onView, animate, disease }) {
   const getRiskColor = (risk) => {
     switch (risk) {
       case 'Low': return '#00ffcc'
@@ -158,6 +191,22 @@ function StateCard({ stateName, data, index, onRemove, onView, animate }) {
   }
 
   const riskColor = getRiskColor(data.outbreakRisk)
+  const { cases, wow } = useStateWeeklyCases(stateName, disease.apiKey)
+  const topCorridor = TRANSMISSION_CORRIDORS[stateName]?.[0]
+
+  // Does this state match the current disease's at-risk profile?
+  const riskFlag = useMemo(() => {
+    const cfg = DISEASE_RISK_STATES[disease.apiKey]
+    if (!cfg || !cfg.states.includes(stateName)) return null
+    return cfg.reason
+  }, [stateName, disease.apiKey])
+
+  const fmtVol = (n) => {
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
+    if (n >= 10_000) return `${(n / 1_000).toFixed(0)}K`
+    if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
+    return n.toLocaleString()
+  }
 
   return (
     <div
@@ -183,6 +232,17 @@ function StateCard({ stateName, data, index, onRemove, onView, animate }) {
         </div>
       </div>
 
+      {/* Disease risk flag */}
+      {riskFlag && (
+        <div className="wl-card-flag" title={`Matches ${disease.name} high-risk profile`}>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M12 2L2 7v6c0 5.5 4.5 10 10 10s10-4.5 10-10V7l-10-5z" />
+          </svg>
+          <span className="wl-card-flag-disease">{disease.name}</span>
+          <span className="wl-card-flag-reason">{riskFlag}</span>
+        </div>
+      )}
+
       {/* Metrics row */}
       <div className="wl-card-metrics">
         <div className="wl-card-metric">
@@ -199,13 +259,32 @@ function StateCard({ stateName, data, index, onRemove, onView, animate }) {
         </div>
       </div>
 
-      {/* Trend sparkline */}
+      {/* Top outgoing corridor */}
+      {topCorridor && (
+        <div className="wl-card-corridor">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M5 12h14M12 5l7 7-7 7" />
+          </svg>
+          <span className="wl-card-corridor-label">Top corridor</span>
+          <span className="wl-card-corridor-target">{topCorridor.target}</span>
+          <span className="wl-card-corridor-volume">{fmtVol(topCorridor.travelVolume)}/day</span>
+        </div>
+      )}
+
+      {/* Trend sparkline with WoW delta */}
       <div className="wl-card-trend">
-        <span className="wl-card-trend-label">30-day trend</span>
-        {data.riskScore != null
-          ? <Sparkline stateName={stateName} color={getHealthColor(data.healthIndex ?? 50)} />
-          : <span style={{ color: '#8892a4', fontSize: '11px' }}>{'\u2014'}</span>
-        }
+        <span className="wl-card-trend-label">12-week {disease.name.toLowerCase()}</span>
+        <div className="wl-card-trend-right">
+          {wow && (
+            <span className={`wl-card-wow wow-${wow.direction}`}>
+              {wow.direction === 'up' ? '\u2191' : wow.direction === 'down' ? '\u2193' : '\u2192'} {Math.abs(wow.pct).toFixed(0)}%
+            </span>
+          )}
+          {cases
+            ? <Sparkline cases={cases} color={getHealthColor(data.healthIndex ?? 50)} />
+            : <span style={{ color: '#8892a4', fontSize: '11px' }}>{'\u2014'}</span>
+          }
+        </div>
       </div>
 
       {/* View button */}
@@ -284,6 +363,8 @@ export default function WatchlistDashboard() {
   const removeFromWatchlist = useStore((state) => state.removeFromWatchlist)
   const requestStateZoom = useStore((state) => state.requestStateZoom)
   const clearSelection = useStore((state) => state.clearSelection)
+  const selectedDisease = useStore((state) => state.selectedDisease)
+  const disease = getDiseaseById(selectedDisease)
 
   const [animate, setAnimate] = useState(false)
   const [alertFilter, setAlertFilter] = useState('all')
@@ -357,6 +438,7 @@ export default function WatchlistDashboard() {
                     onRemove={removeFromWatchlist}
                     onView={handleViewState}
                     animate={animate}
+                    disease={disease}
                   />
                 )
               })}

@@ -8,13 +8,14 @@ import StateTimeline from './components/UI/StateTimeline'
 import WatchlistDashboard from './components/UI/WatchlistDashboard'
 import ComparisonMode from './components/UI/ComparisonMode'
 import HeatmapLegend from './components/UI/HeatmapLegend'
-import CorridorPanel from './components/UI/CorridorPanel'
 import EarthWithStates from './components/Earth3D/EarthWithStates'
 import StateCountyMap from './components/Map/StateCountyMap'
 import ContentSections from './components/UI/ContentSections'
 import Navbar from './components/Layout/Navbar'
 import SettingsPanel from './components/UI/SettingsPanel'
 import ErrorBoundary from './components/UI/ErrorBoundary'
+import USAtAGlance from './components/UI/USAtAGlance'
+import StateHoverTooltip from './components/UI/StateHoverTooltip'
 import { getMapData } from './services/riskService'
 import { listLocations } from './services/locationService'
 
@@ -145,23 +146,33 @@ function App() {
     getMapData().then((data) => {
       if (data) hydrateStateData(data)
     })
-    // Fetch populations from locations endpoint
+    // Fetch populations from locations endpoint.
+    // Aggregate to state-level AND keep per-county populations keyed by FIPS
+    // so the county map rankings/hover can show real numbers.
     listLocations({ limit: 4000 }).then((locations) => {
       if (!locations) return
-      const pops = {}
+      const statePops = {}
+      const countyPops = {}
       for (const loc of locations) {
         if (!loc.population) continue
-        if (!pops[loc.state]) pops[loc.state] = 0
-        pops[loc.state] += loc.population
+        // State-level aggregate (skip STATEWIDE rollups to avoid double-counting)
+        if (loc.fips && !loc.fips.endsWith('000')) {
+          if (!statePops[loc.state]) statePops[loc.state] = 0
+          statePops[loc.state] += loc.population
+        }
+        // Per-county lookup (exclude rollups — they're not real counties)
+        if (loc.fips && loc.fips.length === 5 && !loc.fips.endsWith('000')) {
+          countyPops[loc.fips] = loc.population
+        }
       }
-      useStore.getState().hydratePopulations(pops)
+      useStore.getState().hydratePopulations(statePops)
+      useStore.getState().hydrateCountyPopulations(countyPops)
     })
   }, [])
 
   const selectedState = useStore((state) => state.selectedState)
   const viewMode = useStore((state) => state.viewMode)
   const clearSelection = useStore((state) => state.clearSelection)
-  const exitCountyView = useStore((state) => state.exitCountyView)
   const trendView = useStore((state) => state.trendView)
 
   const isCountyView = viewMode === 'state-counties'
@@ -246,6 +257,16 @@ function App() {
         </div>
       )}
 
+      {/* US at-a-glance — landing view only */}
+      {!selectedState && !isCountyView && (
+        <ErrorBoundary label="US at-a-glance" compact>
+          <USAtAGlance visible={navVisible} />
+        </ErrorBoundary>
+      )}
+
+      {/* Globe hover tooltip — always mounted; self-gates on hoveredState */}
+      <StateHoverTooltip />
+
       {/* Scroll spacer and content - only when no state selected */}
       {!selectedState && (
         <>
@@ -280,45 +301,24 @@ function App() {
         </ErrorBoundary>
       )}
 
-      {/* External breadcrumb — only for default globe view and county view.
-          In state-view, the breadcrumb lives inside the StateHealthRings panel
-          so it stays perfectly aligned with the card edges. */}
-      {(!selectedState || isCountyView) && (
+      {/* External breadcrumb — only for the default globe view.
+          In state-view, the breadcrumb lives inside the StateHealthRings panel.
+          In county-view, the Back to Globe button handles navigation. */}
+      {!selectedState && (
         <div ref={breadcrumbRef} className="breadcrumb">
           <span
             className="crumb clickable"
             onClick={() => {
-              if (isCountyView) {
-                exitCountyView()
+              clearSelection()
+              if (lenisInstance) {
+                lenisInstance.scrollTo(0)
               } else {
-                clearSelection()
-                if (lenisInstance) {
-                  lenisInstance.scrollTo(0)
-                } else {
-                  window.scrollTo({ top: 0, behavior: 'smooth' })
-                }
+                window.scrollTo({ top: 0, behavior: 'smooth' })
               }
             }}
           >
             United States
           </span>
-          {selectedState && (
-            <>
-              <span className="separator">/</span>
-              <span
-                className={`crumb ${isCountyView ? 'clickable' : 'active'}`}
-                onClick={() => { if (isCountyView) exitCountyView() }}
-              >
-                {selectedState.name}
-              </span>
-            </>
-          )}
-          {isCountyView && (
-            <>
-              <span className="separator">/</span>
-              <span className="crumb active">Counties</span>
-            </>
-          )}
         </div>
       )}
 
@@ -331,9 +331,6 @@ function App() {
       </ErrorBoundary>
       <ErrorBoundary label="Heatmap legend" compact>
         <HeatmapLegend />
-      </ErrorBoundary>
-      <ErrorBoundary label="Corridor panel">
-        <CorridorPanel />
       </ErrorBoundary>
     </div>
   )

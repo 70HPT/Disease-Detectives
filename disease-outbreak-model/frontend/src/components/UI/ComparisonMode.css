@@ -170,6 +170,134 @@
   margin-bottom: 1.5rem;
 }
 
+.cmp-trend-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* Total / Per 100K toggle */
+.cmp-normalize-toggle {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.cmp-normalize-btn {
+  padding: 4px 12px;
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.4);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.cmp-normalize-btn:hover {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.cmp-normalize-btn.active {
+  background: rgba(0, 255, 204, 0.1);
+  color: rgba(0, 255, 204, 0.9);
+}
+
+/* Shared corridors section */
+.cmp-shared-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 1.25rem;
+  background: rgba(255, 255, 255, 0.015);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 16px;
+  margin-bottom: 1.5rem;
+}
+
+.cmp-shared-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cmp-shared-link {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  background: rgba(0, 255, 204, 0.03);
+  border: 1px solid rgba(0, 255, 204, 0.1);
+  border-radius: 10px;
+}
+
+.cmp-shared-link-states {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.cmp-shared-link-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.cmp-shared-link-arrow {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.cmp-shared-link-meta {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.cmp-shared-link-mechanism {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.cmp-shared-link-volume {
+  color: rgba(0, 255, 204, 0.85);
+  font-weight: 600;
+}
+
+.cmp-shared-link-adjacent {
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(0, 255, 204, 0.08);
+  border: 1px solid rgba(0, 255, 204, 0.2);
+  color: rgba(0, 255, 204, 0.85);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.cmp-shared-footnote {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.35);
+  line-height: 1.4;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
 .cmp-trend-chart-wrap {
   position: relative;
   width: 100%;

@@ -129,9 +129,56 @@ function TransmissionArc({ source, target, riskWeight, delay, visible }) {
 }
 
 // ============================================
-// MAIN — renders all arcs for selected state
+// PREVIEW ARC — faint single-arc teaser shown on hover (no selection yet)
 // ============================================
-export default function TransmissionArcs({ selectedStateName, isAnimatingRef }) {
+function PreviewCorridorArc({ source, target, riskWeight }) {
+  const lineRef = useRef()
+  const progressRef = useRef(0)
+
+  const { points, color } = useMemo(() => {
+    const srcPos = latLonTo3D(source.lat, source.lon, EARTH_RADIUS + 0.003)
+    const tgtPos = latLonTo3D(target.lat, target.lon, EARTH_RADIUS + 0.003)
+    const mid = new THREE.Vector3().addVectors(srcPos, tgtPos).multiplyScalar(0.5)
+    const dist = srcPos.distanceTo(tgtPos)
+    const elevation = EARTH_RADIUS + 0.06 + dist * 0.28
+    mid.normalize().multiplyScalar(elevation)
+    const crv = new THREE.QuadraticBezierCurve3(srcPos, mid, tgtPos)
+    return { points: crv.getPoints(48), color: new THREE.Color(getCorridorRiskColor(riskWeight)) }
+  }, [source, target, riskWeight])
+
+  const geometry = useMemo(() => {
+    const geo = new THREE.BufferGeometry().setFromPoints(points)
+    geo.setDrawRange(0, 0)
+    return geo
+  }, [points])
+
+  useFrame((_, delta) => {
+    // Quick fade-in on mount, target ~25% opacity (preview signal)
+    progressRef.current = Math.min(1, progressRef.current + delta * 3)
+    const count = Math.floor(progressRef.current * 49)
+    geometry.setDrawRange(0, count)
+    if (lineRef.current) {
+      lineRef.current.material.opacity = progressRef.current * 0.3
+    }
+  })
+
+  return (
+    <line ref={lineRef} geometry={geometry}>
+      <lineBasicMaterial
+        color={color}
+        transparent
+        opacity={0}
+        depthWrite={false}
+        blending={THREE.AdditiveBlending}
+      />
+    </line>
+  )
+}
+
+// ============================================
+// MAIN — renders arcs for selected state, or a faint preview arc on hover
+// ============================================
+export default function TransmissionArcs({ selectedStateName, hoveredStateName, isAnimatingRef }) {
   const [arcsVisible, setArcsVisible] = useState(false)
   const prevStateRef = useRef(null)
   const delayTimerRef = useRef(null)
@@ -184,7 +231,36 @@ export default function TransmissionArcs({ selectedStateName, isAnimatingRef }) 
       }))
   }, [selectedStateName])
 
-  if (!selectedStateName || corridors.length === 0) return null
+  // Preview mode: render a faint single top corridor for a hovered state
+  // when there's no selection. Computed separately so it doesn't fight the
+  // full-arc animation pipeline.
+  const previewCorridor = useMemo(() => {
+    if (selectedStateName) return null
+    if (!hoveredStateName) return null
+    const data = TRANSMISSION_CORRIDORS[hoveredStateName] || []
+    const src = STATE_CENTROIDS[hoveredStateName]
+    if (!src || !data.length) return null
+    const top = data
+      .filter(c => STATE_CENTROIDS[c.target])
+      .sort((a, b) => b.riskWeight - a.riskWeight)[0]
+    if (!top) return null
+    return { source: src, targetCoords: STATE_CENTROIDS[top.target], riskWeight: top.riskWeight, target: top.target }
+  }, [hoveredStateName, selectedStateName])
+
+  if (!selectedStateName && !previewCorridor) return null
+
+  if (previewCorridor) {
+    return (
+      <group>
+        <PreviewCorridorArc
+          key={`preview-${hoveredStateName}-${previewCorridor.target}`}
+          source={previewCorridor.source}
+          target={previewCorridor.targetCoords}
+          riskWeight={previewCorridor.riskWeight}
+        />
+      </group>
+    )
+  }
 
   return (
     <group>
