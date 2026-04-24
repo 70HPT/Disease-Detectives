@@ -28,7 +28,7 @@ class LocationOut(BaseModel):
 class RiskRequest(BaseModel):
     """Request body for on-demand risk prediction."""
     fips: str = Field(..., min_length=5, max_length=5, description="5-digit FIPS code")
-    disease_type: str = Field(default="total", description="Disease to predict for")
+    disease_type: str = Field(default="influenza", description="Disease to predict for: influenza | covid | salmonella")
 
 
 class ContributingFactors(BaseModel):
@@ -97,7 +97,7 @@ class HistoryRequest(BaseModel):
 class BatchRiskRequest(BaseModel):
     """Request body for batch predictions (watchlist / comparison)."""
     fips_codes: list[str] = Field(..., min_length=1, max_length=100)
-    disease_type: str = Field(default="total")
+    disease_type: str = Field(default="influenza")
 
 
 class BatchRiskResponse(BaseModel):

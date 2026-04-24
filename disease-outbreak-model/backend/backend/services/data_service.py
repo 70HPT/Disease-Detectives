@@ -228,10 +228,14 @@ async def build_features_for_location(
             population = location.population
             density = location.density
 
-            # Get recent outbreak_history rows for flu case lags
+            # Get recent influenza rows for flu case lags (must filter by disease_type
+            # so covid/salmonella rows don't corrupt the influenza feature inputs)
             oh_result = await db.execute(
                 select(OutbreakHistory)
-                .where(OutbreakHistory.location_id == location.id)
+                .where(
+                    OutbreakHistory.location_id == location.id,
+                    OutbreakHistory.disease_type == "influenza",
+                )
                 .order_by(desc(OutbreakHistory.date))
                 .limit(4)
             )
